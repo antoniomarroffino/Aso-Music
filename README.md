@@ -1,50 +1,91 @@
-# Welcome to your Expo app 👋
+# 🎵 Aso Music
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## 📱 Project Description
 
-## Get started
+**Aso Music** is a modern React Native application inspired by Spotify, built with [Expo](https://expo.dev) for cross-platform support (Android & iOS).  
+It enables users to explore, stream, and interact with music through an intuitive and responsive interface.
+
+This project was created to have fun building, and to bring joy to those who use it.  
+It's designed with scalability and clean architecture.
+
+---
+
+## 🔍 Features
+
+- 🎧 **Music Streaming** – Browse and play tracks on-demand
+- 📝 **Playlists** – Create, edit, and manage custom playlists
+- 🔎 **Search** – Find songs, albums, and artists
+- 🌓 **Dark/Light Mode** – Seamless theme switching
+- 📲 **Cross-Platform** – Run on iOS, Android and Web with a single codebase
+
+## ⚙️ Technologies
+
+- **React Native** via [Expo](https://expo.dev/)
+- **TypeScript** for static typing
+- **React Navigation** for screen transitions
+- **Context API** / **Redux** for state management (if used)
+- **Styled Components** or **Tailwind RN** (if styled with one)
+
+## 🚀 Getting Started
+
+### 🧱 Prerequisites
+
+- Node.js >= 18
+- npm or yarn
+- Expo CLI (install with `npm install -g expo-cli`)
+
+### 🛠️ Installation
 
 1. Install dependencies
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 2. Start the app
 
-   ```bash
-   npx expo start
-   ```
+```bash
+npx expo start
+```
 
-In the output, you'll find options to open the app in a
+Then choose to run on:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- 📱 Android emulator
+- 🍏 iOS simulator
+- 📦 [Expo Go](https://expo.dev/go)
+- 🌍 Web browser
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🧪 Development
 
-## Get a fresh project
+Start editing the files inside the `app/` directory.  
+This project uses [File-Based Routing](https://docs.expo.dev/router/introduction/) for navigation and structure.
 
-When you're ready, run:
+To reset the starter template and begin from scratch:
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This will archive the current app into `app-example/` and prepare a clean slate in `app/`.
 
-## Learn more
+## 📚 Learn More
 
-To learn more about developing your project with Expo, look at the following resources:
+- [Expo Docs](https://docs.expo.dev/)
+- [React Native Docs](https://reactnative.dev/)
+- [Expo Router Guide](https://expo.github.io/router/docs)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 👤 Author
 
-## Join the community
+**Antonio Marroffino**
 
-Join our community of developers creating universal apps.
+- [GitHub](https://github.com/antoniomarroffino)
+- [LinkedIn](https://www.linkedin.com/in/antoniomarroffino)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**Luca Frigerio**
+
+- [GitHub](https://github.com/lucaroft)
+- [LinkedIn](https://www.linkedin.com/in/luca-frigerio-2b7331349)
+
+## 📜 License
+
+This project is open-source.
