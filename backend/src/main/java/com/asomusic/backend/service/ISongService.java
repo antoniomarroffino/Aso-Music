@@ -1,5 +1,9 @@
 package com.asomusic.backend.service;
 
+import com.asomusic.backend.model.dto.AlbumDTO;
+
+import java.util.List;
+
 public interface ISongService {
-    void fetchAllSongs();
+    List<AlbumDTO> fetchAllSongs();
 }
