@@ -10,7 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.util.List;
 
-@Path("/api/songs")
+@Path("/songs")
 public class SongController {
 
     @Inject
