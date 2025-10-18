@@ -1,3 +1,4 @@
+import 'react-native-reanimated';
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";

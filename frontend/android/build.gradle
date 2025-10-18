@@ -1,0 +1,40 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+  ext {
+    // ✅ Versioni stabili per Expo SDK 54 (React Native 0.81.x)
+    buildToolsVersion = "35.0.0"
+    minSdkVersion = 24
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+
+    // ✅ Kotlin compatibile
+    kotlinVersion = "1.9.25"
+
+    // ✅ Gradle plugin compatibile con Android 35 e React Native 0.81.x
+    gradlePluginVersion = "8.7.2"
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath("com.android.tools.build:gradle:${gradlePluginVersion}")
+    classpath("com.facebook.react:react-native-gradle-plugin")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+  }
+}
+
+allprojects {
+  repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
+}
+
+// ✅ Mantieni i plugin Expo/React
+apply plugin: "expo-root-project"
+apply plugin: "com.facebook.react.rootproject"

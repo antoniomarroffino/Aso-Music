@@ -8,7 +8,7 @@ const API_BASE_URL =
 export const albumsApi = {
     getAllAlbums: async (): Promise<AlbumDTO[]> => {
         try {
-            const response = await fetch(`${API_BASE_URL}/songs`, {
+            const response = await fetch(`${API_BASE_URL}/songs/all`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",

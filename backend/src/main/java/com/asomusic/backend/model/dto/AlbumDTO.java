@@ -14,22 +14,22 @@ import java.util.List;
 @Schema(description = "Album musicale contenente uno o più brani")
 public class AlbumDTO {
 
-    @Schema(description = "ID univoco dell'album", example = "abc123")
+    @Schema(description = "ID univoco dell'album", examples = "abc123")
     private String id;
 
-    @Schema(description = "Titolo dell'album", example = "ASO MIXTAPE 2")
+    @Schema(description = "Titolo dell'album", examples = "ASO MIXTAPE 2")
     private String name;
 
-    @Schema(description = "Artista dell'album", example = "Aso Fam")
+    @Schema(description = "Artista dell'album", examples = "Aso Fam")
     private String artist;
 
-    @Schema(description = "Descrizione dell'album", example = "Frizzer gay")
+    @Schema(description = "Descrizione dell'album", examples = "Frizzer gay")
     private String description;
 
-    @Schema(description = "URL della copertina", example = "gs://...")
+    @Schema(description = "URL della copertina", examples = "gs://...")
     private String coverURL;
 
-    @Schema(description = "Anno di uscita", example = "2023")
+    @Schema(description = "Anno di uscita", examples = "2023")
     private int releaseYear;
 
     @Schema(description = "Lista dei brani dell'album")
