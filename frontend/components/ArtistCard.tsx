@@ -2,29 +2,44 @@ import React from "react";
 import { TouchableOpacity, Text, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { MotiView } from "moti";
+import { Link } from "expo-router";
 
 type ArtistCardProps = {
+    id: string;
     name: string;
     image: string;
-    onPress?: () => void;
+    bio?: string;
+    followers?: string;
+    albums?: { id: string; name: string; year: number }[];
+    collaborations?: string[];
 };
 
-export function ArtistCard({ name, image, onPress }: ArtistCardProps) {
+export function ArtistCard(props: ArtistCardProps) {
+    const encodedArtist = encodeURIComponent(JSON.stringify(props)); // ✅ codifica l’artista
+
     return (
-        <TouchableOpacity onPress={onPress} style={styles.container}>
-            <MotiView
-                from={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", duration: 700 }}
-            >
-                <View style={styles.imageWrapper}>
-                    <Image source={{ uri: image }} style={styles.image} contentFit="cover" />
-                </View>
-                <Text numberOfLines={1} style={styles.name}>
-                    {name}
-                </Text>
-            </MotiView>
-        </TouchableOpacity>
+        <Link
+            href={{
+                pathname: "/artistdetails",
+                params: { artist: encodedArtist }, // ✅ passiamo l’artista come parametro
+            }}
+            asChild
+        >
+            <TouchableOpacity style={styles.container}>
+                <MotiView
+                    from={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", duration: 700 }}
+                >
+                    <View style={styles.imageWrapper}>
+                        <Image source={{ uri: props.image }} style={styles.image} contentFit="cover" />
+                    </View>
+                    <Text numberOfLines={1} style={styles.name}>
+                        {props.name}
+                    </Text>
+                </MotiView>
+            </TouchableOpacity>
+        </Link>
     );
 }
 

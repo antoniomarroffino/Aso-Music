@@ -84,11 +84,7 @@ export default function ArtistsScreen() {
                     numColumns={2}
                     columnWrapperStyle={styles.row}
                     renderItem={({ item }) => (
-                        <ArtistCard
-                            name={item.name}
-                            image={item.image}
-                            onPress={() => console.log("🎤", item.name)}
-                        />
+                        <ArtistCard {...item} />
                     )}
                     refreshControl={
                         <RefreshControl
