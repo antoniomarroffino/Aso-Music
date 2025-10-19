@@ -1,18 +1,50 @@
-# withRouter [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Do%20you%20wish%20that%20withRouter%20would%20rerender%20your%20component%20when%20your%20route%20changes?%20Now%20it%20can%20with%20the%20with-router%20NPM%20package!&url=https://github.com/CharlesStover/with-router&via=CharlesStover&hashtags=react,reactjs,javascript,webdev,webdeveloper,webdevelopment)
+# Welcome to your Expo app 👋
 
-A pub-sub alternative HOC to `react-router`'s `withRouter` HOC. It functions exactly the same way, except the wrapped component will re-render when the route changes. This is beneficial if your view changes depending on the current path.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-[![version](https://img.shields.io/npm/v/with-router.svg)](https://www.npmjs.com/package/with-router)
-[![minified size](https://img.shields.io/bundlephobia/min/with-router.svg)](https://www.npmjs.com/package/with-router)
-[![minzipped size](https://img.shields.io/bundlephobia/minzip/with-router.svg)](https://www.npmjs.com/package/with-router)
-[![downloads](https://img.shields.io/npm/dt/with-router.svg)](https://www.npmjs.com/package/with-router)
-[![build](https://api.travis-ci.com/CharlesStover/with-router.svg)](https://travis-ci.com/CharlesStover/with-router/)
+## Get started
 
-## Install
+1. Install dependencies
 
-* `npm install with-router --save` or
-* `yarn add with-router`
+   ```bash
+   npm install
+   ```
 
-## Use
+2. Start the app
 
-Use it the same way you would use `react-router`'s built-in `withRouter` HOC!
+   ```bash
+   npx expo start
+   ```
+
+In the output, you'll find options to open the app in a
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
+
+```bash
+npm run reset-project
+```
+
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Learn more
+
+To learn more about developing your project with Expo, look at the following resources:
+
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+
+## Join the community
+
+Join our community of developers creating universal apps.
+
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
