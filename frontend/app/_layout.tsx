@@ -1,37 +1,58 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
+import React from "react";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+// 🧠 React Query imports
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// 🧩 Crea un'istanza globale di QueryClient
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 1000 * 60 * 5, // 5 minuti: evita refetch continuo
+            retry: 2, // massimo 2 retry automatici in caso di errore
+            refetchOnWindowFocus: false, // non refetcha quando torni sull'app
+            refetchOnReconnect: true,
+        },
+    },
+});
 
 export const unstable_settings = {
-    anchor: '(tabs)',
+    anchor: "(tabs)",
 };
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
 
     return (
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-                {/* Le tabs principali */}
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        // 🟢 Provider globale per React Query
+        <QueryClientProvider client={queryClient}>
+            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+                <Stack>
+                    {/* Tabs principali */}
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-                {/* Modal di esempio */}
-                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                    {/* Modal di esempio */}
+                    <Stack.Screen
+                        name="modal"
+                        options={{ presentation: "modal", title: "Modal" }}
+                    />
 
-                {/* 👇 Nuova schermata per i dettagli dell’artista */}
-                <Stack.Screen
-                    name="artistdetails"
-                    options={{
-                        headerShown: false, // puoi mettere true se vuoi la topbar automatica
-                        presentation: 'card', // effetto di transizione stile push
-                    }}
-                />
-            </Stack>
+                    {/* 👇 Schermata dettagli artista */}
+                    <Stack.Screen
+                        name="artistdetails"
+                        options={{
+                            headerShown: false,
+                            presentation: "card",
+                        }}
+                    />
+                </Stack>
 
-            <StatusBar style="auto" />
-        </ThemeProvider>
+                <StatusBar style="auto" />
+            </ThemeProvider>
+        </QueryClientProvider>
     );
 }

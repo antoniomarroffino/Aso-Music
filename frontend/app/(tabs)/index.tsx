@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
     View,
     Text,
@@ -12,82 +12,16 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
-
+import { useSongs } from "@/hooks/useSongs";
+import { AlbumDTO } from "@/types/music";
 
 const { width } = Dimensions.get("window");
-
-type Album = {
-    id: string;
-    name: string;
-    artist: string;
-    coverUrl: string;
-};
-
-const MOCK_ALBUMS: Album[] = [
-    {
-        id: "1",
-        name: "After Hours",
-        artist: "The Weeknd",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/a/a0/The_Weeknd_-_After_Hours.png",
-    },
-    {
-        id: "2",
-        name: "Future Nostalgia",
-        artist: "Dua Lipa",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/0/03/Dua_Lipa_-_Future_Nostalgia_%28Official_Album_Cover%29.png",
-    },
-    {
-        id: "3",
-        name: "Fine Line",
-        artist: "Harry Styles",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/8/86/Harry_Styles_-_Fine_Line.png",
-    },
-    {
-        id: "4",
-        name: "SOUR",
-        artist: "Olivia Rodrigo",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/4/45/Olivia_Rodrigo_-_Sour.png",
-    },
-    {
-        id: "5",
-        name: "Planet Her",
-        artist: "Doja Cat",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/2/20/Doja_Cat_-_Planet_Her.png",
-    },
-    {
-        id: "6",
-        name: "Justice",
-        artist: "Justin Bieber",
-        coverUrl:
-            "https://upload.wikimedia.org/wikipedia/en/f/f9/Justin_Bieber_-_Justice.png",
-    },
-];
+const CARD_WIDTH = width / 2.3;
 
 export default function HomeScreen() {
-    const [albums, setAlbums] = useState<Album[]>([]);
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const { data: albums, isLoading, refetch, isFetching } = useSongs();
 
-    // Simula caricamento iniziale
-    useEffect(() => {
-        setTimeout(() => {
-            setAlbums(MOCK_ALBUMS);
-        }, 800);
-    }, []);
-
-    const handleRefresh = () => {
-        setIsRefreshing(true);
-        setTimeout(() => {
-            setIsRefreshing(false);
-            setAlbums(MOCK_ALBUMS);
-        }, 1000);
-    };
-
-    const handleAlbumPress = (album: Album) => {
+    const handleAlbumPress = (album: AlbumDTO) => {
         console.log("🎵 Album selezionato:", album.name);
     };
 
@@ -112,37 +46,7 @@ export default function HomeScreen() {
         </View>
     );
 
-    const renderSkeletons = () => {
-        const placeholders = new Array(6).fill(0);
-        return (
-            <View style={styles.skeletonGrid}>
-                {placeholders.map((_, index) => (
-                    <MotiView
-                        key={index}
-                        from={{ opacity: 0.4 }}
-                        animate={{ opacity: 1 }}
-                        transition={{
-                            loop: true,
-                            type: "timing",
-                            duration: 1000,
-                            delay: index * 100,
-                            repeatReverse: true,
-                        }}
-                        style={styles.skeletonCard}
-                    >
-                        <LinearGradient
-                            colors={["#2e2e2e", "#3b3b3b", "#2e2e2e"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.skeletonInner}
-                        />
-                    </MotiView>
-                ))}
-            </View>
-        );
-    };
-
-    const renderAlbumCard = ({ item }: { item: Album }) => (
+    const renderAlbumCard = ({ item }: { item: AlbumDTO }) => (
         <TouchableOpacity
             onPress={() => handleAlbumPress(item)}
             style={styles.albumCard}
@@ -159,23 +63,15 @@ export default function HomeScreen() {
                     transition={{ type: "spring", delay: 100 }}
                 >
                     <View style={styles.albumCoverWrapper}>
-                        <View
-                            style={[
-                                styles.albumCover,
-                                { backgroundColor: "#222", overflow: "hidden" },
-                            ]}
-                        >
-                            <Image
-                                source={{ uri: item.coverUrl }}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    borderRadius: 16,
-                                }}
-                                contentFit="cover"
-                            />
-
-                        </View>
+                        <Image
+                            source={{ uri: item.coverURL }}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                borderRadius: 16,
+                            }}
+                            contentFit="cover"
+                        />
                     </View>
                     <Text numberOfLines={1} style={styles.albumName}>
                         {item.name}
@@ -188,13 +84,40 @@ export default function HomeScreen() {
         </TouchableOpacity>
     );
 
+    const renderSkeletons = () => (
+        <View style={styles.skeletonGrid}>
+            {new Array(6).fill(0).map((_, i) => (
+                <MotiView
+                    key={i}
+                    from={{ opacity: 0.4 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                        loop: true,
+                        type: "timing",
+                        duration: 1000,
+                        delay: i * 100,
+                        repeatReverse: true,
+                    }}
+                    style={styles.skeletonCard}
+                >
+                    <LinearGradient
+                        colors={["#2e2e2e", "#3b3b3b", "#2e2e2e"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.skeletonInner}
+                    />
+                </MotiView>
+            ))}
+        </View>
+    );
+
     return (
         <LinearGradient colors={["#0a0a0a", "#1a1a1a"]} style={styles.container}>
             <StatusBar style="light" />
             {renderHeader()}
             {renderSectionHeader()}
 
-            {albums.length === 0
+            {isLoading || !albums
                 ? renderSkeletons()
                 : (
                     <FlatList
@@ -205,8 +128,8 @@ export default function HomeScreen() {
                         renderItem={renderAlbumCard}
                         refreshControl={
                             <RefreshControl
-                                refreshing={isRefreshing}
-                                onRefresh={handleRefresh}
+                                refreshing={isFetching}
+                                onRefresh={refetch}
                                 tintColor="#1DB954"
                             />
                         }
@@ -218,27 +141,11 @@ export default function HomeScreen() {
     );
 }
 
-const CARD_WIDTH = width / 2.3;
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 60,
-    },
-    header: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 20,
-    },
+    container: { flex: 1, paddingHorizontal: 16, paddingTop: 60 },
+    header: { marginBottom: 20 },
     greeting: { color: "#b3b3b3", fontSize: 16, marginBottom: 4 },
-    username: {
-        color: "#fff",
-        fontSize: 32,
-        fontWeight: "900",
-        letterSpacing: -0.5,
-    },
+    username: { color: "#fff", fontSize: 32, fontWeight: "900" },
     sectionHeader: { marginBottom: 20 },
     sectionTitle: { color: "#fff", fontSize: 24, fontWeight: "800", marginBottom: 8 },
     sectionDivider: {
@@ -273,23 +180,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 16,
     },
-    albumCoverWrapper: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    albumCover: {
-        width: "100%",
-        aspectRatio: 1,
-        borderRadius: 16,
-        marginBottom: 8,
-    },
-    albumName: {
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "700",
-    },
-    albumArtist: {
-        color: "#aaa",
-        fontSize: 12,
-    },
+    albumCoverWrapper: { alignItems: "center", justifyContent: "center" },
+    albumName: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    albumArtist: { color: "#aaa", fontSize: 12 },
 });
