@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "name": "ASO Music",
+    "slug": "aso-music",
+    "scheme": "asomusic",
+    "plugins": ["expo-router"]
+  }
+}
