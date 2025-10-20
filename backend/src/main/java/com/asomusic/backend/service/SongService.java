@@ -6,7 +6,7 @@ import com.asomusic.backend.repository.SongRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -25,7 +25,7 @@ public class SongService implements ISongService {
             List<AlbumDTO> albums = songRepository.fetchAllAlbumsWithSongs();
 
             return albums.stream()
-                    .map(this::convertAlbumStorageUrls)
+                    .map(this::convertAlbumStorageUrlsSafe)
                     .collect(Collectors.toList());
 
         } catch (ExecutionException | InterruptedException e) {
@@ -33,51 +33,59 @@ public class SongService implements ISongService {
         }
     }
 
-    private AlbumDTO convertAlbumStorageUrls(AlbumDTO album) {
-        album.setCoverURL(convertGsToHttpUrl(album.getCoverURL()));
-        if (album.getSongs() != null) {
-            List<SongDTO> convertedSongs = album.getSongs().stream()
-                    .map(this::convertSongStorageUrls)
-                    .collect(Collectors.toList());
-            album.setSongs(convertedSongs);
-        }
-
-        return album;
+    // ✅ Conversione completa per ogni album e i suoi brani
+    private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
+        return AlbumDTO.builder()
+                .id(album.getId())
+                .name(album.getName())
+                .artist(album.getArtist())
+                .description(album.getDescription())
+                .coverURL(convertGsToHttpUrl(album.getCoverURL()))
+                .releaseYear(album.getReleaseYear())
+                .songs(album.getSongs() == null ? List.of() :
+                        album.getSongs().stream()
+                                .map(this::convertSongStorageUrlsSafe)
+                                .collect(Collectors.toList()))
+                .build();
     }
 
-    private SongDTO convertSongStorageUrls(SongDTO song) {
-        song.setCoverURL(convertGsToHttpUrl(song.getCoverURL()));
-        song.setAudioURL(convertGsToHttpUrl(song.getAudioURL()));
-        return song;
+    private SongDTO convertSongStorageUrlsSafe(SongDTO song) {
+        return SongDTO.builder()
+                .id(song.getId())
+                .title(song.getTitle())
+                .duration(song.getDuration())
+                .audioURL(convertGsToHttpUrl(song.getAudioURL()))
+                .coverURL(convertGsToHttpUrl(song.getCoverURL()))
+                .stream(song.getStream())
+                .tracklistPosition(song.getTracklistPosition())
+                .build();
     }
 
+    // ✅ Conversione universale Firebase Storage URL
     private String convertGsToHttpUrl(String gsUrl) {
-        if (gsUrl == null || gsUrl.trim().isEmpty()) {
-            return gsUrl;
-        }
-
-        if (!gsUrl.startsWith("gs://")) {
-            return gsUrl;
-        }
+        if (gsUrl == null || gsUrl.isBlank()) return gsUrl;
+        if (!gsUrl.startsWith("gs://")) return gsUrl;
 
         try {
-            String path = gsUrl.substring(5);
-            int firstSlashIndex = path.indexOf('/');
+            // Esempio: gs://asomusic-d39c4.appspot.com/album/SNITCH (DELUXE)/cover.jpg
+            String path = gsUrl.substring(5); // asomusic-d39c4.appspot.com/album/...
+            int slashIndex = path.indexOf('/');
 
-            if (firstSlashIndex == -1) {
+            if (slashIndex == -1) {
                 System.err.println("⚠️ URL Firebase Storage malformato: " + gsUrl);
                 return gsUrl;
             }
 
-            String bucketName = path.substring(0, firstSlashIndex);
-            String filePath = path.substring(firstSlashIndex + 1);
+            String bucket = path.substring(0, slashIndex);
+            String filePath = path.substring(slashIndex + 1);
 
-            String encodedPath = encodeFirebaseStoragePath(filePath);
+            // Decode eventuali path già encoded e re-encode in modo pulito
+            String cleanPath = URLDecoder.decode(filePath, StandardCharsets.UTF_8);
+            String encodedPath = encodeFirebaseStoragePath(cleanPath);
 
             String httpUrl = String.format(
                     "https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media",
-                    bucketName,
-                    encodedPath
+                    bucket, encodedPath
             );
 
             System.out.println("🔄 Convertito: " + gsUrl + " → " + httpUrl);
@@ -89,22 +97,13 @@ public class SongService implements ISongService {
         }
     }
 
+    // ✅ Encoding sicuro per Firebase Storage
     private String encodeFirebaseStoragePath(String path) {
         String[] parts = path.split("/");
-        StringBuilder encodedPath = new StringBuilder();
-
-        for (int i = 0; i < parts.length; i++) {
-            String encodedPart = URLEncoder.encode(parts[i], StandardCharsets.UTF_8)
-                    .replace("+", "%20");
-
-            encodedPath.append(encodedPart);
-
-            if (i < parts.length - 1) {
-                encodedPath.append("%2F");
-            }
-        }
-
-        return encodedPath.toString();
-
+        return String.join("%2F",
+                java.util.Arrays.stream(parts)
+                        .map(part -> URLEncoder.encode(part, StandardCharsets.UTF_8)
+                                .replace("+", "%20"))
+                        .collect(Collectors.toList()));
     }
 }

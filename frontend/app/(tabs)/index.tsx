@@ -14,6 +14,7 @@ import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { useSongs } from "@/hooks/useSongs";
 import { AlbumDTO } from "@/types/music";
+import AlbumCard from "@/components/AlbumCard";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
@@ -47,43 +48,9 @@ export default function HomeScreen() {
     );
 
     const renderAlbumCard = ({ item }: { item: AlbumDTO }) => (
-        <TouchableOpacity
-            onPress={() => handleAlbumPress(item)}
-            style={styles.albumCard}
-        >
-            <LinearGradient
-                colors={["#222", "#111"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.albumInner}
-            >
-                <MotiView
-                    from={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: "spring", delay: 100 }}
-                >
-                    <View style={styles.albumCoverWrapper}>
-                        <Image
-                            source={{ uri: item.coverURL }}
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                borderRadius: 16,
-                            }}
-                            contentFit="cover"
-                        />
-                    </View>
-                    <Text numberOfLines={1} style={styles.albumName}>
-                        {item.name}
-                    </Text>
-                    <Text numberOfLines={1} style={styles.albumArtist}>
-                        {item.artist}
-                    </Text>
-                </MotiView>
-            </LinearGradient>
-        </TouchableOpacity>
+        <AlbumCard album={item} />
     );
-
+    
     const renderSkeletons = () => (
         <View style={styles.skeletonGrid}>
             {new Array(6).fill(0).map((_, i) => (
