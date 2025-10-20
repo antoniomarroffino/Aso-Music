@@ -1,4 +1,4 @@
-package com.asomusic.backend.repository;
+package com.asomusic.backend.repository.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.SongDTO;

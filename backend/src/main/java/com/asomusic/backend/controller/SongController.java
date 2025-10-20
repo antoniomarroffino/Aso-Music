@@ -1,7 +1,7 @@
 package com.asomusic.backend.controller;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
-import com.asomusic.backend.service.ISongService;
+import com.asomusic.backend.service.song.ISongService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;

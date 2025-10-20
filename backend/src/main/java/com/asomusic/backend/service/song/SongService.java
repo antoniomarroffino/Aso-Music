@@ -1,15 +1,17 @@
-package com.asomusic.backend.service;
+package com.asomusic.backend.service.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
+import com.asomusic.backend.model.dto.ArtistDTO;
 import com.asomusic.backend.model.dto.SongDTO;
-import com.asomusic.backend.repository.SongRepository;
+import com.asomusic.backend.repository.artist.IArtistRepository;
+import com.asomusic.backend.repository.song.ISongRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -17,7 +19,10 @@ import java.util.stream.Collectors;
 public class SongService implements ISongService {
 
     @Inject
-    SongRepository songRepository;
+    ISongRepository songRepository;
+
+    @Inject
+    IArtistRepository artistRepository;
 
     @Override
     public List<AlbumDTO> fetchAllSongs() {
@@ -33,7 +38,7 @@ public class SongService implements ISongService {
         }
     }
 
-    // ✅ Conversione completa per ogni album e i suoi brani
+    // ✅ Conversione completa per ogni album e i suoi brani (inclusi artisti)
     private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
         return AlbumDTO.builder()
                 .id(album.getId())
@@ -44,13 +49,13 @@ public class SongService implements ISongService {
                 .releaseYear(album.getReleaseYear())
                 .songs(album.getSongs() == null ? List.of() :
                         album.getSongs().stream()
-                                .map(this::convertSongStorageUrlsSafe)
+                                .map(this::convertSongStorageUrlsAndArtists)
                                 .collect(Collectors.toList()))
                 .build();
     }
 
-    private SongDTO convertSongStorageUrlsSafe(SongDTO song) {
-        return SongDTO.builder()
+    private SongDTO convertSongStorageUrlsAndArtists(SongDTO song) {
+        SongDTO processed = SongDTO.builder()
                 .id(song.getId())
                 .title(song.getTitle())
                 .duration(song.getDuration())
@@ -59,6 +64,39 @@ public class SongService implements ISongService {
                 .stream(song.getStream())
                 .tracklistPosition(song.getTracklistPosition())
                 .build();
+
+        // ✅ Recupera e collega gli artisti
+        if (song.getArtists() != null && !song.getArtists().isEmpty()) {
+            List<ArtistDTO> resolvedArtists = song.getArtists().stream()
+                    .map(ref -> fetchArtistFromReference(ref))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            processed.setArtists(resolvedArtists);
+        }
+
+        return processed;
+    }
+
+    // ✅ Recupera l’artista partendo da un riferimento tipo "/artists/XYZ"
+    private ArtistDTO fetchArtistFromReference(ArtistDTO artistRef) {
+        try {
+            // Se l’id è già popolato, usa direttamente quello
+            String ref = artistRef.getId();
+            if (ref == null || ref.isBlank()) return null;
+
+            ArtistDTO artist = artistRepository.fetchArtistById(ref);
+
+            if (artist != null) {
+                artist.setProfileURL(convertGsToHttpUrl(artist.getProfileURL()));
+            }
+
+            return artist;
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Errore durante il recupero dell'artista: " + e.getMessage());
+            return null;
+        }
     }
 
     // ✅ Conversione universale Firebase Storage URL
@@ -68,7 +106,7 @@ public class SongService implements ISongService {
 
         try {
             // Esempio: gs://asomusic-d39c4.appspot.com/album/SNITCH (DELUXE)/cover.jpg
-            String path = gsUrl.substring(5); // asomusic-d39c4.appspot.com/album/...
+            String path = gsUrl.substring(5);
             int slashIndex = path.indexOf('/');
 
             if (slashIndex == -1) {
@@ -79,7 +117,6 @@ public class SongService implements ISongService {
             String bucket = path.substring(0, slashIndex);
             String filePath = path.substring(slashIndex + 1);
 
-            // Decode eventuali path già encoded e re-encode in modo pulito
             String cleanPath = URLDecoder.decode(filePath, StandardCharsets.UTF_8);
             String encodedPath = encodeFirebaseStoragePath(cleanPath);
 
@@ -88,7 +125,6 @@ public class SongService implements ISongService {
                     bucket, encodedPath
             );
 
-            System.out.println("🔄 Convertito: " + gsUrl + " → " + httpUrl);
             return httpUrl;
 
         } catch (Exception e) {
@@ -101,7 +137,7 @@ public class SongService implements ISongService {
     private String encodeFirebaseStoragePath(String path) {
         String[] parts = path.split("/");
         return String.join("%2F",
-                java.util.Arrays.stream(parts)
+                Arrays.stream(parts)
                         .map(part -> URLEncoder.encode(part, StandardCharsets.UTF_8)
                                 .replace("+", "%20"))
                         .collect(Collectors.toList()));
