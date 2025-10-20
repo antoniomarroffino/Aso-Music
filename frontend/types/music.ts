@@ -1,3 +1,10 @@
+export type ArtistDTO = {
+    id: string;
+    name: string;
+    bio: string;
+    profileURL: string;
+};
+
 export type SongDTO = {
     id: string;
     title: string;
@@ -6,6 +13,7 @@ export type SongDTO = {
     coverURL: string;
     stream: number;
     tracklistPosition: number;
+    artists: ArtistDTO[];
 };
 
 export type AlbumDTO = {
