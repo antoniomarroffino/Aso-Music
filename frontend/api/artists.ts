@@ -1,6 +1,8 @@
+import Constants from "expo-constants";
 import { ArtistDTO } from "@/types/music";
 
-const BASE_URL = "http://192.168.1.27:8080/api";
+// 🔗 Legge automaticamente l'URL dal file .env tramite app.config.js
+const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 
 export async function fetchAllArtists(): Promise<ArtistDTO[]> {
     try {
