@@ -6,7 +6,8 @@ import {
     StyleSheet,
     RefreshControl,
     Dimensions,
-    ScrollView,
+    Alert,
+    TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,12 +17,28 @@ import { useSongs } from "@/hooks/useSongs";
 import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
 import { BlurView } from "expo-blur";
+import { useAuth } from "@/context/AuthContext"; // ✅ AGGIUNTO
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
 
 export default function HomeScreen() {
     const { data: albums, isLoading, refetch, isFetching } = useSongs();
+    const { logout, user } = useAuth(); // ✅ AGGIUNTO
+
+    // 🔐 Funzione logout con popup di conferma
+    const handleLogout = () => {
+        Alert.alert("Logout", "Vuoi davvero uscire?", [
+            { text: "Annulla", style: "cancel" },
+            {
+                text: "Esci",
+                style: "destructive",
+                onPress: async () => {
+                    await logout(); // 👈 solo questo
+                },
+            },
+        ]);
+    };
 
     // 🎯 Statistiche dinamiche
     const stats = useMemo(() => {
@@ -40,10 +57,15 @@ export default function HomeScreen() {
         };
     }, [albums]);
 
-    // 📊 Header con stats
+    // 📊 Header con stats + bottone logout
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            {/* Hero Section */}
+            {/* 🔘 Bottone Logout piccolo in alto a destra */}
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={22} color="#1DB954" />
+            </TouchableOpacity>
+
+            {/* Hero Section originale */}
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
                 animate={{ opacity: 1, translateY: 0 }}
@@ -63,7 +85,9 @@ export default function HomeScreen() {
                         <View style={styles.heroContent}>
                             <View style={styles.greetingSection}>
                                 <Text style={styles.greeting}>Benvenuto 👋</Text>
-                                <Text style={styles.username}>Antonio</Text>
+                                <Text style={styles.username}>
+                                    {user?.email?.split("@")[0] ?? "Utente"}
+                                </Text>
                                 <Text style={styles.subtitle}>
                                     Esplora la tua musica preferita
                                 </Text>
@@ -91,7 +115,6 @@ export default function HomeScreen() {
                     </LinearGradient>
                 </BlurView>
             </MotiView>
-
         </View>
     );
 
@@ -238,60 +261,29 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 60,
-    },
-    particlesContainer: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: "hidden",
-    },
-    particle: {
+    container: { flex: 1 },
+    content: { flex: 1, paddingHorizontal: 16, paddingTop: 60 },
+    logoutButton: {
         position: "absolute",
-        backgroundColor: "#1DB954",
-        borderRadius: 50,
+        top: 10,
+        right: 10,
+        zIndex: 20,
+        padding: 8,
     },
-    headerContainer: {
-        marginBottom: 24,
-    },
-    heroBlur: {
-        borderRadius: 24,
-        overflow: "hidden",
-        marginBottom: 16,
-    },
-    heroGradient: {
-        padding: 24,
-    },
+    particlesContainer: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+    particle: { position: "absolute", backgroundColor: "#1DB954", borderRadius: 50 },
+    headerContainer: { marginBottom: 24 },
+    heroBlur: { borderRadius: 24, overflow: "hidden", marginBottom: 16 },
+    heroGradient: { padding: 24 },
     heroContent: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
-    greetingSection: {
-        flex: 1,
-    },
-    greeting: {
-        color: "#b3b3b3",
-        fontSize: 14,
-        fontWeight: "500",
-        marginBottom: 4,
-    },
-    username: {
-        color: "#fff",
-        fontSize: 32,
-        fontWeight: "900",
-        letterSpacing: -1,
-        marginBottom: 4,
-    },
-    subtitle: {
-        color: "#888",
-        fontSize: 13,
-        fontWeight: "500",
-    },
+    greetingSection: { flex: 1 },
+    greeting: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
+    username: { color: "#fff", fontSize: 32, fontWeight: "900", letterSpacing: -1, marginBottom: 4 },
+    subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
     heroIcon: {
         width: 64,
         height: 64,
@@ -303,53 +295,9 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 8,
     },
-    heroIconGradient: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    statsContainer: {
-        marginBottom: 8,
-    },
-    statsScroll: {
-        gap: 12,
-        paddingRight: 16,
-    },
-    statCard: {
-        width: 120,
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-    statGradient: {
-        padding: 16,
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.05)",
-        borderRadius: 16,
-    },
-    statIcon: {
-        marginBottom: 8,
-    },
-    statValue: {
-        color: "#fff",
-        fontSize: 24,
-        fontWeight: "900",
-        marginBottom: 4,
-    },
-    statLabel: {
-        color: "#888",
-        fontSize: 11,
-        fontWeight: "600",
-        textAlign: "center",
-    },
-    sectionHeaderContainer: {
-        marginBottom: 20,
-    },
-    sectionTitleRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 12,
-    },
+    heroIconGradient: { flex: 1, justifyContent: "center", alignItems: "center" },
+    sectionHeaderContainer: { marginBottom: 20 },
+    sectionTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
     sectionIconContainer: {
         marginRight: 12,
         borderRadius: 12,
@@ -360,38 +308,13 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 4,
     },
-    sectionIconGradient: {
-        width: 40,
-        height: 40,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    sectionTitle: {
-        color: "#fff",
-        fontSize: 24,
-        fontWeight: "900",
-        letterSpacing: -0.5,
-    },
-    sectionDividerContainer: {
-        width: "100%",
-    },
-    sectionDivider: {
-        height: 3,
-        width: "30%",
-        borderRadius: 2,
-    },
-    row: {
-        justifyContent: "space-between",
-        marginBottom: 16,
-    },
-    listContent: {
-        paddingBottom: 100,
-    },
-    skeletonGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
-    },
+    sectionIconGradient: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
+    sectionTitle: { color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
+    sectionDividerContainer: { width: "100%" },
+    sectionDivider: { height: 3, width: "30%", borderRadius: 2 },
+    row: { justifyContent: "space-between", marginBottom: 16 },
+    listContent: { paddingBottom: 100 },
+    skeletonGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
     skeletonCard: {
         width: CARD_WIDTH,
         height: CARD_WIDTH + 60,
@@ -399,11 +322,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: "hidden",
     },
-    skeletonInner: {
-        flex: 1,
-        padding: 12,
-        justifyContent: "center",
-    },
+    skeletonInner: { flex: 1, padding: 12, justifyContent: "center" },
     skeletonSquare: {
         width: "100%",
         aspectRatio: 1,

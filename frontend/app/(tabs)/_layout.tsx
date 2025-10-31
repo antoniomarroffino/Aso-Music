@@ -1,8 +1,31 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@/context/AuthContext";
+import { View, ActivityIndicator } from "react-native";
 
 export default function TabsLayout() {
+    const { user, loadingAuth } = useAuth();
+
+    if (loadingAuth) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#000",
+                }}
+            >
+                <ActivityIndicator size="large" color="#1DB954" />
+            </View>
+        );
+    }
+
+    // 👇 RIMOSSO il Redirect qui! Nessun redirect automatico.
+    // Se user è null, non mostra nulla — AuthContext farà il router.replace("/") da solo.
+    if (!user) return null;
+
     return (
         <Tabs
             screenOptions={{
