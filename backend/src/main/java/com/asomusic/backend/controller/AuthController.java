@@ -2,6 +2,8 @@ package com.asomusic.backend.controller;
 
 import com.asomusic.backend.model.dto.LoginRequestDTO;
 import com.asomusic.backend.model.dto.LoginResponseDTO;
+import com.asomusic.backend.model.dto.SignupRequestDTO;
+import com.asomusic.backend.model.dto.SignupResponseDTO;
 import com.asomusic.backend.service.auth.IAuthService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -24,6 +26,19 @@ public class AuthController {
             return Response.ok(response).build();
         } catch (RuntimeException e) {
             return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(e.getMessage())
+                    .build();
+        }
+    }
+
+    @POST
+    @Path("/signup")
+    public Response signup(SignupRequestDTO request) {
+        try {
+            SignupResponseDTO response = authService.signup(request);
+            return Response.ok(response).build();
+        } catch (RuntimeException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
                     .entity(e.getMessage())
                     .build();
         }
