@@ -1,12 +1,14 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { useRouter, useSegments, useRootNavigationState } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import {DarkTheme, DefaultTheme, ThemeProvider} from "@react-navigation/native";
+import {Stack} from "expo-router";
+import {StatusBar} from "expo-status-bar";
+import React, {useEffect} from "react";
+import {useColorScheme} from "@/hooks/use-color-scheme";
+import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import {AuthProvider, useAuth} from "@/context/AuthContext";
+import {useRouter, useSegments, useRootNavigationState} from "expo-router";
+import {ActivityIndicator, View} from "react-native";
+import {PlayerProvider} from "@/context/PlayerContext";
+import MiniPlayer from "@/components/ui/MiniPlayer";
 
 // ✅ React Query setup
 const queryClient = new QueryClient({
@@ -22,7 +24,7 @@ const queryClient = new QueryClient({
 
 // 🔐 Componente che gestisce i redirect tra gruppi (auth ↔ tabs)
 function AuthGate() {
-    const { user, loadingAuth } = useAuth();
+    const {user, loadingAuth} = useAuth();
     const router = useRouter();
     const segments = useSegments();
     const navigationState = useRootNavigationState();
@@ -53,7 +55,7 @@ function AuthGate() {
                     backgroundColor: "#000",
                 }}
             >
-                <ActivityIndicator size="large" color="#1DB954" />
+                <ActivityIndicator size="large" color="#1DB954"/>
             </View>
         );
     }
@@ -68,17 +70,20 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
             <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                 <AuthProvider>
-                    {/* 👇 AuthGate controlla il flusso login/logout */}
-                    <AuthGate />
+                    <PlayerProvider>
+                        <AuthGate/>
 
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="(auth)" /> {/* login/signup */}
-                        <Stack.Screen name="(tabs)" /> {/* area privata */}
-                        <Stack.Screen name="artistdetails" />
-                        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-                    </Stack>
+                        <Stack screenOptions={{headerShown: false}}>
+                            <Stack.Screen name="(auth)"/> {/* login/signup */}
+                            <Stack.Screen name="(tabs)"/> {/* area privata */}
+                            <Stack.Screen name="artistdetails"/>
+                            <Stack.Screen name="modal" options={{presentation: "modal"}}/>
+                        </Stack>
 
-                    <StatusBar style="auto" />
+                        <MiniPlayer/>
+
+                        <StatusBar style="auto"/>
+                    </PlayerProvider>
                 </AuthProvider>
             </ThemeProvider>
         </QueryClientProvider>

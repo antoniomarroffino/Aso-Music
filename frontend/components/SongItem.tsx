@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { SongDTO } from "@/types/music";
+import { usePlayer } from "@/context/PlayerContext"; // 👈 nuovo import
 
 interface SongItemProps {
     song: SongDTO;
@@ -11,21 +12,40 @@ interface SongItemProps {
 }
 
 export default function SongItem({ song, index = 0 }: SongItemProps) {
+    const { playSong, currentSong, isPlaying } = usePlayer();
+
     const formattedNumber =
         song.tracklistPosition < 10
             ? `0${song.tracklistPosition}`
             : `${song.tracklistPosition}`;
 
-    // Formatta la durata (se è in secondi)
-    const formatDuration = (duration: number | string) => {
-        if (typeof duration === "string") return duration;
-        const mins = Math.floor(duration / 60);
-        const secs = duration % 60;
-        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    const formatDuration = (duration: string | number) => {
+        if (typeof duration === "string") {
+            if (duration.includes(":")) return duration;
+            const num = parseInt(duration, 10);
+            if (isNaN(num)) return "0:00";
+            const mins = Math.floor(num / 60);
+            const secs = num % 60;
+            return `${mins}:${secs.toString().padStart(2, "0")}`;
+        } else {
+            const mins = Math.floor(duration / 60);
+            const secs = duration % 60;
+            return `${mins}:${secs.toString().padStart(2, "0")}`;
+        }
     };
 
+    const handlePlay = async () => {
+        await playSong(song);
+    };
+
+    const isCurrent = currentSong?.id === song.id;
+
     return (
-        <TouchableOpacity style={styles.container} activeOpacity={0.8}>
+        <TouchableOpacity
+            style={styles.container}
+            activeOpacity={0.8}
+            onPress={handlePlay}
+        >
             <MotiView
                 from={{ opacity: 0, translateX: -30, scale: 0.95 }}
                 animate={{ opacity: 1, translateX: 0, scale: 1 }}
@@ -46,7 +66,7 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                         style={styles.gradientBorder}
                     >
                         <View style={styles.inner}>
-                            {/* Numero traccia con design circolare */}
+                            {/* Numero traccia */}
                             <View style={styles.numberContainer}>
                                 <LinearGradient
                                     colors={[
@@ -64,7 +84,13 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                             {/* Info canzone */}
                             <View style={styles.info}>
                                 <View style={styles.titleRow}>
-                                    <Text style={styles.title} numberOfLines={1}>
+                                    <Text
+                                        style={[
+                                            styles.title,
+                                            isCurrent && { color: "#1DB954" },
+                                        ]}
+                                        numberOfLines={1}
+                                    >
                                         {song.title}
                                     </Text>
                                 </View>
@@ -74,7 +100,18 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                         size={12}
                                         color="#666"
                                     />
-                                    <Text style={styles.artist}>Aso Fam</Text>
+                                    <Text style={styles.artist} numberOfLines={1}>
+                                        {Array.isArray(song.artists) && song.artists.length > 0
+                                            ? song.artists
+                                                .map((a) =>
+                                                    typeof a === "object" && a?.name
+                                                        ? a.name
+                                                        : "Sconosciuto"
+                                                )
+                                                .join(", ")
+                                            : "Artista sconosciuto"}
+                                    </Text>
+
                                 </View>
                             </View>
 
@@ -90,7 +127,7 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                 </Text>
                             </View>
 
-                            {/* Play button icon */}
+                            {/* Pulsante Play/Pausa */}
                             <MotiView
                                 from={{ scale: 0, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
@@ -100,17 +137,27 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                 }}
                                 style={styles.playIconContainer}
                             >
-                                <LinearGradient
-                                    colors={["#1DB954", "#1ed760"]}
-                                    style={styles.playIcon}
-                                >
-                                    <Ionicons name="play" size={12} color="#000" />
-                                </LinearGradient>
+                                <TouchableOpacity onPress={handlePlay} activeOpacity={0.8}>
+                                    <LinearGradient
+                                        colors={["#1DB954", "#1ed760"]}
+                                        style={styles.playIcon}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                isCurrent && isPlaying
+                                                    ? "pause"
+                                                    : "play"
+                                            }
+                                            size={12}
+                                            color="#000"
+                                        />
+                                    </LinearGradient>
+                                </TouchableOpacity>
                             </MotiView>
                         </View>
                     </LinearGradient>
 
-                    {/* Shine effect on hover */}
+                    {/* Effetto shine */}
                     <MotiView
                         from={{ translateX: -200 }}
                         animate={{ translateX: 400 }}
