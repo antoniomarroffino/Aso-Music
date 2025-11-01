@@ -18,14 +18,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { AlbumDTO } from "@/types/music";
 import SongItem from "@/components/SongItem";
 import { StatusBar } from "expo-status-bar";
+import {useSongs} from "@/hooks/useSongs";
 
 const { width, height } = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
 
 export default function AlbumDetails() {
-    const { album } = useLocalSearchParams();
+    const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const parsedAlbum: AlbumDTO = JSON.parse(album as string);
+    const { data: albums, isLoading } = useSongs();
+    const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
+
+    if (isLoading || !parsedAlbum) {
+        return (
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <Text style={{ color: "#888" }}>Caricamento album...</Text>
+            </View>
+        );
+    }
 
     // ✅ Ordina i brani per tracklistPosition
     const sortedSongs = useMemo(

@@ -1,76 +1,63 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Audio } from "expo-av";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { SongDTO } from "@/types/music";
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
     isPlaying: boolean;
-    playSong: (song: SongDTO) => Promise<void>;
-    togglePlayPause: () => Promise<void>;
-    stopPlayback: () => Promise<void>;
+    playSong: (song: SongDTO) => void;
+    pauseSong: () => void;
+    resumeSong: () => void;
+    stopSong: () => void;
+    progress: number;
+    duration: number;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
-    const [sound, setSound] = useState<Audio.Sound | null>(null);
     const [currentSong, setCurrentSong] = useState<SongDTO | null>(null);
+
+    // ✅ player reattivo: crea e aggiorna quando cambia la sorgente
+    const [source, setSource] = useState<{ uri: string } | null>(null);
+    const player = useAudioPlayer(source ?? undefined);
+    const status = useAudioPlayerStatus(player);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // ✅ Rilascia risorse quando il componente viene smontato
     useEffect(() => {
-        return sound
-            ? () => {
-                console.log("🔇 Rilascio risorsa audio");
-                sound.unloadAsync();
-            }
-            : undefined;
-    }, [sound]);
-
-    const playSong = async (song: SongDTO) => {
-        try {
-            console.log(song.audioURL);
-            if (sound) {
-                await sound.unloadAsync();
-            }
-
-            console.log("🎵 Riproduco:", song.title);
-
-            const { sound: newSound } = await Audio.Sound.createAsync(
-                { uri: song.audioURL },
-                { shouldPlay: true }
-            );
-
-            setSound(newSound);
-            setCurrentSong(song);
-            setIsPlaying(true);
-        } catch (error) {
-            console.error("❌ Errore nella riproduzione:", error);
+        if (status) {
+            setIsPlaying(status.playing ?? false);
         }
+    }, [status]);
+
+    const playSong = (song: SongDTO) => {
+        console.log("🎵 Playing:", song.title);
+        console.log("🔗 URL:", song.audioURL);
+        setCurrentSong(song);
+        setSource({ uri: song.audioURL }); // ✅ cambia la sorgente (triggera il player)
+        player.play();
     };
 
-    const togglePlayPause = async () => {
-        if (!sound) return;
-        const status = await sound.getStatusAsync();
-        if (status.isLoaded) {
-            if (status.isPlaying) {
-                await sound.pauseAsync();
-                setIsPlaying(false);
-            } else {
-                await sound.playAsync();
-                setIsPlaying(true);
-            }
-        }
+    const pauseSong = () => {
+        player.pause();
+        setIsPlaying(false);
     };
 
-    const stopPlayback = async () => {
-        if (sound) {
-            await sound.unloadAsync();
-            setSound(null);
-            setCurrentSong(null);
-            setIsPlaying(false);
-        }
+    const resumeSong = () => {
+        player.play();
+        setIsPlaying(true);
     };
+
+    const stopSong = () => {
+        player.pause();
+        player.seekTo(0);
+        setIsPlaying(false);
+        setCurrentSong(null);
+        setSource(null);
+    };
+
+    const progress = status?.currentTime ?? 0;
+    const duration = status?.duration ?? 0;
 
     return (
         <PlayerContext.Provider
@@ -78,8 +65,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 currentSong,
                 isPlaying,
                 playSong,
-                togglePlayPause,
-                stopPlayback,
+                pauseSong,
+                resumeSong,
+                stopSong,
+                progress,
+                duration,
             }}
         >
             {children}

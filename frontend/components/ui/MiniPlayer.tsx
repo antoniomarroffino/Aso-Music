@@ -40,6 +40,15 @@ export default function MiniPlayer() {
                             source={{ uri: currentSong.coverURL }}
                             style={styles.cover}
                             resizeMode="cover"
+                            onLoad={() =>
+                                console.log("✅ Cover caricata:", currentSong.title)
+                            }
+                            onError={(e) =>
+                                console.error(
+                                    "❌ Errore caricamento cover:",
+                                    e.nativeEvent.error
+                                )
+                            }
                         />
 
                         {/* 🎶 Info */}
@@ -58,7 +67,10 @@ export default function MiniPlayer() {
                         </View>
 
                         {/* ▶️ Controlli */}
-                        <TouchableOpacity onPress={togglePlayPause} activeOpacity={0.8}>
+                        <TouchableOpacity
+                            onPress={togglePlayPause}
+                            activeOpacity={0.8}
+                        >
                             <LinearGradient
                                 colors={["#1DB954", "#1ed760"]}
                                 style={styles.playButton}

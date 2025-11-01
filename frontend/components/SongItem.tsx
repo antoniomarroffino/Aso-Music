@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { SongDTO } from "@/types/music";
-import { usePlayer } from "@/context/PlayerContext"; // 👈 nuovo import
+import { usePlayer } from "@/context/PlayerContext";
 
 interface SongItemProps {
     song: SongDTO;
@@ -34,7 +34,40 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
         }
     };
 
+    // 🧪 Test fetch dell'URL
+    const testUrl = async (audioUrl: string): Promise<boolean> => {
+        try {
+            console.log("🧪 Testing URL con fetch:", audioUrl);
+
+            const response = await fetch(audioUrl, { method: "HEAD" });
+
+            console.log("📊 Response status:", response.status);
+            console.log("📊 Headers:");
+            console.log("   Content-Type:", response.headers.get("content-type"));
+            console.log(
+                "   Content-Length:",
+                response.headers.get("content-length")
+            );
+
+            if (response.ok) {
+                console.log("✅ Fetch OK - URL è valido!");
+                return true;
+            } else {
+                console.log("❌ Fetch failed - Status:", response.status);
+                console.log("❌ URL:", audioUrl);
+                return false;
+            }
+        } catch (error: any) {
+            console.error("❌ Fetch error:", error.message);
+            console.error("❌ URL testato:", audioUrl);
+            return false;
+        }
+    };
+
     const handlePlay = async () => {
+        console.log("🎵 Riproduco:", song.title);
+        console.log("📤 Audio URL ricevuto:", song.audioURL);
+
         await playSong(song);
     };
 
@@ -101,7 +134,8 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                         color="#666"
                                     />
                                     <Text style={styles.artist} numberOfLines={1}>
-                                        {Array.isArray(song.artists) && song.artists.length > 0
+                                        {Array.isArray(song.artists) &&
+                                        song.artists.length > 0
                                             ? song.artists
                                                 .map((a) =>
                                                     typeof a === "object" && a?.name
@@ -111,7 +145,6 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                                 .join(", ")
                                             : "Artista sconosciuto"}
                                     </Text>
-
                                 </View>
                             </View>
 
@@ -137,7 +170,10 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
                                 }}
                                 style={styles.playIconContainer}
                             >
-                                <TouchableOpacity onPress={handlePlay} activeOpacity={0.8}>
+                                <TouchableOpacity
+                                    onPress={handlePlay}
+                                    activeOpacity={0.8}
+                                >
                                     <LinearGradient
                                         colors={["#1DB954", "#1ed760"]}
                                         style={styles.playIcon}

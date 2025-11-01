@@ -18,10 +18,11 @@ type AlbumCardProps = {
 export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
     const router = useRouter();
 
+    // ✅ Passa solo l'ID dell'album
     const handlePress = () => {
         router.push({
-            pathname: "/albumdetails" as any,
-            params: { album: JSON.stringify(album) },
+            pathname: "/albumdetails",
+            params: { id: album.id },
         });
     };
 
@@ -36,7 +37,6 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                     delay: index * 50,
                 }}
             >
-                {/* Gradient Border */}
                 <View style={styles.card}>
                     <LinearGradient
                         colors={[
@@ -56,7 +56,6 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                                     placeholder={require("@/assets/images/placeholder-album.png")}
                                 />
 
-                                {/* Overlay gradient */}
                                 <LinearGradient
                                     colors={["transparent", "rgba(0, 0, 0, 0.7)"]}
                                     style={styles.coverOverlay}
@@ -93,7 +92,6 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                                     </Text>
                                 </View>
 
-                                {/* Badge per numero tracce */}
                                 {album.songs && album.songs.length > 0 && (
                                     <View style={styles.trackBadge}>
                                         <Ionicons name="musical-notes" size={10} color="#1DB954" />
