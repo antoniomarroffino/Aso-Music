@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
     View,
     Text,
@@ -6,85 +6,76 @@ import {
     StyleSheet,
     Image,
     Dimensions,
+    PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, AnimatePresence } from "moti";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useSegments } from "expo-router";
 import { usePlayer } from "@/context/PlayerContext";
 
 const { width } = Dimensions.get("window");
 
 export default function MiniPlayer() {
-    const { currentSong, isPlaying, togglePlayPause } = usePlayer();
+    const { currentSong, isPlaying, togglePlayPause, progress, duration } = usePlayer();
+    const router = useRouter();
+    const segments = useSegments(); // ✅ sempre in cima
 
-    if (!currentSong) return null;
+    // ✅ spostiamo useRef PRIMA di qualsiasi return
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, g) => g.dy < -10,
+            onPanResponderRelease: (_, g) => {
+                if (g.dy < -50) router.push("/fullplayer");
+            },
+        })
+    ).current;
+
+    if ((segments as string[]).includes("fullplayer") || !currentSong) return null;
+
+
+    const progressWidth = duration > 0 ? (progress / duration) * width : 0;
 
     return (
         <AnimatePresence>
-            {currentSong && (
-                <MotiView
-                    from={{ translateY: 100, opacity: 0 }}
-                    animate={{ translateY: 0, opacity: 1 }}
-                    exit={{ translateY: 100, opacity: 0 }}
-                    transition={{ type: "timing", duration: 400 }}
-                    style={styles.container}
-                >
-                    <LinearGradient
-                        colors={["#121212", "#0a0a0a"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.inner}
+            <MotiView
+                {...panResponder.panHandlers}
+                from={{ translateY: 100, opacity: 0 }}
+                animate={{ translateY: 0, opacity: 1 }}
+                exit={{ translateY: 100, opacity: 0 }}
+                transition={{ type: "timing", duration: 400 }}
+                style={styles.container}
+            >
+                <LinearGradient colors={["#121212", "#0a0a0a"]} style={styles.inner}>
+                    <Image source={{ uri: currentSong.coverURL }} style={styles.cover} />
+
+                    <TouchableOpacity
+                        style={styles.infoContainer}
+                        activeOpacity={0.8}
+                        onPress={() => router.push("/fullplayer")}
                     >
-                        {/* 🎵 Cover */}
-                        <Image
-                            source={{ uri: currentSong.coverURL }}
-                            style={styles.cover}
-                            resizeMode="cover"
-                            onLoad={() =>
-                                console.log("✅ Cover caricata:", currentSong.title)
-                            }
-                            onError={(e) =>
-                                console.error(
-                                    "❌ Errore caricamento cover:",
-                                    e.nativeEvent.error
-                                )
-                            }
-                        />
+                        <Text style={styles.title} numberOfLines={1}>
+                            {currentSong.title}
+                        </Text>
+                        <Text style={styles.artist} numberOfLines={1}>
+                            {Array.isArray(currentSong.artists)
+                                ? currentSong.artists.map(a => a?.name).join(", ")
+                                : "Artista sconosciuto"}
+                        </Text>
+                    </TouchableOpacity>
 
-                        {/* 🎶 Info */}
-                        <View style={styles.infoContainer}>
-                            <Text style={styles.title} numberOfLines={1}>
-                                {currentSong.title}
-                            </Text>
-                            <Text style={styles.artist} numberOfLines={1}>
-                                {Array.isArray(currentSong.artists)
-                                    ? currentSong.artists
-                                        .map((a) => (a?.name ? a.name : ""))
-                                        .filter(Boolean)
-                                        .join(", ")
-                                    : "Artista sconosciuto"}
-                            </Text>
-                        </View>
+                    <TouchableOpacity onPress={togglePlayPause} activeOpacity={0.8}>
+                        <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.playButton}>
+                            <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#000" />
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </LinearGradient>
 
-                        {/* ▶️ Controlli */}
-                        <TouchableOpacity
-                            onPress={togglePlayPause}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={["#1DB954", "#1ed760"]}
-                                style={styles.playButton}
-                            >
-                                <Ionicons
-                                    name={isPlaying ? "pause" : "play"}
-                                    size={22}
-                                    color="#000"
-                                />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </LinearGradient>
-                </MotiView>
-            )}
+                {/* progress bar */}
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressBar, { width: progressWidth }]} />
+                </View>
+            </MotiView>
         </AnimatePresence>
     );
 }
@@ -94,7 +85,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 0,
         left: 0,
-        width: width,
+        width,
         zIndex: 999,
     },
     inner: {
@@ -102,8 +93,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 14,
         paddingVertical: 10,
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255,255,255,0.05)",
     },
     cover: {
         width: 48,
@@ -111,30 +100,22 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         marginRight: 12,
     },
-    infoContainer: {
-        flex: 1,
-        justifyContent: "center",
-    },
-    title: {
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "700",
-    },
-    artist: {
-        color: "#aaa",
-        fontSize: 12,
-        fontWeight: "500",
-        marginTop: 2,
-    },
+    infoContainer: { flex: 1 },
+    title: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    artist: { color: "#aaa", fontSize: 12 },
     playButton: {
         width: 42,
         height: 42,
         borderRadius: 21,
         justifyContent: "center",
         alignItems: "center",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
+    },
+    progressContainer: {
+        height: 2,
+        backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    progressBar: {
+        height: "100%",
+        backgroundColor: "#1DB954",
     },
 });

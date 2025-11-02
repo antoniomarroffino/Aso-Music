@@ -19,6 +19,7 @@ import { AlbumDTO } from "@/types/music";
 import SongItem from "@/components/SongItem";
 import { StatusBar } from "expo-status-bar";
 import {useSongs} from "@/hooks/useSongs";
+import {usePlayer} from "@/context/PlayerContext";
 
 const { width, height } = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
@@ -28,6 +29,7 @@ export default function AlbumDetails() {
     const router = useRouter();
     const { data: albums, isLoading } = useSongs();
     const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
+    const { playSong } = usePlayer();
 
     if (isLoading || !parsedAlbum) {
         return (
@@ -304,17 +306,20 @@ export default function AlbumDetails() {
                     transition={{ type: "spring", delay: 700, damping: 12 }}
                     style={styles.playButtonContainer}
                 >
-                    <TouchableOpacity activeOpacity={0.8}>
-                        <LinearGradient
-                            colors={["#1DB954", "#1ed760"]}
-                            style={styles.playButton}
-                        >
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                            if (sortedSongs.length > 0) {
+                                playSong(sortedSongs[0], sortedSongs, 0);
+                            }
+                        }}
+                    >
+                        <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.playButton}>
                             <Ionicons name="play" size={28} color="#000" />
-                            <Text style={styles.playButtonText}>
-                                Riproduci Album
-                            </Text>
+                            <Text style={styles.playButtonText}>Riproduci Album</Text>
                         </LinearGradient>
                     </TouchableOpacity>
+
                 </MotiView>
 
                 {/* 🎶 Tracklist Section */}
@@ -350,8 +355,13 @@ export default function AlbumDetails() {
                         data={sortedSongs}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item, index }) => (
-                            <SongItem song={item} index={index} />
+                            <SongItem
+                                song={item}
+                                index={index}
+                                onPress={() => playSong(item, sortedSongs, index)}
+                            />
                         )}
+
                         scrollEnabled={false}
                         ItemSeparatorComponent={() => (
                             <View style={styles.songSeparator} />

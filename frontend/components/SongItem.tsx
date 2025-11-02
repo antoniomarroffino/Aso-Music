@@ -9,9 +9,12 @@ import { usePlayer } from "@/context/PlayerContext";
 interface SongItemProps {
     song: SongDTO;
     index?: number;
+    queue?: SongDTO[];
+    onPress?: () => void;
 }
 
-export default function SongItem({ song, index = 0 }: SongItemProps) {
+
+export default function SongItem({ song, index = 0, queue, onPress}: SongItemProps) {
     const { playSong, currentSong, isPlaying } = usePlayer();
 
     const formattedNumber =
@@ -68,8 +71,9 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
         console.log("🎵 Riproduco:", song.title);
         console.log("📤 Audio URL ricevuto:", song.audioURL);
 
-        await playSong(song);
+        playSong(song, queue, index);
     };
+
 
     const isCurrent = currentSong?.id === song.id;
 
@@ -77,7 +81,8 @@ export default function SongItem({ song, index = 0 }: SongItemProps) {
         <TouchableOpacity
             style={styles.container}
             activeOpacity={0.8}
-            onPress={handlePlay}
+            onPress={onPress ?? handlePlay}
+
         >
             <MotiView
                 from={{ opacity: 0, translateX: -30, scale: 0.95 }}
