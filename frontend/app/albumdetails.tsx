@@ -20,6 +20,7 @@ import SongItem from "@/components/SongItem";
 import { StatusBar } from "expo-status-bar";
 import {useSongs} from "@/hooks/useSongs";
 import {usePlayer} from "@/context/PlayerContext";
+import {useArtists} from "@/hooks/useArtists";
 
 const { width, height } = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
@@ -28,6 +29,7 @@ export default function AlbumDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { data: albums, isLoading } = useSongs();
+    const { data: artists, isLoading: loadingArtists } = useArtists();
     const { playSong } = usePlayer();
 
     const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
@@ -42,24 +44,46 @@ export default function AlbumDetails() {
             return { trackCount: 0, duration: "0 min", year: "" };
         }
 
-        const totalDuration = sortedSongs.reduce(
-            (acc, song) => acc + (Number(song.duration) || 0),
+        const parseDuration = (dur: string | number): number => {
+            if (typeof dur === "number") return dur;
+
+            const parts = dur.split(":").map((n) => parseInt(n, 10));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                return parts[0] * 60 + parts[1];
+            }
+
+            const asNum = parseInt(dur, 10);
+            return isNaN(asNum) ? 0 : asNum;
+        };
+
+        const totalSeconds = sortedSongs.reduce(
+            (acc, song) => acc + parseDuration(song.duration),
             0
         );
-        const minutes = Math.floor(totalDuration / 60);
-        const hours = Math.floor(minutes / 60);
-        const remainingMinutes = minutes % 60;
+
+        const totalMinutes = Math.floor(totalSeconds / 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
+        const formattedDuration =
+            hours > 0 ? `${hours}h ${minutes}min` : `${minutes} min`;
 
         return {
             trackCount: sortedSongs.length,
-            duration: hours > 0 ? `${hours}h ${remainingMinutes}min` : `${minutes} min`,
+            duration: formattedDuration,
             year: parsedAlbum.releaseYear,
         };
     }, [sortedSongs, parsedAlbum]);
 
-    if (isLoading) {
+
+    if (isLoading || loadingArtists) {
         return (
-            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+            <View
+                style={[
+                    styles.container,
+                    { justifyContent: "center", alignItems: "center" },
+                ]}
+            >
                 <Text style={{ color: "#888" }}>Caricamento album...</Text>
             </View>
         );
@@ -363,6 +387,7 @@ export default function AlbumDetails() {
                                 song={item}
                                 index={index}
                                 queue={sortedSongs}
+                                allArtists={artists}
                                 onPress={() => playSong(item, sortedSongs, index)}
                             />
                         )}

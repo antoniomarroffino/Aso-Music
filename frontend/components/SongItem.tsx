@@ -1,22 +1,23 @@
-import React from "react";
+import React, {useMemo} from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import { SongDTO } from "@/types/music";
+import {ArtistDTO, SongDTO} from "@/types/music";
 import { usePlayer } from "@/context/PlayerContext";
 
 interface SongItemProps {
     song: SongDTO;
     index?: number;
     queue?: SongDTO[];
+    allArtists?: ArtistDTO[];
     onPress?: () => void;
 }
 
 
-export default function SongItem({ song, index = 0, queue, onPress}: SongItemProps) {
+export default function SongItem({ song, index = 0, queue, allArtists, onPress}: SongItemProps) {
     const { playSong, currentSong, isPlaying } = usePlayer();
-
+    console.log("🎨 SongItem -> song.artists:", song.artists);
     const formattedNumber =
         song.tracklistPosition < 10
             ? `0${song.tracklistPosition}`
@@ -36,6 +37,25 @@ export default function SongItem({ song, index = 0, queue, onPress}: SongItemPro
             return `${mins}:${secs.toString().padStart(2, "0")}`;
         }
     };
+
+    const artistNames = useMemo(() => {
+        if (!Array.isArray(song.artists) || !allArtists) {
+            return ["Artista sconosciuto"];
+        }
+
+        const names = song.artists
+            .map((artist) => {
+                if (artist && typeof artist === "object" && "name" in artist) {
+                    return artist.name;
+                }
+                return null;
+            })
+            .filter((n): n is string => Boolean(n));
+
+        return names.length > 0 ? names : ["Artista sconosciuto"];
+    }, [song.artists, allArtists]);
+
+
 
     // 🧪 Test fetch dell'URL
     const testUrl = async (audioUrl: string): Promise<boolean> => {
@@ -139,16 +159,8 @@ export default function SongItem({ song, index = 0, queue, onPress}: SongItemPro
                                         color="#666"
                                     />
                                     <Text style={styles.artist} numberOfLines={1}>
-                                        {Array.isArray(song.artists) &&
-                                        song.artists.length > 0
-                                            ? song.artists
-                                                .map((a) =>
-                                                    typeof a === "object" && a?.name
-                                                        ? a.name
-                                                        : "Sconosciuto"
-                                                )
-                                                .join(", ")
-                                            : "Artista sconosciuto"}
+                                        {artistNames.join(", ")}
+
                                     </Text>
                                 </View>
                             </View>

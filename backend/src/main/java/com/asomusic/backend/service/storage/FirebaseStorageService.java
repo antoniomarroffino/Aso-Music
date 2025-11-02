@@ -24,7 +24,6 @@ public class FirebaseStorageService {
     @ConfigProperty(name = "firebase.storage.url-expiration-hours", defaultValue = "24")
     long urlExpirationHours;
 
-    // ✅ Per le cover: Signed URLs (come prima)
     public String generateSignedUrl(String gsPath) {
         if (gsPath == null || gsPath.isBlank() || !gsPath.startsWith("gs://")) {
             return gsPath;
@@ -45,56 +44,10 @@ public class FirebaseStorageService {
                     TimeUnit.HOURS
             );
 
-            String result = signedUrl.toString();
-            System.out.println("🔗 Signed URL generato: " + result);
-            return result;
+            return signedUrl.toString();
 
         } catch (Exception e) {
             System.err.println("❌ Errore generazione signed URL: " + e.getMessage());
-            return gsPath;
-        }
-    }
-
-    // ✅ Per gli audio: URL pubblici corretti
-    public String convertToPublicUrl(String gsPath) {
-        if (gsPath == null || gsPath.isBlank() || !gsPath.startsWith("gs://")) {
-            return gsPath;
-        }
-
-        try {
-            String path = gsPath.substring(5); // Rimuovi "gs://"
-            int slashIndex = path.indexOf('/');
-
-            if (slashIndex == -1) return gsPath;
-
-            String bucket = path.substring(0, slashIndex);
-            String filePath = path.substring(slashIndex + 1);
-
-            // ✅ IMPORTANTE: Rimuovi .appspot.com dal bucket name
-            if (bucket.endsWith(".appspot.com")) {
-                bucket = bucket.replace(".appspot.com", "");
-            }
-
-            System.out.println("📎 Bucket corretto: " + bucket);
-            System.out.println("📁 File path: " + filePath);
-
-            // ✅ Encode SOLO il path del file, mantenendo gli slash
-            String[] parts = filePath.split("/");
-            String encodedPath = Arrays.stream(parts)
-                    .map(part -> URLEncoder.encode(part, StandardCharsets.UTF_8)
-                            .replace("+", "%20"))
-                    .collect(Collectors.joining("%2F"));
-
-            String publicUrl = String.format(
-                    "https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media",
-                    bucket, encodedPath
-            );
-
-            System.out.println("🔗 Public URL: " + publicUrl);
-            return publicUrl;
-
-        } catch (Exception e) {
-            System.err.println("❌ Errore conversione public URL: " + e.getMessage());
             return gsPath;
         }
     }

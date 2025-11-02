@@ -1,15 +1,13 @@
 package com.asomusic.backend.service.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
-import com.asomusic.backend.model.dto.ArtistDTO;
 import com.asomusic.backend.model.dto.SongDTO;
-import com.asomusic.backend.repository.artist.IArtistRepository;
 import com.asomusic.backend.repository.song.ISongRepository;
 import com.asomusic.backend.service.storage.FirebaseStorageService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -18,9 +16,6 @@ public class SongService implements ISongService {
 
     @Inject
     ISongRepository songRepository;
-
-    @Inject
-    IArtistRepository artistRepository;
 
     @Inject
     FirebaseStorageService firebaseStorageService;
@@ -35,7 +30,7 @@ public class SongService implements ISongService {
                     .collect(Collectors.toList());
 
         } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException("Errore durante il recupero dei brani", e);
+            throw new RuntimeException("❌ Errore durante il recupero dei brani", e);
         }
     }
 
@@ -45,57 +40,27 @@ public class SongService implements ISongService {
                 .name(album.getName())
                 .artist(album.getArtist())
                 .description(album.getDescription())
-                .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL())) // ✅ Signed
+                .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL()))
                 .releaseYear(album.getReleaseYear())
                 .songs(album.getSongs() == null ? List.of() :
                         album.getSongs().stream()
-                                .map(this::convertSongStorageUrlsAndArtists)
+                                .map(this::convertSongStorageUrlsSafe)
                                 .collect(Collectors.toList()))
                 .build();
     }
 
-    private SongDTO convertSongStorageUrlsAndArtists(SongDTO song) {
+    private SongDTO convertSongStorageUrlsSafe(SongDTO song) {
         SongDTO processed = SongDTO.builder()
                 .id(song.getId())
                 .title(song.getTitle())
                 .duration(song.getDuration())
                 .audioURL(firebaseStorageService.generateSignedUrl(song.getAudioURL()))
-                .coverURL(firebaseStorageService.generateSignedUrl(song.getCoverURL())) // ✅ Signed
+                .coverURL(firebaseStorageService.generateSignedUrl(song.getCoverURL()))
                 .stream(song.getStream())
                 .tracklistPosition(song.getTracklistPosition())
+                .artists(song.getArtists())
                 .build();
 
-        System.out.println("✅ Final audio URL sent to frontend: " + processed.getAudioURL());
-
-
-        if (song.getArtists() != null && !song.getArtists().isEmpty()) {
-            List<ArtistDTO> resolvedArtists = song.getArtists().stream()
-                    .map(this::fetchArtistFromReference)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-            processed.setArtists(resolvedArtists);
-        }
-
         return processed;
-    }
-
-    private ArtistDTO fetchArtistFromReference(ArtistDTO artistRef) {
-        try {
-            String ref = artistRef.getId();
-            if (ref == null || ref.isBlank()) return null;
-
-            ArtistDTO artist = artistRepository.fetchArtistById(ref);
-
-            if (artist != null) {
-                artist.setProfileURL(firebaseStorageService.generateSignedUrl(artist.getProfileURL())); // ✅ Signed
-            }
-
-            return artist;
-
-        } catch (Exception e) {
-            System.err.println("⚠️ Errore durante il recupero dell'artista: " + e.getMessage());
-            return null;
-        }
     }
 }
