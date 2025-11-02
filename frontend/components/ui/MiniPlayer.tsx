@@ -19,9 +19,8 @@ const { width } = Dimensions.get("window");
 export default function MiniPlayer() {
     const { currentSong, isPlaying, togglePlayPause, progress, duration } = usePlayer();
     const router = useRouter();
-    const segments = useSegments(); // ✅ sempre in cima
+    const segments = useSegments();
 
-    // ✅ spostiamo useRef PRIMA di qualsiasi return
     const panResponder = useRef(
         PanResponder.create({
             onMoveShouldSetPanResponder: (_, g) => g.dy < -10,
@@ -32,7 +31,6 @@ export default function MiniPlayer() {
     ).current;
 
     if ((segments as string[]).includes("fullplayer") || !currentSong) return null;
-
 
     const progressWidth = duration > 0 ? (progress / duration) * width : 0;
 
@@ -71,7 +69,7 @@ export default function MiniPlayer() {
                     </TouchableOpacity>
                 </LinearGradient>
 
-                {/* progress bar */}
+                {/* Progress bar */}
                 <View style={styles.progressContainer}>
                     <View style={[styles.progressBar, { width: progressWidth }]} />
                 </View>
@@ -83,7 +81,7 @@ export default function MiniPlayer() {
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
-        bottom: 0,
+        bottom: 60, // ✅ si posiziona sopra la tab bar
         left: 0,
         width,
         zIndex: 999,
@@ -93,6 +91,14 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 14,
         paddingVertical: 10,
+        borderTopLeftRadius: 16, // ✅ bordi arrotondati superiori
+        borderTopRightRadius: 16,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 6,
     },
     cover: {
         width: 48,

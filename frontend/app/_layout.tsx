@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { useRouter, useSegments, useRootNavigationState, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { PlayerProvider } from "@/context/PlayerContext";
-import MiniPlayer from "@/components/ui/MiniPlayer";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // ✅ React Query setup
@@ -67,16 +66,27 @@ export default function RootLayout() {
                         <PlayerProvider>
                             <AuthGate />
 
+                            {/* 🧭 Stack principale dell’app */}
                             <Stack screenOptions={{ headerShown: false }}>
+                                {/* Tabs = il gruppo principale */}
                                 <Stack.Screen name="(tabs)" />
-                                <Stack.Screen name="artistdetails" />
-                                <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-                                <Stack.Screen name="fullplayer" />
+
+                                {/* Fullscreen player = fuori dalle tabs */}
+                                <Stack.Screen
+                                    name="fullplayer"
+                                    options={{
+                                        presentation: "fullScreenModal",
+                                    }}
+                                />
+
+                                {/* Eventuali modali */}
+                                <Stack.Screen
+                                    name="modal"
+                                    options={{ presentation: "modal" }}
+                                />
                             </Stack>
 
-                            <MiniPlayer />
-
-                            <StatusBar style="auto" />
+                            <StatusBar style="light" />
                         </PlayerProvider>
                     </AuthProvider>
                 </ThemeProvider>
