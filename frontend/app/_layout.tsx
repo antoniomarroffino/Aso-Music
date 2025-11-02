@@ -36,7 +36,7 @@ function AuthGate() {
         const inAuthGroup = segments[0] === "(auth)";
         if (user && inAuthGroup) router.replace("/(tabs)");
         else if (!user && !inAuthGroup) router.replace("/(auth)");
-    }, [user, loadingAuth, isReady, segments]);
+    }, [user, loadingAuth, isReady, segments, router]);
 
     if (loadingAuth || !isReady) {
         return (
@@ -60,7 +60,7 @@ export default function RootLayout() {
     const colorScheme = useColorScheme();
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}> {/* ✅ AGGIUNGI QUESTO */}
+        <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                     <AuthProvider>
@@ -68,11 +68,10 @@ export default function RootLayout() {
                             <AuthGate />
 
                             <Stack screenOptions={{ headerShown: false }}>
-                                <Stack.Screen name="(auth)" />
                                 <Stack.Screen name="(tabs)" />
                                 <Stack.Screen name="artistdetails" />
                                 <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-                                <Stack.Screen name="fullplayer" /> {/* ✅ assicurati ci sia */}
+                                <Stack.Screen name="fullplayer" />
                             </Stack>
 
                             <MiniPlayer />

@@ -28,28 +28,20 @@ export default function AlbumDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { data: albums, isLoading } = useSongs();
-    const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
     const { playSong } = usePlayer();
 
-    if (isLoading || !parsedAlbum) {
-        return (
-            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-                <Text style={{ color: "#888" }}>Caricamento album...</Text>
-            </View>
-        );
-    }
+    const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
 
-    // ✅ Ordina i brani per tracklistPosition
-    const sortedSongs = useMemo(
-        () =>
-            [...parsedAlbum.songs].sort(
-                (a, b) => a.tracklistPosition - b.tracklistPosition
-            ),
-        [parsedAlbum.songs]
-    );
+    const sortedSongs = useMemo(() => {
+        if (!parsedAlbum?.songs) return [];
+        return [...parsedAlbum.songs].sort((a, b) => a.tracklistPosition - b.tracklistPosition);
+    }, [parsedAlbum?.songs]);
 
-    // 📊 Calcola statistiche
     const stats = useMemo(() => {
+        if (!sortedSongs.length || !parsedAlbum) {
+            return { trackCount: 0, duration: "0 min", year: "" };
+        }
+
         const totalDuration = sortedSongs.reduce(
             (acc, song) => acc + (Number(song.duration) || 0),
             0
@@ -60,15 +52,27 @@ export default function AlbumDetails() {
 
         return {
             trackCount: sortedSongs.length,
-            duration:
-                hours > 0
-                    ? `${hours}h ${remainingMinutes}min`
-                    : `${minutes} min`,
+            duration: hours > 0 ? `${hours}h ${remainingMinutes}min` : `${minutes} min`,
             year: parsedAlbum.releaseYear,
         };
-    }, [sortedSongs]);
+    }, [sortedSongs, parsedAlbum]);
 
-    // 🌟 Particelle di sfondo
+    if (isLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <Text style={{ color: "#888" }}>Caricamento album...</Text>
+            </View>
+        );
+    }
+
+    if (!parsedAlbum) {
+        return (
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <Text style={{ color: "#888" }}>Album non trovato.</Text>
+            </View>
+        );
+    }
+
     const renderParticles = () => (
         <View style={styles.particlesContainer}>
             {[...Array(15)].map((_, i) => (
@@ -358,6 +362,7 @@ export default function AlbumDetails() {
                             <SongItem
                                 song={item}
                                 index={index}
+                                queue={sortedSongs}
                                 onPress={() => playSong(item, sortedSongs, index)}
                             />
                         )}

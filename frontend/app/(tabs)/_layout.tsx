@@ -22,8 +22,6 @@ export default function TabsLayout() {
         );
     }
 
-    // 👇 RIMOSSO il Redirect qui! Nessun redirect automatico.
-    // Se user è null, non mostra nulla — AuthContext farà il router.replace("/") da solo.
     if (!user) return null;
 
     return (

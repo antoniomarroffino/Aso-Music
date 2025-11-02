@@ -28,7 +28,7 @@ export default function LoginScreen() {
         if (!loadingAuth && user) {
             router.replace("/(tabs)");
         }
-    }, [user, loadingAuth]);
+    }, [user, loadingAuth, router]);
 
     const handleLogin = async () => {
         if (!email || !password) {
