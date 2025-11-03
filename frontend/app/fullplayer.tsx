@@ -1,29 +1,32 @@
-// app/fullplayer.tsx
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
     View,
     Text,
-    Image,
     StyleSheet,
     TouchableOpacity,
     Dimensions,
+    Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { usePlayer } from "@/context/PlayerContext";
+import { Image } from "expo-image";
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
     withTiming,
     runOnJS,
+    useDerivedValue,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { MotiView, MotiText } from "moti";
+import { StatusBar } from "expo-status-bar";
 
 const { height, width } = Dimensions.get("window");
+const COVER_SIZE = width * 0.75;
 
 export default function FullPlayer() {
     const {
@@ -35,185 +38,460 @@ export default function FullPlayer() {
         nextSong,
         progress,
         duration,
+        seekTo,
     } = usePlayer();
 
     const router = useRouter();
-    const translateY = useSharedValue(0);
 
-    const pan = useMemo(
+    const translateY = useSharedValue(0);
+    const barWidth = useSharedValue(0);
+    const barX = useSharedValue(0);
+    const isDragging = useSharedValue(false);
+    const dragValue = useSharedValue(0);
+    const lastSeekValue = useSharedValue(0);
+
+    const progressBarRef = useRef<View>(null);
+
+    // 🔹 Progress animato
+    const animatedProgress = useDerivedValue(() => {
+        if (isDragging.value) return dragValue.value;
+        if (lastSeekValue.value > 0 && Math.abs(progress - lastSeekValue.value) > 0.5) {
+            return lastSeekValue.value;
+        }
+        return progress;
+    });
+
+    useDerivedValue(() => {
+        if (lastSeekValue.value > 0 && Math.abs(progress - lastSeekValue.value) < 0.5) {
+            lastSeekValue.value = 0;
+        }
+    });
+
+    // 🔹 Gesture per chiudere
+    const panDown = useMemo(
         () =>
             Gesture.Pan()
                 .onChange((e) => {
-                    if (e.translationY > 0) {
-                        translateY.value = e.translationY;
-                    }
+                    if (e.translationY > 0) translateY.value = e.translationY;
                 })
                 .onEnd(() => {
-                    if (translateY.value > 120) {
+                    if (translateY.value > 100) {
                         translateY.value = withTiming(height, { duration: 250 }, (finished) => {
-                            if (finished) {
-                                runOnJS(router.back)();
-                            }
+                            if (finished) runOnJS(router.back)();
                         });
                     } else {
-                        translateY.value = withSpring(0, { damping: 12 });
+                        translateY.value = withSpring(0, { damping: 15 });
                     }
                 }),
-        [router.back, translateY]
+        [router]
+    );
+
+    // 🎯 TAP progress
+    const tapProgress = useMemo(
+        () =>
+            Gesture.Tap().onStart((e) => {
+                const relativeX = e.absoluteX - barX.value;
+                const ratio = Math.max(0, Math.min(relativeX / barWidth.value, 1));
+                const newProgress = ratio * duration;
+
+                isDragging.value = true;
+                dragValue.value = newProgress;
+                lastSeekValue.value = newProgress;
+
+                runOnJS(seekTo)(newProgress);
+                setTimeout(() => (isDragging.value = false), 100);
+            }),
+        [duration, seekTo]
+    );
+
+    // 🎚️ PAN progress
+    const panProgress = useMemo(
+        () =>
+            Gesture.Pan()
+                .onBegin((e) => {
+                    isDragging.value = true;
+                    const relativeX = e.absoluteX - barX.value;
+                    const ratio = Math.max(0, Math.min(relativeX / barWidth.value, 1));
+                    dragValue.value = ratio * duration;
+                })
+                .onUpdate((e) => {
+                    const relativeX = e.absoluteX - barX.value;
+                    const ratio = Math.max(0, Math.min(relativeX / barWidth.value, 1));
+                    dragValue.value = ratio * duration;
+                })
+                .onEnd(() => {
+                    lastSeekValue.value = dragValue.value;
+                    runOnJS(seekTo)(dragValue.value);
+                    setTimeout(() => (isDragging.value = false), 100);
+                })
+                .onFinalize(() => {
+                    setTimeout(() => (isDragging.value = false), 150);
+                }),
+        [duration, seekTo]
+    );
+
+    const composedGesture = useMemo(
+        () => Gesture.Race(tapProgress, panProgress),
+        [tapProgress, panProgress]
     );
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: translateY.value }],
     }));
 
+    const progressBarStyle = useAnimatedStyle(() => ({
+        width: `${(animatedProgress.value / duration) * 100}%`,
+    }));
+
+    const progressHandleStyle = useAnimatedStyle(() => ({
+        left: `${(animatedProgress.value / duration) * 100}%`,
+    }));
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (progressBarRef.current) {
+                progressBarRef.current.measureInWindow((x, y, w, h) => {
+                    barX.value = x;
+                    barWidth.value = w;
+                });
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, []);
+
     if (!currentSong) {
         router.back();
         return null;
     }
 
-    const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
     const timeLeft = duration - progress;
-
-    /** 🎶 Mostra prossima traccia quando mancano 15s */
     const showNextSong = nextSong && timeLeft <= 15;
 
-    return (
-        <GestureDetector gesture={pan}>
-            <Animated.View style={[styles.container, animatedStyle]}>
-                <LinearGradient
-                    colors={["#000000", "#0c0c0c", "#121212", "#1a1a1a"]}
-                    style={StyleSheet.absoluteFillObject}
-                />
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
 
-                {/* 🌈 Glow animato dietro la cover */}
+    // 🎨 Particelle animate
+    const renderParticles = () => (
+        <View style={styles.particlesContainer}>
+            {[...Array(20)].map((_, i) => (
                 <MotiView
-                    from={{ opacity: 0.2, scale: 0.8 }}
-                    animate={{ opacity: 0.6, scale: 1.2 }}
-                    transition={{ loop: true, duration: 5000, repeatReverse: true }}
+                    key={i}
+                    from={{
+                        opacity: 0.1,
+                        translateY: 0,
+                        translateX: Math.random() * width,
+                    }}
+                    animate={{
+                        opacity: [0.1, 0.4, 0.1],
+                        translateY: height,
+                    }}
+                    transition={{
+                        loop: true,
+                        type: "timing",
+                        duration: 6000 + Math.random() * 4000,
+                        delay: Math.random() * 3000,
+                    }}
                     style={[
-                        StyleSheet.absoluteFill,
+                        styles.particle,
                         {
-                            backgroundColor: "#1DB954",
-                            opacity: 0.15,
-                            borderRadius: 400,
-                            top: height * 0.2,
-                            left: width * 0.25,
-                            width: width * 0.5,
-                            height: width * 0.5,
+                            left: Math.random() * width,
+                            width: 2 + Math.random() * 4,
+                            height: 2 + Math.random() * 4,
                         },
                     ]}
                 />
+            ))}
+        </View>
+    );
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                        <Ionicons name="chevron-down" size={28} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerText}>In riproduzione</Text>
-                    <View style={{ width: 28 }} />
-                </View>
+    return (
+        <GestureDetector gesture={panDown}>
+            <Animated.View style={[styles.container, animatedStyle]}>
+                <StatusBar style="light" />
 
-                {/* Copertina */}
+                {/* Gradient background */}
+                <LinearGradient
+                    colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
+                    locations={[0, 0.3, 0.6, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                />
+
+                {renderParticles()}
+
+                {/* 🔝 Custom Header con Blur */}
+                <MotiView
+                    from={{ opacity: 0, translateY: -50 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: "spring", damping: 15 }}
+                    style={styles.customHeader}
+                >
+                    <BlurView intensity={50} tint="dark" style={styles.headerBlur}>
+                        <LinearGradient
+                            colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.03)"]}
+                            style={styles.headerGradient}
+                        >
+                            <TouchableOpacity
+                                onPress={() => router.back()}
+                                style={styles.backButton}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="chevron-down" size={26} color="#fff" />
+                            </TouchableOpacity>
+
+                            <View style={styles.headerCenter}>
+                                <Text style={styles.headerTitle} numberOfLines={1}>
+                                    In Riproduzione
+                                </Text>
+                                <View style={styles.headerIndicator}>
+                                    <MotiView
+                                        from={{ opacity: 0.3, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{
+                                            loop: true,
+                                            type: "timing",
+                                            duration: 1000,
+                                            repeatReverse: true,
+                                        }}
+                                        style={styles.liveIndicator}
+                                    />
+                                    <Text style={styles.liveText}>LIVE</Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
+                                <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </BlurView>
+                </MotiView>
+
+                {/* 🎨 Cover Hero Section */}
+                <MotiView
+                    from={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", damping: 15, delay: 100 }}
+                    style={styles.heroSection}
+                >
+                    <View style={styles.coverContainer}>
+                        {/* Glow effect */}
+                        <MotiView
+                            from={{ opacity: 0.3, scale: 0.9 }}
+                            animate={{ opacity: 0.7, scale: 1.15 }}
+                            transition={{
+                                loop: true,
+                                type: "timing",
+                                duration: 3000,
+                                repeatReverse: true,
+                            }}
+                            style={styles.coverGlow}
+                        />
+
+                        {/* Cover con bordo gradient */}
+                        <LinearGradient
+                            colors={[
+                                "rgba(29, 185, 84, 0.6)",
+                                "rgba(138, 43, 226, 0.5)",
+                                "rgba(29, 185, 84, 0.6)",
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.coverBorder}
+                        >
+                            <View style={styles.coverWrapper}>
+                                <Image
+                                    source={{ uri: currentSong.coverURL }}
+                                    style={styles.cover}
+                                    contentFit="cover"
+                                    transition={400}
+                                />
+                                <LinearGradient
+                                    colors={["transparent", "rgba(0, 0, 0, 0.4)"]}
+                                    style={styles.coverOverlay}
+                                />
+                            </View>
+                        </LinearGradient>
+
+                        {/* Shine effect */}
+                        <MotiView
+                            from={{ translateX: -COVER_SIZE }}
+                            animate={{ translateX: COVER_SIZE * 2 }}
+                            transition={{
+                                loop: true,
+                                type: "timing",
+                                duration: 3500,
+                                delay: 800,
+                            }}
+                            style={styles.shineEffect}
+                        />
+                    </View>
+                </MotiView>
+
+                {/* 📝 Song Info */}
+                <MotiView
+                    from={{ opacity: 0, translateY: 20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: "spring", delay: 300 }}
+                    style={styles.infoSection}
+                >
+                    <Text style={styles.title} numberOfLines={2}>
+                        {currentSong.title}
+                    </Text>
+                    <View style={styles.artistRow}>
+                        <Ionicons name="person" size={16} color="#888" />
+                        <Text style={styles.artist} numberOfLines={1}>
+                            {Array.isArray(currentSong.artists)
+                                ? currentSong.artists.map((a) => a?.name).join(", ")
+                                : "Artista sconosciuto"}
+                        </Text>
+                    </View>
+                </MotiView>
+
+                {/* 🎚️ Progress Bar Premium */}
                 <MotiView
                     from={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
+                    transition={{ type: "spring", delay: 400 }}
+                    style={styles.progressSection}
                 >
-                    <LinearGradient
-                        colors={[
-                            "rgba(29, 185, 84, 0.3)",
-                            "rgba(255, 255, 255, 0.05)",
-                        ]}
-                        style={styles.coverBorder}
-                    >
-                        <Image
-                            source={{ uri: currentSong.coverURL }}
-                            style={styles.cover}
-                            resizeMode="cover"
-                        />
-                    </LinearGradient>
+                    <GestureDetector gesture={composedGesture}>
+                        <View style={styles.progressWrapper}>
+                            <View ref={progressBarRef} style={styles.progressContainer}>
+                                {/* Background track */}
+                                <View style={styles.progressTrack} />
+
+                                {/* Filled progress con gradient */}
+                                <Animated.View style={[styles.progressBarWrapper, progressBarStyle]}>
+                                    <LinearGradient
+                                        colors={["#1DB954", "#1ed760", "#1DB954"]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.progressBar}
+                                    />
+                                </Animated.View>
+
+                                {/* Handle con shadow */}
+                                <Animated.View style={[styles.progressHandle, progressHandleStyle]}>
+                                    <LinearGradient
+                                        colors={["#1ed760", "#1DB954"]}
+                                        style={styles.handleGradient}
+                                    >
+                                        <View style={styles.handleInner} />
+                                    </LinearGradient>
+                                </Animated.View>
+                            </View>
+
+                            {/* Time labels */}
+                            <View style={styles.timeRow}>
+                                <View style={styles.timeContainer}>
+                                    <Text style={styles.timeText}>{formatTime(progress)}</Text>
+                                </View>
+                                <View style={styles.timeContainer}>
+                                    <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </GestureDetector>
                 </MotiView>
 
-                {/* Titolo e artista */}
-                <View style={styles.textContainer}>
-                    <MotiText
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ delay: 300 }}
-                        style={styles.title}
-                        numberOfLines={1}
-                    >
-                        {currentSong.title}
-                    </MotiText>
-                    <MotiText
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ delay: 400 }}
-                        style={styles.artist}
-                        numberOfLines={1}
-                    >
-                        {Array.isArray(currentSong.artists)
-                            ? currentSong.artists.map((a) => a?.name).join(", ")
-                            : "Artista sconosciuto"}
-                    </MotiText>
-                </View>
+                {/* 🎮 Controls Premium */}
+                <MotiView
+                    from={{ opacity: 0, translateY: 30 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ type: "spring", delay: 500 }}
+                    style={styles.controlsSection}
+                >
+                    <View style={styles.controls}>
+                        {/* Previous */}
+                        <TouchableOpacity onPress={prevSong} activeOpacity={0.7}>
+                            <LinearGradient
+                                colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
+                                style={styles.controlButton}
+                            >
+                                <Ionicons name="play-skip-back" size={28} color="#fff" />
+                            </LinearGradient>
+                        </TouchableOpacity>
 
-                {/* Barra di progresso */}
-                <View style={styles.progressWrapper}>
-                    <View style={styles.progressContainer}>
-                        <View
-                            style={[styles.progressBar, { width: `${progressPercent}%` }]}
-                        />
+                        {/* Play/Pause */}
+                        <TouchableOpacity onPress={togglePlayPause} activeOpacity={0.85}>
+                            <MotiView
+                                animate={{
+                                    scale: isPlaying ? 1 : 0.95,
+                                }}
+                                transition={{
+                                    type: "spring",
+                                    damping: 15,
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={["#1ed760", "#1DB954", "#17a046"]}
+                                    style={styles.playButton}
+                                >
+                                    <Ionicons
+                                        name={isPlaying ? "pause" : "play"}
+                                        size={42}
+                                        color="#000"
+                                        style={{ marginLeft: isPlaying ? 0 : 3 }}
+                                    />
+                                </LinearGradient>
+                            </MotiView>
+                        </TouchableOpacity>
+
+                        {/* Next */}
+                        <TouchableOpacity onPress={nextSongAction} activeOpacity={0.7}>
+                            <LinearGradient
+                                colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
+                                style={styles.controlButton}
+                            >
+                                <Ionicons name="play-skip-forward" size={28} color="#fff" />
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
-                    <View style={styles.timeRow}>
-                        <Text style={styles.timeText}>
-                            {Math.floor(progress / 60)}:
-                            {(progress % 60).toFixed(0).padStart(2, "0")}
-                        </Text>
-                        <Text style={styles.timeText}>
-                            {Math.floor(duration / 60)}:
-                            {(duration % 60).toFixed(0).padStart(2, "0")}
-                        </Text>
+
+                    {/* Extra controls */}
+                    <View style={styles.extraControls}>
+                        <TouchableOpacity style={styles.extraButton} activeOpacity={0.7}>
+                            <Ionicons name="heart-outline" size={24} color="#888" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.extraButton} activeOpacity={0.7}>
+                            <Ionicons name="share-outline" size={24} color="#888" />
+                        </TouchableOpacity>
                     </View>
-                </View>
+                </MotiView>
 
-                {/* Controlli */}
-                <View style={styles.controls}>
-                    <TouchableOpacity onPress={prevSong} hitSlop={12}>
-                        <Ionicons name="play-skip-back" size={36} color="#fff" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={togglePlayPause} hitSlop={12}>
-                        <Ionicons
-                            name={isPlaying ? "pause-circle" : "play-circle"}
-                            size={88}
-                            color="#1DB954"
-                        />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={nextSongAction} hitSlop={12}>
-                        <Ionicons name="play-skip-forward" size={36} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* 🔮 Preview prossima canzone */}
+                {/* 🔜 Next Song Preview */}
                 {showNextSong && nextSong && (
                     <MotiView
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "timing", duration: 600 }}
+                        from={{ opacity: 0, translateY: 20, scale: 0.9 }}
+                        animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ type: "spring", damping: 15 }}
                         style={styles.nextSongContainer}
                     >
-                        <BlurView intensity={30} tint="dark" style={styles.nextSongBlur}>
-                            <Text style={styles.nextUpLabel}>In arrivo</Text>
-                            <Text style={styles.nextUpTitle} numberOfLines={1}>
-                                {nextSong.title}
-                            </Text>
-                            <Text style={styles.nextUpArtist} numberOfLines={1}>
-                                {Array.isArray(nextSong.artists)
-                                    ? nextSong.artists.map((a) => a?.name).join(", ")
-                                    : "Artista sconosciuto"}
-                            </Text>
+                        <BlurView intensity={40} tint="dark" style={styles.nextSongBlur}>
+                            <LinearGradient
+                                colors={["rgba(29, 185, 84, 0.15)", "rgba(29, 185, 84, 0.05)"]}
+                                style={styles.nextSongGradient}
+                            >
+                                <View style={styles.nextSongContent}>
+                                    <View style={styles.nextSongIcon}>
+                                        <Ionicons name="play-skip-forward" size={16} color="#1DB954" />
+                                    </View>
+                                    <View style={styles.nextSongInfo}>
+                                        <Text style={styles.nextUpLabel}>Prossima traccia</Text>
+                                        <Text style={styles.nextUpTitle} numberOfLines={1}>
+                                            {nextSong.title}
+                                        </Text>
+                                        <Text style={styles.nextUpArtist} numberOfLines={1}>
+                                            {Array.isArray(nextSong.artists)
+                                                ? nextSong.artists.map((a) => a?.name).join(", ")
+                                                : "Artista sconosciuto"}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </LinearGradient>
                         </BlurView>
                     </MotiView>
                 )}
@@ -225,114 +503,333 @@ export default function FullPlayer() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        alignItems: "center",
-        paddingTop: 60,
-        backgroundColor: "transparent",
+        paddingTop: Platform.OS === "ios" ? 50 : 40,
     },
-    header: {
-        width: "100%",
+    particlesContainer: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: "hidden",
+    },
+    particle: {
+        position: "absolute",
+        backgroundColor: "#1DB954",
+        borderRadius: 50,
+        opacity: 0.3,
+    },
+    customHeader: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        paddingTop: Platform.OS === "ios" ? 50 : 40,
+    },
+    headerBlur: {
+        overflow: "hidden",
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+    },
+    headerGradient: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 20,
-        marginBottom: 20,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255, 255, 255, 0.08)",
     },
-    headerButton: {
-        backgroundColor: "rgba(255,255,255,0.08)",
-        borderRadius: 20,
-        padding: 4,
+    backButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        justifyContent: "center",
+        alignItems: "center",
     },
-    headerText: {
+    headerCenter: {
+        flex: 1,
+        alignItems: "center",
+        gap: 4,
+    },
+    headerTitle: {
         color: "#fff",
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: "700",
+        letterSpacing: -0.3,
+    },
+    headerIndicator: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    liveIndicator: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "#1DB954",
+    },
+    liveText: {
+        color: "#1DB954",
+        fontSize: 10,
+        fontWeight: "900",
+        letterSpacing: 0.5,
+    },
+    moreButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    heroSection: {
+        alignItems: "center",
+        marginTop: Platform.OS === "ios" ? 100 : 90,
+        marginBottom: 28,
+    },
+    coverContainer: {
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+    },
+    coverGlow: {
+        position: "absolute",
+        width: COVER_SIZE + 60,
+        height: COVER_SIZE + 60,
+        borderRadius: (COVER_SIZE + 60) / 2,
+        backgroundColor: "#1DB954",
     },
     coverBorder: {
         padding: 4,
-        borderRadius: 20,
-        marginBottom: 24,
+        borderRadius: 28,
+        shadowColor: "#1DB954",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    coverWrapper: {
+        width: COVER_SIZE,
+        height: COVER_SIZE,
+        borderRadius: 24,
+        overflow: "hidden",
+        backgroundColor: "#1a1a1a",
     },
     cover: {
-        width: width * 0.8,
-        height: width * 0.8,
-        borderRadius: 16,
+        width: "100%",
+        height: "100%",
     },
-    textContainer: {
+    coverOverlay: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    shineEffect: {
+        position: "absolute",
+        top: 0,
+        width: 80,
+        height: COVER_SIZE,
+        backgroundColor: "rgba(255, 255, 255, 0.12)",
+        transform: [{ skewX: "-20deg" }],
+    },
+    infoSection: {
         alignItems: "center",
-        marginBottom: 20,
+        paddingHorizontal: 32,
+        marginBottom: 32,
     },
     title: {
         color: "#fff",
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: "900",
         textAlign: "center",
+        marginBottom: 8,
+        letterSpacing: -0.5,
+    },
+    artistRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
+        borderRadius: 16,
     },
     artist: {
         color: "#aaa",
-        fontSize: 16,
-        marginTop: 6,
-        textAlign: "center",
+        fontSize: 15,
         fontWeight: "600",
     },
+    progressSection: {
+        paddingHorizontal: 28,
+        marginBottom: 36,
+    },
     progressWrapper: {
-        width: "90%",
-        marginVertical: 10,
+        width: "100%",
     },
     progressContainer: {
-        height: 4,
-        backgroundColor: "rgba(255,255,255,0.1)",
-        borderRadius: 2,
+        height: 32,
+        justifyContent: "center",
+        position: "relative",
+    },
+    progressTrack: {
+        height: 6,
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        borderRadius: 3,
+        position: "absolute",
+        width: "100%",
+        left: 0,
+    },
+    progressBarWrapper: {
+        height: 6,
+        position: "absolute",
+        left: 0,
+        borderRadius: 3,
+        overflow: "hidden",
     },
     progressBar: {
         height: "100%",
-        backgroundColor: "#1DB954",
-        borderRadius: 2,
+        width: "100%",
+    },
+    progressHandle: {
+        position: "absolute",
+        width: 20,
+        height: 20,
+        marginLeft: -10,
+        top: 6,
+    },
+    handleGradient: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#1DB954",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    handleInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#fff",
     },
     timeRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginTop: 6,
+        marginTop: 8,
+    },
+    timeContainer: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
+        borderRadius: 8,
     },
     timeText: {
         color: "#888",
         fontSize: 12,
+        fontWeight: "700",
+        letterSpacing: 0.5,
+    },
+    controlsSection: {
+        paddingHorizontal: 32,
+        marginBottom: 24,
     },
     controls: {
-        marginTop: 35,
-        width: "70%",
         flexDirection: "row",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "center",
+        gap: 32,
+        marginBottom: 24,
+    },
+    controlButton: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.1)",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    playButton: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#1DB954",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    extraControls: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: 48,
+    },
+    extraButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
     },
     nextSongContainer: {
         position: "absolute",
-        bottom: 50,
-        alignItems: "center",
-        width: "80%",
+        bottom: 40,
+        left: 20,
+        right: 20,
     },
     nextSongBlur: {
-        width: "100%",
-        padding: 14,
-        borderRadius: 16,
+        borderRadius: 20,
+        overflow: "hidden",
+    },
+    nextSongGradient: {
+        padding: 1,
+        borderRadius: 20,
+    },
+    nextSongContent: {
+        flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.3)",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        padding: 16,
+        borderRadius: 19,
+        gap: 12,
+    },
+    nextSongIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "rgba(29, 185, 84, 0.2)",
+        justifyContent: "center",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(29, 185, 84, 0.3)",
+    },
+    nextSongInfo: {
+        flex: 1,
     },
     nextUpLabel: {
         color: "#1DB954",
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: "700",
         textTransform: "uppercase",
+        letterSpacing: 0.5,
         marginBottom: 4,
     },
     nextUpTitle: {
         color: "#fff",
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: "800",
-        textAlign: "center",
+        marginBottom: 2,
     },
     nextUpArtist: {
         color: "#aaa",
-        fontSize: 14,
-        textAlign: "center",
+        fontSize: 13,
+        fontWeight: "600",
     },
 });

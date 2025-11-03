@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -9,19 +9,19 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
+    Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import {useRouter} from "expo-router";
+import { useRouter } from "expo-router";
+import { MotiView } from "moti";
 
 export default function LoginScreen() {
-    const { login } = useAuth();
+    const { login, user, loadingAuth } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-
-    const { user, loadingAuth } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -39,7 +39,6 @@ export default function LoginScreen() {
         try {
             setLoading(true);
             await login(email, password);
-            // ✅ L'AuthContext aggiornerà lo stato, e _layout mostrerà la Home
         } catch (error) {
             console.error("Errore login:", error);
             Alert.alert("Errore", "Credenziali non valide o utente inesistente");
@@ -57,52 +56,70 @@ export default function LoginScreen() {
                 style={styles.innerContainer}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <Text style={styles.logo}>ASO Music 🎧</Text>
-                <Text style={styles.subtitle}>Accedi al tuo mondo musicale</Text>
+                {/* 🔥 Logo con animazione leggera */}
+                <View style={styles.logoContainer}>
+                    <MotiView
+                        from={{ opacity: 0.5, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", damping: 12 }}
+                    >
+                        <Image
+                            source={require("@/assets/images/icon.png")}
+                            style={styles.logoImage}
+                            resizeMode="contain"
+                        />
+                    </MotiView>
 
-                <View style={styles.inputContainer}>
-                    <Ionicons name="mail-outline" size={20} color="#1DB954" style={styles.icon} />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor="#888"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
+                    <Text style={styles.appName}>ASO Music</Text>
+                    <Text style={styles.subtitle}>Accedi al tuo mondo musicale</Text>
                 </View>
 
-                <View style={styles.inputContainer}>
-                    <Ionicons name="lock-closed-outline" size={20} color="#1DB954" style={styles.icon} />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#888"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-                </View>
+                {/* 🔹 Form di login */}
+                <View>
+                    <View style={styles.inputContainer}>
+                        <Ionicons name="mail-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            placeholderTextColor="#888"
+                            value={email}
+                            onChangeText={setEmail}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                        />
+                    </View>
 
-                <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
-                    onPress={handleLogin}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.buttonText}>Accedi</Text>
-                    )}
-                </TouchableOpacity>
+                    <View style={styles.inputContainer}>
+                        <Ionicons name="lock-closed-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            placeholderTextColor="#888"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                        />
+                    </View>
 
-                <Text style={styles.hint}>
-                    Non hai un account?{" "}
-                    <Text style={styles.link} onPress={() => router.push("/(auth)/signup")}>
-                        Registrati
+                    <TouchableOpacity
+                        style={[styles.button, loading && styles.buttonDisabled]}
+                        onPress={handleLogin}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Accedi</Text>
+                        )}
+                    </TouchableOpacity>
+
+                    <Text style={styles.hint}>
+                        Non hai un account?{" "}
+                        <Text style={styles.link} onPress={() => router.push("/(auth)/signup")}>
+                            Registrati
+                        </Text>
                     </Text>
-                </Text>
+                </View>
             </KeyboardAvoidingView>
         </LinearGradient>
     );
@@ -115,21 +132,41 @@ const styles = StyleSheet.create({
     innerContainer: {
         flex: 1,
         justifyContent: "center",
+        alignItems: "center",
         paddingHorizontal: 24,
     },
-    logo: {
+
+    // 🔥 Logo area
+    logoContainer: {
+        alignItems: "center",
+        marginBottom: 40,
+    },
+    logoImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 20,
+        marginBottom: 10,
+        shadowColor: "#1DB954",
+        shadowOpacity: 0.4,
+        shadowOffset: { width: 0, height: 6 },
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    appName: {
         color: "#1DB954",
-        fontSize: 40,
+        fontSize: 28,
         fontWeight: "900",
         textAlign: "center",
-        marginBottom: 8,
+        letterSpacing: 1,
     },
     subtitle: {
         color: "#ccc",
         fontSize: 15,
         textAlign: "center",
-        marginBottom: 40,
+        marginTop: 4,
     },
+
+    // 🔹 Input e form
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { SongDTO } from "@/types/music";
 
@@ -11,6 +11,7 @@ type PlayerContextType = {
     stopSong: () => void;
     nextSongAction: () => void;
     prevSong: () => void;
+    seekTo: (seconds: number) => void;
     progress: number;
     duration: number;
 };
@@ -27,23 +28,26 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const status = useAudioPlayerStatus(player);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    /** 🧠 Stato derivato: canzone successiva */
+    // 🔹 Flag per ignorare aggiornamenti durante seek
+    const isSeekingRef = useRef(false);
+    const wasPlayingBeforeSeek = useRef(false);
+
     const nextSong =
         currentQueue.length > 0
             ? currentQueue[(currentIndex + 1) % currentQueue.length]
             : null;
 
-    /** 🔹 Aggiorna flag di riproduzione */
+    // 🔹 Aggiorna isPlaying SOLO se non stiamo facendo seek
     useEffect(() => {
-        if (status) setIsPlaying(status.playing ?? false);
+        if (status && !isSeekingRef.current) {
+            setIsPlaying(status.playing ?? false);
+        }
     }, [status]);
 
-    /** 🔹 Riproduce automaticamente quando cambia sorgente */
     useEffect(() => {
         if (source) player.play();
     }, [player, source]);
 
-    /** 🔹 Auto-next quando la traccia termina */
     useEffect(() => {
         if (!status) return;
         if (status.didJustFinish) {
@@ -51,7 +55,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [status]);
 
-    /** 🎵 Riproduce una canzone e imposta eventualmente la coda */
     const playSong = (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
         if (queue && queue.length > 0) {
             setCurrentQueue(queue);
@@ -72,13 +75,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setSource({ uri: song.audioURL });
     };
 
-    /** ⏯️ Play/Pause toggle */
     const togglePlayPause = () => {
         if (isPlaying) player.pause();
         else player.play();
     };
 
-    /** ⏹️ Stop e reset */
     const stopSong = () => {
         player.pause();
         player.seekTo(0);
@@ -88,7 +89,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentQueue([]);
     };
 
-    /** ⏭️ Traccia successiva */
     const nextSongAction = () => {
         if (!currentQueue.length) return;
         const nextIndex = (currentIndex + 1) % currentQueue.length;
@@ -98,7 +98,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setSource({ uri: next.audioURL });
     };
 
-    /** ⏮️ Traccia precedente */
     const prevSong = () => {
         if (!currentQueue.length) return;
         const prevIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
@@ -108,6 +107,25 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setSource({ uri: prev.audioURL });
     };
 
+    const seekTo = (seconds: number) => {
+        if (!player) return;
+
+        // 🔹 Blocca aggiornamenti di isPlaying durante seek
+        isSeekingRef.current = true;
+        wasPlayingBeforeSeek.current = isPlaying;
+
+        player.seekTo(seconds);
+
+        // 🔹 Ripristina lo stato dopo 200ms
+        setTimeout(() => {
+            isSeekingRef.current = false;
+            // Forza lo stato corretto
+            if (wasPlayingBeforeSeek.current && !status?.playing) {
+                player.play();
+            }
+        }, 200);
+    };
+
     const progress = status?.currentTime ?? 0;
     const duration = status?.duration ?? 0;
 
@@ -115,7 +133,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         <PlayerContext.Provider
             value={{
                 currentSong,
-                nextSong, // ✅ disponibile ovunque
+                nextSong,
                 isPlaying,
                 playSong,
                 togglePlayPause,
@@ -124,6 +142,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 prevSong,
                 progress,
                 duration,
+                seekTo,
             }}
         >
             {children}
