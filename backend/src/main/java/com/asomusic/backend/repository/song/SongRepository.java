@@ -67,6 +67,24 @@ public class SongRepository implements ISongRepository {
         return albums;
     }
 
+    @Override
+    public void incrementListenCount(String albumId, String songId) throws ExecutionException, InterruptedException {
+        DocumentReference songRef = db
+                .collection("album")
+                .document(albumId)
+                .collection("songs")
+                .document(songId);
+
+        DocumentSnapshot snapshot = songRef.get().get();
+        if (!snapshot.exists()) {
+            throw new IllegalArgumentException("Song not found: " + songId);
+        }
+
+        Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : 0L;
+        songRef.update("stream", currentCount + 1);
+    }
+
+
     /**
      * Risolve gli artisti da Firestore (supporta sia DocumentReference sia ID string)
      */

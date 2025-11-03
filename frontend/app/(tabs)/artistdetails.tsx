@@ -18,7 +18,7 @@ import { useArtists } from "@/hooks/useArtists";
 import { useSongs } from "@/hooks/useSongs";
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
-import SafeScrollView from "@/components/ui/SafeScrollView"; // ✅ nuovo import
+import SafeScrollView from "@/components/ui/SafeScrollView";
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
@@ -29,7 +29,7 @@ export default function ArtistDetailsScreen() {
     }>();
 
     const { data: artists, isLoading } = useArtists();
-    const { data: albums } = useSongs(); // albums = AlbumDTO[]
+    const { data: albums } = useSongs();
 
     const [visibleCount, setVisibleCount] = useState(5);
 
@@ -37,7 +37,6 @@ export default function ArtistDetailsScreen() {
         setVisibleCount(5);
     }, [artistId]);
 
-    /** 🔙 Gestione ritorno dinamico */
     const handleGoBack = () => {
         if (from === "artists") {
             router.replace("/(tabs)/artists");
@@ -51,13 +50,11 @@ export default function ArtistDetailsScreen() {
         }
     };
 
-    /** 🎨 Cerca artista */
     const artist = useMemo(() => {
         if (!artistId || !artists) return null;
         return artists.find((a) => a.id === artistId);
     }, [artistId, artists]);
 
-    /** 🎵 Filtra tutte le canzoni dove compare l’artista */
     const artistSongs = useMemo(() => {
         if (!albums || !artist) return [];
         const allSongs = albums.flatMap((album) => album.songs ?? []);
@@ -67,7 +64,6 @@ export default function ArtistDetailsScreen() {
         return filtered.sort((a, b) => b.stream - a.stream);
     }, [albums, artist]);
 
-    /** 💿 Trova tutti gli album in cui è presente almeno una canzone dell’artista */
     const artistAlbums = useMemo(() => {
         if (!albums || !artist) return [];
         return albums.filter((album) =>
@@ -131,56 +127,78 @@ export default function ArtistDetailsScreen() {
                 </Text>
             </View>
 
-            {/* 🎵 TOP SONGS */}
-            {artistSongs.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>🔥 Top Songs</Text>
+            {/* 🎵 TOP SONGS - Sempre mostrata */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🔥 Top Songs</Text>
 
-                    {artistSongs.slice(0, visibleCount).map((song, index) => {
-                        const album = albums?.find((alb) =>
-                            alb.songs.some((s) => s.id === song.id)
-                        );
+                {artistSongs.length > 0 ? (
+                    <>
+                        {artistSongs.slice(0, visibleCount).map((song, index) => {
+                            const album = albums?.find((alb) =>
+                                alb.songs.some((s) => s.id === song.id)
+                            );
 
-                        return (
-                            <SongItemArtist
-                                key={song.id}
-                                song={song}
-                                rank={index + 1}
-                                queue={artistSongs}
-                                allArtists={artistSongs.flatMap((s) => s.artists)}
-                                albumId={album?.id ?? "unknown"}
-                            />
-                        );
-                    })}
+                            return (
+                                <SongItemArtist
+                                    key={song.id}
+                                    song={song}
+                                    rank={index + 1}
+                                    queue={artistSongs}
+                                    allArtists={artistSongs.flatMap((s) => s.artists)}
+                                    albumId={album?.id ?? "unknown"}
+                                />
+                            );
+                        })}
 
-                    {artistSongs.length > 5 && (
-                        <View style={styles.showMoreContainer}>
-                            {visibleCount < artistSongs.length && (
-                                <TouchableOpacity
-                                    onPress={() => setVisibleCount((prev) => prev + 5)}
-                                    style={styles.showMoreButton}
-                                >
-                                    <Text style={styles.showMoreText}>Mostra altre 5</Text>
-                                </TouchableOpacity>
-                            )}
+                        {artistSongs.length > 5 && (
+                            <View style={styles.showMoreContainer}>
+                                {visibleCount < artistSongs.length && (
+                                    <TouchableOpacity
+                                        onPress={() => setVisibleCount((prev) => prev + 5)}
+                                        style={styles.showMoreButton}
+                                    >
+                                        <Text style={styles.showMoreText}>Mostra altre 5</Text>
+                                    </TouchableOpacity>
+                                )}
 
-                            {visibleCount > 5 && (
-                                <TouchableOpacity
-                                    onPress={() => setVisibleCount(5)}
-                                    style={styles.showMoreButton}
-                                >
-                                    <Text style={styles.showMoreText}>Mostra meno</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-                </View>
-            )}
+                                {visibleCount > 5 && (
+                                    <TouchableOpacity
+                                        onPress={() => setVisibleCount(5)}
+                                        style={styles.showMoreButton}
+                                    >
+                                        <Text style={styles.showMoreText}>Mostra meno</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+                    </>
+                ) : (
+                    <MotiView
+                        from={{ opacity: 0, translateY: 20 }}
+                        animate={{ opacity: 1, translateY: 0 }}
+                        transition={{ type: "spring", damping: 15 }}
+                        style={styles.emptyContainer}
+                    >
+                        <LinearGradient
+                            colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.02)"]}
+                            style={styles.emptyGradient}
+                        >
+                            <View style={styles.emptyIconContainer}>
+                                <Ionicons name="musical-notes-outline" size={48} color="#555" />
+                            </View>
+                            <Text style={styles.emptyTitle}>Nessuna canzone disponibile</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Questo artista non ha ancora brani pubblicati
+                            </Text>
+                        </LinearGradient>
+                    </MotiView>
+                )}
+            </View>
 
-            {/* 💿 ALBUMS */}
-            {artistAlbums.length > 0 && (
-                <View style={styles.section}>
-                    {(() => {
+            {/* 💿 ALBUMS - Sempre mostrata */}
+            <View style={styles.section}>
+                {artistAlbums.length > 0 ? (
+                    (() => {
                         const sorted = [...artistAlbums].sort(
                             (a, b) => b.releaseYear - a.releaseYear
                         );
@@ -222,9 +240,32 @@ export default function ArtistDetailsScreen() {
                                 )}
                             </>
                         );
-                    })()}
-                </View>
-            )}
+                    })()
+                ) : (
+                    <View style={styles.subSection}>
+                        <Text style={styles.subSectionTitle}>💿 Albums</Text>
+                        <MotiView
+                            from={{ opacity: 0, translateY: 20 }}
+                            animate={{ opacity: 1, translateY: 0 }}
+                            transition={{ type: "spring", damping: 15, delay: 200 }}
+                            style={styles.emptyContainer}
+                        >
+                            <LinearGradient
+                                colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.02)"]}
+                                style={styles.emptyGradient}
+                            >
+                                <View style={styles.emptyIconContainer}>
+                                    <Ionicons name="disc-outline" size={48} color="#555" />
+                                </View>
+                                <Text style={styles.emptyTitle}>Nessun album disponibile</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    Questo artista non ha ancora album pubblicati
+                                </Text>
+                            </LinearGradient>
+                        </MotiView>
+                    </View>
+                )}
+            </View>
         </SafeScrollView>
     );
 }
@@ -311,4 +352,37 @@ const styles = StyleSheet.create({
         paddingRight: 10,
     },
     showMoreText: { color: "#1DB954", fontWeight: "600" },
+    emptyContainer: {
+        marginVertical: 16,
+    },
+    emptyGradient: {
+        padding: 32,
+        borderRadius: 20,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.05)",
+    },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
+        textAlign: "center",
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        color: "#888",
+        fontSize: 14,
+        fontWeight: "500",
+        textAlign: "center",
+        lineHeight: 20,
+    },
 });

@@ -7,4 +7,6 @@ import java.util.concurrent.ExecutionException;
 
 public interface ISongRepository {
     List<AlbumDTO> fetchAllAlbumsWithSongs() throws ExecutionException, InterruptedException;
+    void incrementListenCount(String albumId, String songId) throws ExecutionException, InterruptedException;
+
 }

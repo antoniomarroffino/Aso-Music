@@ -4,6 +4,7 @@ import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.SongDTO;
 import com.asomusic.backend.repository.song.ISongRepository;
 import com.asomusic.backend.service.storage.FirebaseStorageService;
+import com.google.cloud.firestore.DocumentSnapshot;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -31,6 +32,15 @@ public class SongService implements ISongService {
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException("❌ Errore durante il recupero dei brani", e);
+        }
+    }
+
+    @Override
+    public void incrementListenCount(String albumId, String songId) {
+        try {
+            songRepository.incrementListenCount(albumId, songId);
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException("❌ Errore durante l'incremento degli ascolti", e);
         }
     }
 

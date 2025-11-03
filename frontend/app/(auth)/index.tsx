@@ -10,12 +10,15 @@ import {
     Platform,
     ActivityIndicator,
     Image,
+    Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { MotiView } from "moti";
+
+const { width } = Dimensions.get("window");
 
 export default function LoginScreen() {
     const { login, user, loadingAuth } = useAuth();
@@ -71,11 +74,11 @@ export default function LoginScreen() {
                     </MotiView>
 
                     <Text style={styles.appName}>ASO Music</Text>
-                    <Text style={styles.subtitle}>Accedi al tuo mondo musicale</Text>
+                    <Text style={styles.subtitle}>Accedi e ascolta un po&#39; di buona musica</Text>
                 </View>
 
                 {/* 🔹 Form di login */}
-                <View>
+                <View style={styles.form}>
                     <View style={styles.inputContainer}>
                         <Ionicons name="mail-outline" size={20} color="#1DB954" style={styles.icon} />
                         <TextInput
@@ -139,11 +142,11 @@ const styles = StyleSheet.create({
     // 🔥 Logo area
     logoContainer: {
         alignItems: "center",
-        marginBottom: 40,
+        marginBottom: 50,
     },
     logoImage: {
-        width: 100,
-        height: 100,
+        width: 110,
+        height: 110,
         borderRadius: 20,
         marginBottom: 10,
         shadowColor: "#1DB954",
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
     },
     appName: {
         color: "#1DB954",
-        fontSize: 28,
+        fontSize: 30,
         fontWeight: "900",
         textAlign: "center",
         letterSpacing: 1,
@@ -166,32 +169,36 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 
-    // 🔹 Input e form
+    // 🔹 Form
+    form: {
+        width: width * 0.9, // 👈 input e bottone più larghi (90% dello schermo)
+    },
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#111",
         borderRadius: 10,
-        paddingHorizontal: 12,
-        marginBottom: 16,
+        paddingHorizontal: 14,
+        marginBottom: 18,
         borderWidth: 1,
         borderColor: "#1DB954",
     },
     icon: {
-        marginRight: 8,
+        marginRight: 10,
     },
     input: {
         flex: 1,
         color: "#fff",
-        paddingVertical: 12,
+        paddingVertical: 14,
         fontSize: 16,
     },
     button: {
         backgroundColor: "#1DB954",
         borderRadius: 10,
-        paddingVertical: 14,
+        paddingVertical: 16,
         alignItems: "center",
-        marginTop: 12,
+        marginTop: 14,
+        width: "100%", // 👈 piena larghezza
     },
     buttonDisabled: {
         opacity: 0.7,

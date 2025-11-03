@@ -3,10 +3,7 @@ package com.asomusic.backend.controller;
 import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.service.song.ISongService;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -27,5 +24,23 @@ public class SongController {
     public Response fetchAllSongs() {
         List<AlbumDTO> albums = songService.fetchAllSongs();
         return Response.ok(albums).build();
+    }
+
+    @POST
+    @Path("/{albumId}/songs/{songId}/listen")
+    @Operation(summary = "Incrementa il numero di ascolti per una canzone in un album")
+    public Response incrementListenCount(
+            @PathParam("albumId") String albumId,
+            @PathParam("songId") String songId
+    ) {
+        try {
+            songService.incrementListenCount(albumId, songId);
+            return Response.ok("{\"message\": \"Listen count incremented\"}").build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
+                    .build();
+        }
     }
 }
