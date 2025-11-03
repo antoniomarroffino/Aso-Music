@@ -30,7 +30,7 @@ export default function AlbumDetails() {
     const router = useRouter();
     const {data: albums, isLoading} = useSongs();
     const {data: artists, isLoading: loadingArtists} = useArtists();
-    const { playSong, currentSong, isPlaying } = usePlayer();
+    const {playSong, currentSong, isPlaying, togglePlayPause} = usePlayer();
 
 
     const parsedAlbum: AlbumDTO | undefined = albums?.find((a) => a.id === id);
@@ -44,10 +44,16 @@ export default function AlbumDetails() {
 
     const handlePlaySong = useCallback(
         (song: SongDTO, index: number) => {
+            if (index === -1) {
+                togglePlayPause();
+                return;
+            }
+
             playSong(song, sortedSongs, index);
         },
-        [playSong, sortedSongs]
+        [playSong, sortedSongs, togglePlayPause]
     );
+
 
     const stats = useMemo(() => {
         if (!sortedSongs.length || !parsedAlbum) {
@@ -369,11 +375,10 @@ export default function AlbumDetails() {
                     <FlatList
                         data={sortedSongs}
                         keyExtractor={(item) => item.id}
-                        renderItem={({ item, index }) => (
+                        renderItem={({item, index}) => (
                             <SongItem
                                 song={item}
                                 index={index}
-                                queue={sortedSongs}
                                 allArtists={artists}
                                 albumId={parsedAlbum?.id}
                                 onPress={handlePlaySong}
@@ -382,7 +387,7 @@ export default function AlbumDetails() {
                             />
                         )}
                         scrollEnabled={false}
-                        ItemSeparatorComponent={() => <View style={styles.songSeparator} />}
+                        ItemSeparatorComponent={() => <View style={styles.songSeparator}/>}
                     />
 
                 </MotiView>

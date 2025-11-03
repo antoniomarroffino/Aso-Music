@@ -10,7 +10,6 @@ import { useRouter } from "expo-router";
 interface SongItemProps {
     song: SongDTO;
     index?: number;
-    queue?: SongDTO[];
     allArtists?: ArtistDTO[];
     albumId: string;
     isActive?: boolean;
@@ -200,9 +199,16 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
                                 style={styles.playIconContainer}
                             >
                                 <TouchableOpacity
-                                    onPress={() => onPress?.(song, index)}
+                                    onPress={() => {
+                                        if (isActive) {
+                                            onPress?.(song, -1);
+                                        } else {
+                                            onPress?.(song, index);
+                                        }
+                                    }}
                                     activeOpacity={0.8}
                                 >
+
 
                                 <LinearGradient
                                         colors={["#1DB954", "#1ed760"]}

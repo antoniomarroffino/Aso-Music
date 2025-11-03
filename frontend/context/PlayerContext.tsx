@@ -4,11 +4,12 @@ import { SongDTO } from "@/types/music";
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
+    nextSong: SongDTO | null;
     isPlaying: boolean;
     playSong: (song: SongDTO, queue?: SongDTO[], startIndex?: number) => void;
     togglePlayPause: () => void;
     stopSong: () => void;
-    nextSong: () => void;
+    nextSongAction: () => void;
     prevSong: () => void;
     progress: number;
     duration: number;
@@ -26,15 +27,31 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const status = useAudioPlayerStatus(player);
     const [isPlaying, setIsPlaying] = useState(false);
 
+    /** 🧠 Stato derivato: canzone successiva */
+    const nextSong =
+        currentQueue.length > 0
+            ? currentQueue[(currentIndex + 1) % currentQueue.length]
+            : null;
+
+    /** 🔹 Aggiorna flag di riproduzione */
     useEffect(() => {
         if (status) setIsPlaying(status.playing ?? false);
     }, [status]);
 
+    /** 🔹 Riproduce automaticamente quando cambia sorgente */
     useEffect(() => {
         if (source) player.play();
     }, [player, source]);
 
-    /** 🔹 Riproduce una canzone e, opzionalmente, una queue */
+    /** 🔹 Auto-next quando la traccia termina */
+    useEffect(() => {
+        if (!status) return;
+        if (status.didJustFinish) {
+            nextSongAction();
+        }
+    }, [status]);
+
+    /** 🎵 Riproduce una canzone e imposta eventualmente la coda */
     const playSong = (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
         if (queue && queue.length > 0) {
             setCurrentQueue(queue);
@@ -55,11 +72,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setSource({ uri: song.audioURL });
     };
 
+    /** ⏯️ Play/Pause toggle */
     const togglePlayPause = () => {
         if (isPlaying) player.pause();
         else player.play();
     };
 
+    /** ⏹️ Stop e reset */
     const stopSong = () => {
         player.pause();
         player.seekTo(0);
@@ -69,8 +88,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentQueue([]);
     };
 
-    /** 🔹 Traccia successiva con logica circolare */
-    const nextSong = () => {
+    /** ⏭️ Traccia successiva */
+    const nextSongAction = () => {
         if (!currentQueue.length) return;
         const nextIndex = (currentIndex + 1) % currentQueue.length;
         const next = currentQueue[nextIndex];
@@ -79,7 +98,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setSource({ uri: next.audioURL });
     };
 
-    /** 🔹 Traccia precedente con logica circolare */
+    /** ⏮️ Traccia precedente */
     const prevSong = () => {
         if (!currentQueue.length) return;
         const prevIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
@@ -96,11 +115,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         <PlayerContext.Provider
             value={{
                 currentSong,
+                nextSong, // ✅ disponibile ovunque
                 isPlaying,
                 playSong,
                 togglePlayPause,
                 stopSong,
-                nextSong,
+                nextSongAction,
                 prevSong,
                 progress,
                 duration,
