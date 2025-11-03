@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import {ArtistDTO, SongDTO} from "@/types/music";
-import { usePlayer } from "@/context/PlayerContext";
 import { useRouter } from "expo-router";
 
 
@@ -14,12 +13,14 @@ interface SongItemProps {
     queue?: SongDTO[];
     allArtists?: ArtistDTO[];
     albumId: string;
-    onPress?: () => void;
+    isActive?: boolean;
+    isPlaying?: boolean;
+    onPress?: (song: SongDTO, index: number) => void;
 }
 
 
-export default function SongItem({ song, index = 0, queue, allArtists, albumId, onPress}: SongItemProps) {
-    const { playSong, currentSong, isPlaying } = usePlayer();
+
+function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, onPress }: SongItemProps) {
     const router = useRouter();
     console.log("🎨 SongItem -> song.artists:", song.artists);
     const formattedNumber =
@@ -91,24 +92,14 @@ export default function SongItem({ song, index = 0, queue, allArtists, albumId, 
         }
     };
 
-    const handlePlay = async () => {
-        console.log("🎵 Riproduco:", song.title);
-        console.log("📤 Audio URL ricevuto:", song.audioURL);
-
-        playSong(song, queue, index);
-    };
-
-
-    const isCurrent = currentSong?.id === song.id;
-
     return (
         <TouchableOpacity
             style={styles.container}
             activeOpacity={0.8}
-            onPress={onPress ?? handlePlay}
-
+            onPress={() => onPress?.(song, index)}
         >
-            <MotiView
+
+        <MotiView
                 from={{ opacity: 0, translateX: -30, scale: 0.95 }}
                 animate={{ opacity: 1, translateX: 0, scale: 1 }}
                 transition={{
@@ -149,12 +140,12 @@ export default function SongItem({ song, index = 0, queue, allArtists, albumId, 
                                     <Text
                                         style={[
                                             styles.title,
-                                            isCurrent && { color: "#1DB954" },
+                                            isActive && { color: "#1DB954" },
                                         ]}
-                                        numberOfLines={1}
                                     >
                                         {song.title}
                                     </Text>
+
                                 </View>
                                 <View style={styles.artistRow}>
                                     <Ionicons name="person-outline" size={12} color="#666" />
@@ -209,16 +200,17 @@ export default function SongItem({ song, index = 0, queue, allArtists, albumId, 
                                 style={styles.playIconContainer}
                             >
                                 <TouchableOpacity
-                                    onPress={handlePlay}
+                                    onPress={() => onPress?.(song, index)}
                                     activeOpacity={0.8}
                                 >
-                                    <LinearGradient
+
+                                <LinearGradient
                                         colors={["#1DB954", "#1ed760"]}
                                         style={styles.playIcon}
                                     >
                                         <Ionicons
                                             name={
-                                                isCurrent && isPlaying
+                                                isActive && isPlaying
                                                     ? "pause"
                                                     : "play"
                                             }
@@ -362,3 +354,13 @@ const styles = StyleSheet.create({
     },
 
 });
+
+export default React.memo(SongItem, (prev, next) => {
+    return (
+        prev.song.id === next.song.id &&
+        prev.isActive === next.isActive &&
+        prev.isPlaying === next.isPlaying &&
+        prev.albumId === next.albumId
+    );
+});
+

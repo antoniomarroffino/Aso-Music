@@ -15,10 +15,14 @@ import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { useSongs } from "@/hooks/useSongs";
 import { useArtists } from "@/hooks/useArtists";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
+import { usePlayer } from "@/context/PlayerContext";
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const { playSong } = usePlayer();
     const { data: albums } = useSongs();
     const { data: artists } = useArtists();
 
@@ -75,6 +79,8 @@ export default function SearchScreen() {
                         name: song.title,
                         artist: song.artists?.map((a) => a.name).join(", "),
                         albumCover: album.coverURL,
+                        albumId: album.id,
+                        queue: album.songs,
                     });
                 }
             });
@@ -95,6 +101,25 @@ export default function SearchScreen() {
         return [];
     }, [query, searchType, albums, artists]);
 
+    // 🔸 Azione al tap
+    const handlePress = (item: any) => {
+        if (item.type === "artist") {
+            router.push({
+                pathname: "/(tabs)/artistdetails",
+                params: { artistId: item.id, from: "search" },
+            });
+        } else if (item.type === "album") {
+            router.push({
+                pathname: "/(tabs)/albumdetails",
+                params: { id: item.id, from: "search" },
+            });
+        } else if (item.type === "song") {
+            const queue = item.queue ?? [];
+            const songIndex = queue.findIndex((s: any) => s.id === item.id);
+            playSong(queue[songIndex], queue, songIndex);
+        }
+    };
+
     // 🔸 UI elemento risultato
     const renderResultItem = ({ item }: any) => {
         const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -110,7 +135,11 @@ export default function SearchScreen() {
         };
 
         return (
-            <TouchableOpacity activeOpacity={0.7} style={styles.resultItem}>
+            <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handlePress(item)}
+                style={styles.resultItem}
+            >
                 <LinearGradient
                     colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
                     style={styles.resultGradient}
@@ -128,7 +157,11 @@ export default function SearchScreen() {
                                 { backgroundColor: colorMap[item.type] + "20" },
                             ]}
                         >
-                            <Ionicons name={iconMap[item.type]} size={20} color={colorMap[item.type]} />
+                            <Ionicons
+                                name={iconMap[item.type]}
+                                size={20}
+                                color={colorMap[item.type]}
+                            />
                         </View>
                     )}
 
@@ -257,7 +290,6 @@ const styles = StyleSheet.create({
     iconGradient: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
     headerTitle: { color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5 },
     headerSubtitle: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
-
     searchBarContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -273,7 +305,6 @@ const styles = StyleSheet.create({
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, color: "#fff", fontSize: 15 },
     clearButton: { padding: 4 },
-
     filterRow: {
         flexDirection: "row",
         justifyContent: "center",
@@ -292,13 +323,8 @@ const styles = StyleSheet.create({
     filterButtonActive: { backgroundColor: "rgba(29,185,84,0.2)", borderColor: "#1DB954" },
     filterText: { color: "#ccc", fontWeight: "600", fontSize: 13 },
     filterTextActive: { color: "#1DB954", fontWeight: "700" },
-
     resultsContainer: { flex: 1 },
-    resultItem: {
-        marginBottom: 10,
-        borderRadius: 14,
-        overflow: "hidden",
-    },
+    resultItem: { marginBottom: 10, borderRadius: 14, overflow: "hidden" },
     resultGradient: {
         flexDirection: "row",
         alignItems: "center",
