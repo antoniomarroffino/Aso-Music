@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
     View,
     Text,
     StyleSheet,
-    FlatList,
     Dimensions,
     ScrollView,
     TouchableOpacity,
@@ -15,24 +14,32 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
+import { useArtists } from "@/hooks/useArtists";
 
 const { width } = Dimensions.get("window");
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
-    const { artist } = useLocalSearchParams<{ artist?: string }>();
+    const { artistId } = useLocalSearchParams<{ artistId?: string }>();
+    const { data: artists, isLoading } = useArtists();
 
-    let parsedArtist: any = null;
-    try {
-        parsedArtist = artist ? JSON.parse(decodeURIComponent(artist)) : null;
-    } catch (e) {
-        console.error("Errore nel parsing artista:", e);
+    const artist = useMemo(() => {
+        if (!artistId || !artists) return null;
+        return artists.find((a) => a.id === artistId);
+    }, [artistId, artists]);
+
+    if (isLoading) {
+        return (
+            <View style={styles.centered}>
+                <Text style={styles.loadingText}>Caricamento artista...</Text>
+            </View>
+        );
     }
 
-    if (!parsedArtist) {
+    if (!artist) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.errorText}>Nessun artista fornito 😢</Text>
+            <View style={styles.centered}>
+                <Text style={styles.errorText}>Artista non trovato 😢</Text>
             </View>
         );
     }
@@ -41,14 +48,16 @@ export default function ArtistDetailsScreen() {
         <ScrollView style={styles.container}>
             {/* HEADER */}
             <LinearGradient colors={["#1a1a1a", "#0a0a0a"]} style={styles.header}>
-                {/* 🔙 Pulsante indietro fluttuante */}
-                <BlurView intensity={Platform.OS === "ios" ? 30 : 60} tint="dark" style={styles.backWrapper}>
+                <BlurView
+                    intensity={Platform.OS === "ios" ? 30 : 60}
+                    tint="dark"
+                    style={styles.backWrapper}
+                >
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={26} color="#fff" />
                     </TouchableOpacity>
                 </BlurView>
 
-                {/* Immagine e nome artista */}
                 <MotiView
                     from={{ opacity: 0, translateY: -20 }}
                     animate={{ opacity: 1, translateY: 0 }}
@@ -56,63 +65,56 @@ export default function ArtistDetailsScreen() {
                 >
                     <View style={styles.imageWrapper}>
                         <Image
-                            source={{ uri: parsedArtist.image }}
+                            source={{ uri: artist.profileURL }}
                             style={styles.image}
                             contentFit="cover"
                         />
                     </View>
-                    <Text style={styles.artistName}>{parsedArtist.name}</Text>
+                    <Text style={styles.artistName}>{artist.name}</Text>
                     <Text style={styles.followers}>
-                        {parsedArtist.followers ?? "—"} followers
+                        {artist.followers ?? "—"} followers
                     </Text>
                 </MotiView>
             </LinearGradient>
 
-            {/* BIO */}
             <View style={styles.bioContainer}>
                 <Text style={styles.bio}>
-                    {parsedArtist.bio ??
+                    {artist.bio ??
                         "Questo artista non ha ancora una biografia disponibile."}
                 </Text>
             </View>
 
             {/* ALBUM */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>💿 Album</Text>
-                {parsedArtist.albums?.map((album: any) => (
-                    <View key={album.id} style={styles.albumItem}>
-                        <Ionicons name="musical-notes" size={20} color="#1DB954" />
-                        <Text style={styles.albumText}>
-                            {album.name}{" "}
-                            <Text style={styles.year}>
-                                {album.year ? `(${album.year})` : ""}
+            {artist.albums && artist.albums.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>💿 Album</Text>
+                    {artist.albums.map((album: any) => (
+                        <View key={album.id} style={styles.albumItem}>
+                            <Ionicons name="musical-notes" size={20} color="#1DB954" />
+                            <Text style={styles.albumText}>
+                                {album.name}{" "}
+                                <Text style={styles.year}>
+                                    {album.year ? `(${album.year})` : ""}
+                                </Text>
                             </Text>
-                        </Text>
-                    </View>
-                ))}
-            </View>
-
-            {/* COLLABORAZIONI */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🤝 Collaborazioni</Text>
-                <FlatList
-                    horizontal
-                    data={parsedArtist.collaborations ?? []}
-                    keyExtractor={(item) => item}
-                    renderItem={({ item }) => (
-                        <View style={styles.collabPill}>
-                            <Text style={styles.collabText}>{item}</Text>
                         </View>
-                    )}
-                    showsHorizontalScrollIndicator={false}
-                />
-            </View>
+                    ))}
+                </View>
+            )}
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a0a" },
+    centered: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#000",
+    },
+    loadingText: { color: "#888" },
+    errorText: { color: "#fff" },
     header: {
         paddingTop: 80,
         alignItems: "center",
@@ -164,15 +166,4 @@ const styles = StyleSheet.create({
     albumItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     albumText: { color: "#fff", fontSize: 16, marginLeft: 8 },
     year: { color: "#999" },
-    collabPill: {
-        backgroundColor: "#1DB95420",
-        borderColor: "#1DB954",
-        borderWidth: 1,
-        borderRadius: 20,
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        marginRight: 10,
-    },
-    collabText: { color: "#1DB954", fontWeight: "600" },
-    errorText: { color: "#fff", textAlign: "center", marginTop: 50 },
 });

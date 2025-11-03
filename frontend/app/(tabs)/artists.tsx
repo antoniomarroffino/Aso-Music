@@ -15,19 +15,20 @@ import { ArtistCard } from "@/components/ArtistCard";
 import { useArtists } from "@/hooks/useArtists";
 import { AlphabetList } from "@/components/AlphabetList";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+
 
 const { width } = Dimensions.get("window");
-// ✅ Lascia spazio per l'AlphabetList a destra
-const CONTENT_WIDTH = width - 60; // 60px per l'alphabet list + padding
-const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2; // 48 = padding laterale + gap
+const CONTENT_WIDTH = width - 60;
+const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2;
 const CARD_HEIGHT = CARD_WIDTH + 60;
 
 export default function ArtistsScreen() {
     const { data: artists, isLoading, isFetching, refetch } = useArtists();
+    const router = useRouter();
     const flatListRef = useRef<FlatList>(null);
     const [activeLetter, setActiveLetter] = useState<string | null>(null);
 
-    // ✅ Ordina alfabeticamente
     const sortedArtists = useMemo(() => {
         if (!artists) return [];
 
@@ -187,7 +188,16 @@ export default function ArtistsScreen() {
                         numColumns={2}
                         columnWrapperStyle={styles.row}
                         renderItem={({ item, index }) => (
-                            <ArtistCard {...item} index={index} />
+                            <ArtistCard
+                                {...item}
+                                index={index}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/artistdetails",
+                                        params: { artistId: item.id },
+                                    })
+                                }
+                            />
                         )}
                         refreshControl={
                             <RefreshControl
@@ -205,6 +215,7 @@ export default function ArtistsScreen() {
                         updateCellsBatchingPeriod={50}
                         windowSize={10}
                     />
+
                 ) : (
                     <View style={styles.emptyState}>
                         <Ionicons name="musical-notes-outline" size={48} color="#333" />

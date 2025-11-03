@@ -5,6 +5,8 @@ import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import {ArtistDTO, SongDTO} from "@/types/music";
 import { usePlayer } from "@/context/PlayerContext";
+import { useRouter } from "expo-router";
+
 
 interface SongItemProps {
     song: SongDTO;
@@ -17,6 +19,7 @@ interface SongItemProps {
 
 export default function SongItem({ song, index = 0, queue, allArtists, onPress}: SongItemProps) {
     const { playSong, currentSong, isPlaying } = usePlayer();
+    const router = useRouter();
     console.log("🎨 SongItem -> song.artists:", song.artists);
     const formattedNumber =
         song.tracklistPosition < 10
@@ -153,16 +156,33 @@ export default function SongItem({ song, index = 0, queue, allArtists, onPress}:
                                     </Text>
                                 </View>
                                 <View style={styles.artistRow}>
-                                    <Ionicons
-                                        name="person-outline"
-                                        size={12}
-                                        color="#666"
-                                    />
-                                    <Text style={styles.artist} numberOfLines={1}>
-                                        {artistNames.join(", ")}
-
-                                    </Text>
+                                    <Ionicons name="person-outline" size={12} color="#666" />
+                                    {Array.isArray(song.artists) && song.artists.length > 0 ? (
+                                        song.artists.map((artist, i) => {
+                                            if (!artist?.id || !artist?.name) return null;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={artist.id}
+                                                    onPress={() =>
+                                                        router.push({
+                                                            pathname: "/artistdetails",
+                                                            params: { artistId: artist.id },
+                                                        })
+                                                    }
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={styles.artistLink}>
+                                                        {artist.name}
+                                                        {i < song.artists.length - 1 ? ", " : ""}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })
+                                    ) : (
+                                        <Text style={styles.artist}>Artista sconosciuto</Text>
+                                    )}
                                 </View>
+
                             </View>
 
                             {/* Durata */}
@@ -333,4 +353,11 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255, 255, 255, 0.05)",
         transform: [{ skewX: "-20deg" }],
     },
+    artistLink: {
+        color: "#1DB954",
+        fontSize: 12,
+        fontWeight: "600",
+        textDecorationLine: "underline",
+    },
+
 });
