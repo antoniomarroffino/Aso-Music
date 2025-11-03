@@ -3,9 +3,9 @@ import { TouchableOpacity, Text, StyleSheet, View, Dimensions } from "react-nati
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
-import { Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ArtistDTO } from "@/types/music";
+import { useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
 const CONTENT_WIDTH = width - 60;
@@ -13,94 +13,91 @@ const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2;
 
 type ArtistCardProps = ArtistDTO & {
     index?: number;
+    onPress?: () => void; // ✅ opzionale per compatibilità futura
 };
 
-export function ArtistCard({ id, name, profileURL, index = 0 }: ArtistCardProps) {
-    const encodedArtist = encodeURIComponent(JSON.stringify({ id, name, profileURL }));
+export function ArtistCard({ id, name, profileURL, index = 0, onPress }: ArtistCardProps) {
+    const router = useRouter();
 
     const imageSource =
         profileURL && profileURL.trim().length > 0
             ? { uri: profileURL }
             : require("@/assets/images/placeholder-profile.png");
 
+    const handlePress = () => {
+        if (onPress) return onPress();
+
+        // ✅ nuova logica: passa solo l'id dell'artista
+        router.push({
+            pathname: "/artistdetails",
+            params: { artistId: id },
+        });
+    };
+
     return (
-        <Link
-            href={{
-                pathname: "/artistdetails",
-                params: { artist: encodedArtist },
-            }}
-            asChild
-        >
-            <TouchableOpacity style={styles.container} activeOpacity={0.85}>
-                <MotiView
-                    from={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{
-                        type: "spring",
-                        damping: 15,
-                        delay: index * 40,
-                    }}
-                >
-                    {/* ✅ Card con bordo gradient sottile */}
-                    <View style={styles.card}>
-                        <LinearGradient
-                            colors={[
-                                "rgba(29, 185, 84, 0.3)",
-                                "rgba(138, 43, 226, 0.2)",
-                            ]}
-                            style={styles.gradientBorder}
-                        >
-                            <View style={styles.cardInner}>
-                                {/* Immagine artista */}
-                                <View style={styles.imageWrapper}>
-                                    <Image
-                                        source={imageSource}
-                                        style={styles.image}
-                                        contentFit="cover"
-                                        transition={200}
-                                    />
+        <TouchableOpacity style={styles.container} activeOpacity={0.85} onPress={handlePress}>
+            <MotiView
+                from={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{
+                    type: "spring",
+                    damping: 15,
+                    delay: index * 40,
+                }}
+            >
+                <View style={styles.card}>
+                    <LinearGradient
+                        colors={["rgba(29, 185, 84, 0.3)", "rgba(138, 43, 226, 0.2)"]}
+                        style={styles.gradientBorder}
+                    >
+                        <View style={styles.cardInner}>
+                            {/* Immagine artista */}
+                            <View style={styles.imageWrapper}>
+                                <Image
+                                    source={imageSource}
+                                    style={styles.image}
+                                    contentFit="cover"
+                                    transition={200}
+                                />
+                                <LinearGradient
+                                    colors={["transparent", "rgba(0, 0, 0, 0.4)"]}
+                                    style={styles.imageOverlay}
+                                />
+                            </View>
 
-                                    {/* Overlay gradient leggero */}
-                                    <LinearGradient
-                                        colors={["transparent", "rgba(0, 0, 0, 0.4)"]}
-                                        style={styles.imageOverlay}
-                                    />
-                                </View>
-
-                                {/* Play button */}
-                                <MotiView
-                                    from={{ scale: 0, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{
-                                        type: "spring",
-                                        delay: 200 + index * 40,
-                                    }}
-                                    style={styles.playButton}
+                            {/* Bottone Play */}
+                            <MotiView
+                                from={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{
+                                    type: "spring",
+                                    delay: 200 + index * 40,
+                                }}
+                                style={styles.playButton}
+                            >
+                                <LinearGradient
+                                    colors={["#1DB954", "#1ed760"]}
+                                    style={styles.playGradient}
                                 >
-                                    <LinearGradient
-                                        colors={["#1DB954", "#1ed760"]}
-                                        style={styles.playGradient}
-                                    >
-                                        <Ionicons name="play" size={14} color="#000" />
-                                    </LinearGradient>
-                                </MotiView>
+                                    <Ionicons name="play" size={14} color="#000" />
+                                </LinearGradient>
+                            </MotiView>
 
-                                {/* Nome artista */}
-                                <View style={styles.nameContainer}>
-                                    <Text numberOfLines={1} style={styles.name}>
-                                        {name}
-                                    </Text>
-                                    <View style={styles.badge}>
-                                        <Ionicons name="mic" size={8} color="#888" />
-                                        <Text style={styles.badgeText}>Artista</Text>
-                                    </View>
+                            {/* Nome artista */}
+                            <View style={styles.nameContainer}>
+                                <Text numberOfLines={1} style={styles.name}>
+                                    {name}
+                                </Text>
+                                <View style={styles.badge}>
+                                    <Ionicons name="mic" size={8} color="#888" />
+                                    <Text style={styles.badgeText}>Artista</Text>
                                 </View>
                             </View>
-                        </LinearGradient>
-                    </View>
-                </MotiView>
-            </TouchableOpacity>
-        </Link>
+                        </View>
+                    </LinearGradient>
+                </View>
+            </MotiView>
+        </TouchableOpacity>
     );
 }
 

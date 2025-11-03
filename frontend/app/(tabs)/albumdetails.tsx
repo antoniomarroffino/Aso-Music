@@ -388,6 +388,7 @@ export default function AlbumDetails() {
                                 index={index}
                                 queue={sortedSongs}
                                 allArtists={artists}
+                                albumId={parsedAlbum?.id}
                                 onPress={() => playSong(item, sortedSongs, index)}
                             />
                         )}

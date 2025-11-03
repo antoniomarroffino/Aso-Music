@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     },
     miniPlayerWrapper: {
         position: "absolute",
-        bottom: 60, // posiziona il miniplayer sopra la tab bar
+        bottom: 0,
         left: 0,
         right: 0,
         zIndex: 999, // sempre sopra le tabs

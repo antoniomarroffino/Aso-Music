@@ -13,11 +13,12 @@ interface SongItemProps {
     index?: number;
     queue?: SongDTO[];
     allArtists?: ArtistDTO[];
+    albumId: string;
     onPress?: () => void;
 }
 
 
-export default function SongItem({ song, index = 0, queue, allArtists, onPress}: SongItemProps) {
+export default function SongItem({ song, index = 0, queue, allArtists, albumId, onPress}: SongItemProps) {
     const { playSong, currentSong, isPlaying } = usePlayer();
     const router = useRouter();
     console.log("🎨 SongItem -> song.artists:", song.artists);
@@ -165,8 +166,8 @@ export default function SongItem({ song, index = 0, queue, allArtists, onPress}:
                                                     key={artist.id}
                                                     onPress={() =>
                                                         router.push({
-                                                            pathname: "/artistdetails",
-                                                            params: { artistId: artist.id },
+                                                            pathname: "/(tabs)/artistdetails",
+                                                            params: { artistId: artist.id, from: "albumdetails" , albumId: albumId},
                                                         })
                                                     }
                                                     activeOpacity={0.7}

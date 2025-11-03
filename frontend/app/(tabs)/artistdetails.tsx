@@ -20,14 +20,35 @@ const { width } = Dimensions.get("window");
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
-    const { artistId } = useLocalSearchParams<{ artistId?: string }>();
+    const { artistId, from, albumId } = useLocalSearchParams<{
+        artistId?: string;
+        from?: string;
+        albumId?: string;
+    }>();
+
     const { data: artists, isLoading } = useArtists();
 
+    /** 🔙 Gestione ritorno dinamico */
+    const handleGoBack = () => {
+        if (from === "artists") {
+            router.replace("/(tabs)/artists");
+        } else if (from === "albumdetails" && albumId) {
+            router.replace({
+                pathname: "/(tabs)/albumdetails",
+                params: { id: albumId },
+            });
+        } else {
+            router.back();
+        }
+    };
+
+    /** 🎨 Cerca artista */
     const artist = useMemo(() => {
         if (!artistId || !artists) return null;
         return artists.find((a) => a.id === artistId);
     }, [artistId, artists]);
 
+    /** ⏳ Stato di caricamento */
     if (isLoading) {
         return (
             <View style={styles.centered}>
@@ -36,6 +57,7 @@ export default function ArtistDetailsScreen() {
         );
     }
 
+    /** ⚠️ Nessun artista trovato */
     if (!artist) {
         return (
             <View style={styles.centered}>
@@ -45,19 +67,21 @@ export default function ArtistDetailsScreen() {
     }
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* HEADER */}
             <LinearGradient colors={["#1a1a1a", "#0a0a0a"]} style={styles.header}>
+                {/* 🔙 Pulsante indietro */}
                 <BlurView
                     intensity={Platform.OS === "ios" ? 30 : 60}
                     tint="dark"
                     style={styles.backWrapper}
                 >
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={26} color="#fff" />
                     </TouchableOpacity>
                 </BlurView>
 
+                {/* Immagine + Nome artista */}
                 <MotiView
                     from={{ opacity: 0, translateY: -20 }}
                     animate={{ opacity: 1, translateY: 0 }}
@@ -71,12 +95,10 @@ export default function ArtistDetailsScreen() {
                         />
                     </View>
                     <Text style={styles.artistName}>{artist.name}</Text>
-                    <Text style={styles.followers}>
-                        {artist.followers ?? "—"} followers
-                    </Text>
                 </MotiView>
             </LinearGradient>
 
+            {/* BIO */}
             <View style={styles.bioContainer}>
                 <Text style={styles.bio}>
                     {artist.bio ??
@@ -84,7 +106,7 @@ export default function ArtistDetailsScreen() {
                 </Text>
             </View>
 
-            {/* ALBUM */}
+            {/* ALBUMS */}
             {artist.albums && artist.albums.length > 0 && (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>💿 Album</Text>
@@ -147,12 +169,6 @@ const styles = StyleSheet.create({
         fontSize: 30,
         fontWeight: "900",
         textAlign: "center",
-    },
-    followers: {
-        color: "#b3b3b3",
-        fontSize: 14,
-        textAlign: "center",
-        marginTop: 4,
     },
     bioContainer: { paddingHorizontal: 20, marginVertical: 20 },
     bio: { color: "#ddd", fontSize: 15, lineHeight: 22, textAlign: "center" },
