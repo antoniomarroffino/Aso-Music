@@ -1,4 +1,4 @@
-import React, {useMemo, useRef, useState, useCallback} from "react";
+import React, { useMemo, useRef, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -8,26 +8,27 @@ import {
     RefreshControl,
     Platform,
 } from "react-native";
-import {LinearGradient} from "expo-linear-gradient";
-import {StatusBar} from "expo-status-bar";
-import {MotiView} from "moti";
-import {ArtistCard} from "@/components/ArtistCard";
-import {useArtists} from "@/hooks/useArtists";
-import {AlphabetList} from "@/components/AlphabetList";
-import {Ionicons} from "@expo/vector-icons";
-import {useRouter} from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { MotiView } from "moti";
+import { ArtistCard } from "@/components/ArtistCard";
+import { useArtists } from "@/hooks/useArtists";
+import { AlphabetList } from "@/components/AlphabetList";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-
-const {width} = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 const CONTENT_WIDTH = width - 60;
 const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2;
 const CARD_HEIGHT = CARD_WIDTH + 60;
 
 export default function ArtistsScreen() {
-    const {data: artists, isLoading, isFetching, refetch} = useArtists();
+    const { data: artists, isLoading, isFetching, refetch } = useArtists();
     const router = useRouter();
     const flatListRef = useRef<FlatList>(null);
     const [activeLetter, setActiveLetter] = useState<string | null>(null);
+    const insets = useSafeAreaInsets(); // ✅ per evitare contenuti nascosti
 
     const sortedArtists = useMemo(() => {
         if (!artists) return [];
@@ -42,11 +43,11 @@ export default function ArtistsScreen() {
             const bIsLetter = isLetter(bFirst);
 
             if (aIsLetter && bIsLetter) {
-                return a.name.localeCompare(b.name, "it", {sensitivity: "base"});
+                return a.name.localeCompare(b.name, "it", { sensitivity: "base" });
             }
             if (aIsLetter && !bIsLetter) return -1;
             if (!aIsLetter && bIsLetter) return 1;
-            return a.name.localeCompare(b.name, "it", {sensitivity: "base"});
+            return a.name.localeCompare(b.name, "it", { sensitivity: "base" });
         });
     }, [artists]);
 
@@ -74,40 +75,40 @@ export default function ArtistsScreen() {
         });
         const sorted = Array.from(set).sort();
         const hasSymbols = sortedArtists.some(
-            (a) => !(/^[A-ZÀ-ÖØ-Þ]/i.test(a.name.trim()[0]))
+            (a) => !/^[A-ZÀ-ÖØ-Þ]/i.test(a.name.trim()[0])
         );
         return hasSymbols ? [...sorted, "#"] : sorted;
     }, [sortedArtists]);
 
     // ✅ Scrolling sicuro
-    const handleSelectLetter = useCallback((letter: string) => {
-        const index = letterIndexMap[letter];
+    const handleSelectLetter = useCallback(
+        (letter: string) => {
+            const index = letterIndexMap[letter];
+            if (index !== undefined && flatListRef.current && sortedArtists.length > 0) {
+                setActiveLetter(letter);
 
-        if (index !== undefined && flatListRef.current && sortedArtists.length > 0) {
-            setActiveLetter(letter);
-
-            try {
-                const rowIndex = Math.floor(index / 2);
-                const offset = rowIndex * (CARD_HEIGHT + 16);
-
-                flatListRef.current.scrollToOffset({
-                    offset: Math.max(0, offset - 20),
-                    animated: true,
-                });
-
-                setTimeout(() => setActiveLetter(null), 600);
-            } catch (error) {
-                console.warn("Scroll error:", error);
-                setActiveLetter(null);
+                try {
+                    const rowIndex = Math.floor(index / 2);
+                    const offset = rowIndex * (CARD_HEIGHT + 16);
+                    flatListRef.current.scrollToOffset({
+                        offset: Math.max(0, offset - 20),
+                        animated: true,
+                    });
+                    setTimeout(() => setActiveLetter(null), 600);
+                } catch (error) {
+                    console.warn("Scroll error:", error);
+                    setActiveLetter(null);
+                }
             }
-        }
-    }, [letterIndexMap, sortedArtists]);
+        },
+        [letterIndexMap, sortedArtists]
+    );
 
     const renderHeader = () => (
         <MotiView
-            from={{opacity: 0, translateY: -30}}
-            animate={{opacity: 1, translateY: 0}}
-            transition={{type: "timing", duration: 700}}
+            from={{ opacity: 0, translateY: -30 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: "timing", duration: 700 }}
             style={styles.header}
         >
             <View style={styles.headerContent}>
@@ -116,7 +117,7 @@ export default function ArtistsScreen() {
                         colors={["#1DB954", "#1ed760"]}
                         style={styles.iconGradient}
                     >
-                        <Ionicons name="mic-outline" size={24} color="#000"/>
+                        <Ionicons name="mic-outline" size={24} color="#000" />
                     </LinearGradient>
                 </View>
                 <View style={styles.headerText}>
@@ -134,8 +135,8 @@ export default function ArtistsScreen() {
             {new Array(8).fill(0).map((_, i) => (
                 <MotiView
                     key={i}
-                    from={{opacity: 0.3, scale: 0.9}}
-                    animate={{opacity: 0.6, scale: 1}}
+                    from={{ opacity: 0.3, scale: 0.9 }}
+                    animate={{ opacity: 0.6, scale: 1 }}
                     transition={{
                         loop: true,
                         type: "timing",
@@ -149,8 +150,8 @@ export default function ArtistsScreen() {
                         colors={["#1a1a1a", "#252525", "#1a1a1a"]}
                         style={styles.skeletonInner}
                     >
-                        <View style={styles.skeletonCircle}/>
-                        <View style={styles.skeletonLine}/>
+                        <View style={styles.skeletonCircle} />
+                        <View style={styles.skeletonLine} />
                     </LinearGradient>
                 </MotiView>
             ))}
@@ -172,7 +173,7 @@ export default function ArtistsScreen() {
                 colors={["#000000", "#0a0a0a", "#1a1a2e"]}
                 style={StyleSheet.absoluteFillObject}
             />
-            <StatusBar style="light"/>
+            <StatusBar style="light" />
 
             {renderHeader()}
 
@@ -187,16 +188,15 @@ export default function ArtistsScreen() {
                         keyExtractor={(item) => item.id}
                         numColumns={2}
                         columnWrapperStyle={styles.row}
-                        renderItem={({item, index}) => (
+                        renderItem={({ item, index }) => (
                             <ArtistCard
                                 {...item}
                                 index={index}
                                 onPress={() =>
                                     router.push({
                                         pathname: "/artistdetails",
-                                        params: {artistId: item.id, from: "artists"},
+                                        params: { artistId: item.id, from: "artists" },
                                     })
-
                                 }
                             />
                         )}
@@ -209,22 +209,24 @@ export default function ArtistsScreen() {
                             />
                         }
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContent}
+                        contentContainerStyle={[
+                            styles.listContent,
+                            { paddingBottom: insets.bottom + 120 }, // 👈 spazio dinamico per MiniPlayer + TabBar
+                        ]}
                         getItemLayout={getItemLayout}
                         removeClippedSubviews={Platform.OS === "android"}
                         maxToRenderPerBatch={10}
                         updateCellsBatchingPeriod={50}
                         windowSize={10}
                     />
-
                 ) : (
                     <View style={styles.emptyState}>
-                        <Ionicons name="musical-notes-outline" size={48} color="#333"/>
+                        <Ionicons name="musical-notes-outline" size={48} color="#333" />
                         <Text style={styles.emptyText}>Nessun artista trovato</Text>
                     </View>
                 )}
 
-                {/* ✅ AlphabetList integrato nel layout */}
+                {/* ✅ AlphabetList integrato */}
                 {sortedArtists.length > 0 && (
                     <AlphabetList
                         letters={letters}
@@ -237,10 +239,10 @@ export default function ArtistsScreen() {
             {/* 🎯 Indicatore lettera attiva */}
             {activeLetter && (
                 <MotiView
-                    from={{opacity: 0, scale: 0.5}}
-                    animate={{opacity: 1, scale: 1}}
-                    exit={{opacity: 0, scale: 0.5}}
-                    transition={{type: "spring", damping: 15}}
+                    from={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ type: "spring", damping: 15 }}
                     style={styles.letterIndicator}
                 >
                     <LinearGradient
@@ -278,7 +280,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#1DB954",
-        shadowOffset: {width: 0, height: 4},
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,
@@ -308,7 +310,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     listContent: {
-        paddingBottom: 100,
+        paddingBottom: 100, // valore base, sovrascritto dal dynamic insets
     },
     skeletonGrid: {
         flexDirection: "row",
@@ -359,14 +361,14 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: "50%",
         left: "50%",
-        transform: [{translateX: -50}, {translateY: -50}],
+        transform: [{ translateX: -50 }, { translateY: -50 }],
         width: 100,
         height: 100,
         borderRadius: 50,
         overflow: "hidden",
         zIndex: 1000,
         shadowColor: "#1DB954",
-        shadowOffset: {width: 0, height: 4},
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.6,
         shadowRadius: 12,
         elevation: 10,

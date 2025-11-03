@@ -1,12 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     View,
     Text,
     StyleSheet,
     Dimensions,
-    ScrollView,
     TouchableOpacity,
     Platform,
+    ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -15,8 +15,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 import { useArtists } from "@/hooks/useArtists";
-
-const { width } = Dimensions.get("window");
+import { useSongs } from "@/hooks/useSongs";
+import SongItemArtist from "@/components/SongItemArtist";
+import AlbumCard from "@/components/AlbumCard";
+import SafeScrollView from "@/components/ui/SafeScrollView"; // ✅ nuovo import
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
@@ -27,6 +29,13 @@ export default function ArtistDetailsScreen() {
     }>();
 
     const { data: artists, isLoading } = useArtists();
+    const { data: albums } = useSongs(); // albums = AlbumDTO[]
+
+    const [visibleCount, setVisibleCount] = useState(5);
+
+    useEffect(() => {
+        setVisibleCount(5);
+    }, [artistId]);
 
     /** 🔙 Gestione ritorno dinamico */
     const handleGoBack = () => {
@@ -48,7 +57,26 @@ export default function ArtistDetailsScreen() {
         return artists.find((a) => a.id === artistId);
     }, [artistId, artists]);
 
-    /** ⏳ Stato di caricamento */
+    /** 🎵 Filtra tutte le canzoni dove compare l’artista */
+    const artistSongs = useMemo(() => {
+        if (!albums || !artist) return [];
+        const allSongs = albums.flatMap((album) => album.songs ?? []);
+        const filtered = allSongs.filter((song) =>
+            song.artists.some((a) => a.id === artist.id)
+        );
+        return filtered.sort((a, b) => b.stream - a.stream);
+    }, [albums, artist]);
+
+    /** 💿 Trova tutti gli album in cui è presente almeno una canzone dell’artista */
+    const artistAlbums = useMemo(() => {
+        if (!albums || !artist) return [];
+        return albums.filter((album) =>
+            album.songs.some((song) =>
+                song.artists.some((a) => a.id === artist.id)
+            )
+        );
+    }, [albums, artist]);
+
     if (isLoading) {
         return (
             <View style={styles.centered}>
@@ -57,7 +85,6 @@ export default function ArtistDetailsScreen() {
         );
     }
 
-    /** ⚠️ Nessun artista trovato */
     if (!artist) {
         return (
             <View style={styles.centered}>
@@ -67,10 +94,9 @@ export default function ArtistDetailsScreen() {
     }
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <SafeScrollView style={styles.container}>
             {/* HEADER */}
             <LinearGradient colors={["#1a1a1a", "#0a0a0a"]} style={styles.header}>
-                {/* 🔙 Pulsante indietro */}
                 <BlurView
                     intensity={Platform.OS === "ios" ? 30 : 60}
                     tint="dark"
@@ -81,7 +107,6 @@ export default function ArtistDetailsScreen() {
                     </TouchableOpacity>
                 </BlurView>
 
-                {/* Immagine + Nome artista */}
                 <MotiView
                     from={{ opacity: 0, translateY: -20 }}
                     animate={{ opacity: 1, translateY: 0 }}
@@ -106,26 +131,105 @@ export default function ArtistDetailsScreen() {
                 </Text>
             </View>
 
-            {/* ALBUMS */}
-            {artist.albums && artist.albums.length > 0 && (
+            {/* 🎵 TOP SONGS */}
+            {artistSongs.length > 0 && (
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>💿 Album</Text>
-                    {artist.albums.map((album: any) => (
-                        <View key={album.id} style={styles.albumItem}>
-                            <Ionicons name="musical-notes" size={20} color="#1DB954" />
-                            <Text style={styles.albumText}>
-                                {album.name}{" "}
-                                <Text style={styles.year}>
-                                    {album.year ? `(${album.year})` : ""}
-                                </Text>
-                            </Text>
+                    <Text style={styles.sectionTitle}>🔥 Top Songs</Text>
+
+                    {artistSongs.slice(0, visibleCount).map((song, index) => {
+                        const album = albums?.find((alb) =>
+                            alb.songs.some((s) => s.id === song.id)
+                        );
+
+                        return (
+                            <SongItemArtist
+                                key={song.id}
+                                song={song}
+                                rank={index + 1}
+                                queue={artistSongs}
+                                allArtists={artistSongs.flatMap((s) => s.artists)}
+                                albumId={album?.id ?? "unknown"}
+                            />
+                        );
+                    })}
+
+                    {artistSongs.length > 5 && (
+                        <View style={styles.showMoreContainer}>
+                            {visibleCount < artistSongs.length && (
+                                <TouchableOpacity
+                                    onPress={() => setVisibleCount((prev) => prev + 5)}
+                                    style={styles.showMoreButton}
+                                >
+                                    <Text style={styles.showMoreText}>Mostra altre 5</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {visibleCount > 5 && (
+                                <TouchableOpacity
+                                    onPress={() => setVisibleCount(5)}
+                                    style={styles.showMoreButton}
+                                >
+                                    <Text style={styles.showMoreText}>Mostra meno</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                    ))}
+                    )}
                 </View>
             )}
-        </ScrollView>
+
+            {/* 💿 ALBUMS */}
+            {artistAlbums.length > 0 && (
+                <View style={styles.section}>
+                    {(() => {
+                        const sorted = [...artistAlbums].sort(
+                            (a, b) => b.releaseYear - a.releaseYear
+                        );
+                        const latest = sorted[0];
+                        const others = sorted.slice(1);
+
+                        return (
+                            <>
+                                {/* 🎉 Latest Release */}
+                                <View style={styles.subSection}>
+                                    <Text style={styles.subSectionTitle}>🕔 Latest Release</Text>
+                                    <ScrollView
+                                        horizontal
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.albumsRow}
+                                    >
+                                        <AlbumCard album={latest} index={0} />
+                                    </ScrollView>
+                                </View>
+
+                                {/* 🎧 Appears In */}
+                                {others.length > 0 && (
+                                    <View style={styles.subSection}>
+                                        <Text style={styles.subSectionTitle}>🎧 Appears In</Text>
+                                        <ScrollView
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={styles.albumsRow}
+                                        >
+                                            {others.map((album, index) => (
+                                                <AlbumCard
+                                                    key={album.id}
+                                                    album={album}
+                                                    index={index + 1}
+                                                />
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </>
+                        );
+                    })()}
+                </View>
+            )}
+        </SafeScrollView>
     );
 }
+
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#0a0a0a" },
@@ -179,7 +283,32 @@ const styles = StyleSheet.create({
         fontWeight: "800",
         marginBottom: 12,
     },
-    albumItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-    albumText: { color: "#fff", fontSize: 16, marginLeft: 8 },
-    year: { color: "#999" },
+    showMoreButton: {
+        alignSelf: "center",
+        marginTop: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        backgroundColor: "#1DB95420",
+    },
+    showMoreContainer: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: 10,
+        marginTop: 10,
+    },
+    subSection: {
+        marginBottom: 20,
+    },
+    subSectionTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
+        marginBottom: 10,
+    },
+    albumsRow: {
+        gap: 16,
+        paddingRight: 10,
+    },
+    showMoreText: { color: "#1DB954", fontWeight: "600" },
 });

@@ -17,16 +17,18 @@ import { useSongs } from "@/hooks/useSongs";
 import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
 import { BlurView } from "expo-blur";
-import { useAuth } from "@/context/AuthContext"; // ✅ AGGIUNTO
+import { useAuth } from "@/context/AuthContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context"; // ✅ AGGIUNTO
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
 
 export default function HomeScreen() {
     const { data: albums, isLoading, refetch, isFetching } = useSongs();
-    const { logout, user } = useAuth(); // ✅ AGGIUNTO
+    const { logout, user } = useAuth();
+    const insets = useSafeAreaInsets(); // ✅ per gestire spazio MiniPlayer / tab bar
 
-    // 🔐 Funzione logout con popup di conferma
+    // 🔐 Logout con conferma
     const handleLogout = () => {
         Alert.alert("Logout", "Vuoi davvero uscire?", [
             { text: "Annulla", style: "cancel" },
@@ -34,7 +36,7 @@ export default function HomeScreen() {
                 text: "Esci",
                 style: "destructive",
                 onPress: async () => {
-                    await logout(); // 👈 solo questo
+                    await logout();
                 },
             },
         ]);
@@ -44,11 +46,8 @@ export default function HomeScreen() {
     const stats = useMemo(() => {
         if (!albums) return { total: 0, artists: 0, recent: 0 };
 
-        const uniqueArtists = new Set(albums.map(a => a.artist)).size;
-        const recentAlbums = albums.filter(a => {
-            // Considera "recenti" gli ultimi 5
-            return albums.indexOf(a) < 5;
-        }).length;
+        const uniqueArtists = new Set(albums.map((a) => a.artist)).size;
+        const recentAlbums = albums.filter((a) => albums.indexOf(a) < 5).length;
 
         return {
             total: albums.length,
@@ -57,15 +56,13 @@ export default function HomeScreen() {
         };
     }, [albums]);
 
-    // 📊 Header con stats + bottone logout
+    // 🎧 Header con saluto e logout
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            {/* 🔘 Bottone Logout piccolo in alto a destra */}
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                 <Ionicons name="log-out-outline" size={22} color="#1DB954" />
             </TouchableOpacity>
 
-            {/* Hero Section originale */}
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
                 animate={{ opacity: 1, translateY: 0 }}
@@ -93,7 +90,7 @@ export default function HomeScreen() {
                                 </Text>
                             </View>
 
-                            {/* Avatar/Icon decorativo */}
+                            {/* Icona decorativa */}
                             <MotiView
                                 from={{ rotate: "0deg", scale: 0.8 }}
                                 animate={{ rotate: "360deg", scale: 1 }}
@@ -118,7 +115,7 @@ export default function HomeScreen() {
         </View>
     );
 
-    // 🎧 Section Header
+    // 📀 Sezione “La tua libreria”
     const renderSectionHeader = () => (
         <MotiView
             from={{ opacity: 0, translateX: -20 }}
@@ -138,7 +135,6 @@ export default function HomeScreen() {
                 <Text style={styles.sectionTitle}>La Tua Libreria</Text>
             </View>
 
-            {/* Decorative line */}
             <View style={styles.sectionDividerContainer}>
                 <LinearGradient
                     colors={["#1DB954", "transparent"]}
@@ -154,38 +150,7 @@ export default function HomeScreen() {
         <AlbumCard album={item} index={index} />
     );
 
-    const renderSkeletons = () => (
-        <View style={styles.skeletonGrid}>
-            {new Array(8).fill(0).map((_, i) => (
-                <MotiView
-                    key={i}
-                    from={{ opacity: 0.3, scale: 0.9 }}
-                    animate={{ opacity: 0.6, scale: 1 }}
-                    transition={{
-                        loop: true,
-                        type: "timing",
-                        duration: 1500,
-                        delay: i * 100,
-                        repeatReverse: true,
-                    }}
-                    style={styles.skeletonCard}
-                >
-                    <LinearGradient
-                        colors={["#1a1a1a", "#252525", "#1a1a1a"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.skeletonInner}
-                    >
-                        <View style={styles.skeletonSquare} />
-                        <View style={styles.skeletonLine} />
-                        <View style={[styles.skeletonLine, { width: "60%" }]} />
-                    </LinearGradient>
-                </MotiView>
-            ))}
-        </View>
-    );
-
-    // 🌟 Particelle di sfondo
+    // Effetto particelle
     const renderParticles = () => (
         <View style={styles.particlesContainer}>
             {[...Array(12)].map((_, i) => (
@@ -219,6 +184,37 @@ export default function HomeScreen() {
         </View>
     );
 
+    const renderSkeletons = () => (
+        <View style={styles.skeletonGrid}>
+            {new Array(8).fill(0).map((_, i) => (
+                <MotiView
+                    key={i}
+                    from={{ opacity: 0.3, scale: 0.9 }}
+                    animate={{ opacity: 0.6, scale: 1 }}
+                    transition={{
+                        loop: true,
+                        type: "timing",
+                        duration: 1500,
+                        delay: i * 100,
+                        repeatReverse: true,
+                    }}
+                    style={styles.skeletonCard}
+                >
+                    <LinearGradient
+                        colors={["#1a1a1a", "#252525", "#1a1a1a"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.skeletonInner}
+                    >
+                        <View style={styles.skeletonSquare} />
+                        <View style={styles.skeletonLine} />
+                        <View style={[styles.skeletonLine, { width: "60%" }]} />
+                    </LinearGradient>
+                </MotiView>
+            ))}
+        </View>
+    );
+
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -227,7 +223,6 @@ export default function HomeScreen() {
                 style={StyleSheet.absoluteFillObject}
             />
             <StatusBar style="light" />
-
             {renderParticles()}
 
             <View style={styles.content}>
@@ -252,7 +247,10 @@ export default function HomeScreen() {
                             />
                         }
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContent}
+                        contentContainerStyle={[
+                            styles.listContent,
+                            { paddingBottom: insets.bottom + 120 }, // ✅ aggiunto
+                        ]}
                     />
                 )}
             </View>

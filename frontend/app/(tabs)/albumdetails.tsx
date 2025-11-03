@@ -5,7 +5,6 @@ import {
     StyleSheet,
     FlatList,
     Dimensions,
-    ScrollView,
     TouchableOpacity,
     Platform,
 } from "react-native";
@@ -18,9 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { AlbumDTO } from "@/types/music";
 import SongItem from "@/components/SongItem";
 import { StatusBar } from "expo-status-bar";
-import {useSongs} from "@/hooks/useSongs";
-import {usePlayer} from "@/context/PlayerContext";
-import {useArtists} from "@/hooks/useArtists";
+import { useSongs } from "@/hooks/useSongs";
+import { usePlayer } from "@/context/PlayerContext";
+import { useArtists } from "@/hooks/useArtists";
+import SafeScrollView from "@/components/ui/SafeScrollView"; // ✅ usa SafeScrollView
 
 const { width, height } = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
@@ -36,7 +36,9 @@ export default function AlbumDetails() {
 
     const sortedSongs = useMemo(() => {
         if (!parsedAlbum?.songs) return [];
-        return [...parsedAlbum.songs].sort((a, b) => a.tracklistPosition - b.tracklistPosition);
+        return [...parsedAlbum.songs].sort(
+            (a, b) => a.tracklistPosition - b.tracklistPosition
+        );
     }, [parsedAlbum?.songs]);
 
     const stats = useMemo(() => {
@@ -75,7 +77,6 @@ export default function AlbumDetails() {
         };
     }, [sortedSongs, parsedAlbum]);
 
-
     if (isLoading || loadingArtists) {
         return (
             <View
@@ -91,7 +92,12 @@ export default function AlbumDetails() {
 
     if (!parsedAlbum) {
         return (
-            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+            <View
+                style={[
+                    styles.container,
+                    { justifyContent: "center", alignItems: "center" },
+                ]}
+            >
                 <Text style={{ color: "#888" }}>Album non trovato.</Text>
             </View>
         );
@@ -132,7 +138,6 @@ export default function AlbumDetails() {
 
     return (
         <View style={styles.container}>
-            {/* ✅ Rimuove header default */}
             <Stack.Screen options={{ headerShown: false }} />
 
             <LinearGradient
@@ -144,7 +149,7 @@ export default function AlbumDetails() {
 
             {renderParticles()}
 
-            {/* 🔙 Custom Header con Back Button */}
+            {/* 🔙 Custom Header */}
             <MotiView
                 from={{ opacity: 0, translateY: -50 }}
                 animate={{ opacity: 1, translateY: 0 }}
@@ -173,24 +178,15 @@ export default function AlbumDetails() {
                             </Text>
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.moreButton}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons
-                                name="ellipsis-horizontal"
-                                size={24}
-                                color="#fff"
-                            />
+                        <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
+                            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
                         </TouchableOpacity>
                     </LinearGradient>
                 </BlurView>
             </MotiView>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            {/* ✅ Usa SafeScrollView per gestire il bottom padding dinamico */}
+            <SafeScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
                 {/* 🎨 Hero Section */}
                 <MotiView
                     from={{ scale: 0.8, opacity: 0 }}
@@ -200,7 +196,6 @@ export default function AlbumDetails() {
                 >
                     {/* Cover con effetti */}
                     <View style={styles.coverContainer}>
-                        {/* Glow effect */}
                         <MotiView
                             from={{ opacity: 0.3, scale: 0.9 }}
                             animate={{ opacity: 0.6, scale: 1.1 }}
@@ -213,7 +208,6 @@ export default function AlbumDetails() {
                             style={styles.coverGlow}
                         />
 
-                        {/* Gradient border */}
                         <LinearGradient
                             colors={[
                                 "rgba(29, 185, 84, 0.5)",
@@ -229,19 +223,13 @@ export default function AlbumDetails() {
                                     contentFit="cover"
                                     transition={300}
                                 />
-
-                                {/* Overlay gradient */}
                                 <LinearGradient
-                                    colors={[
-                                        "transparent",
-                                        "rgba(0, 0, 0, 0.3)",
-                                    ]}
+                                    colors={["transparent", "rgba(0, 0, 0, 0.3)"]}
                                     style={styles.coverOverlay}
                                 />
                             </View>
                         </LinearGradient>
 
-                        {/* Shine effect */}
                         <MotiView
                             from={{ translateX: -COVER_SIZE }}
                             animate={{ translateX: COVER_SIZE * 2 }}
@@ -260,9 +248,7 @@ export default function AlbumDetails() {
                         <Text style={styles.albumTitle}>{parsedAlbum.name}</Text>
                         <View style={styles.artistRow}>
                             <Ionicons name="person" size={16} color="#888" />
-                            <Text style={styles.albumArtist}>
-                                {parsedAlbum.artist}
-                            </Text>
+                            <Text style={styles.albumArtist}>{parsedAlbum.artist}</Text>
                         </View>
                     </View>
                 </MotiView>
@@ -276,10 +262,7 @@ export default function AlbumDetails() {
                         style={styles.statCard}
                     >
                         <LinearGradient
-                            colors={[
-                                "rgba(29, 185, 84, 0.15)",
-                                "rgba(29, 185, 84, 0.05)",
-                            ]}
+                            colors={["rgba(29, 185, 84, 0.15)", "rgba(29, 185, 84, 0.05)"]}
                             style={styles.statGradient}
                         >
                             <Ionicons name="musical-notes" size={20} color="#1DB954" />
@@ -295,10 +278,7 @@ export default function AlbumDetails() {
                         style={styles.statCard}
                     >
                         <LinearGradient
-                            colors={[
-                                "rgba(138, 43, 226, 0.15)",
-                                "rgba(75, 0, 130, 0.05)",
-                            ]}
+                            colors={["rgba(138, 43, 226, 0.15)", "rgba(75, 0, 130, 0.05)"]}
                             style={styles.statGradient}
                         >
                             <Ionicons name="time" size={20} color="#BA55D3" />
@@ -314,10 +294,7 @@ export default function AlbumDetails() {
                         style={styles.statCard}
                     >
                         <LinearGradient
-                            colors={[
-                                "rgba(255, 69, 58, 0.15)",
-                                "rgba(255, 45, 85, 0.05)",
-                            ]}
+                            colors={["rgba(255, 69, 58, 0.15)", "rgba(255, 45, 85, 0.05)"]}
                             style={styles.statGradient}
                         >
                             <Ionicons name="calendar" size={20} color="#FF453A" />
@@ -327,7 +304,7 @@ export default function AlbumDetails() {
                     </MotiView>
                 </View>
 
-                {/* 🎵 Play Button Principale */}
+                {/* 🎵 Play Button */}
                 <MotiView
                     from={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -342,15 +319,17 @@ export default function AlbumDetails() {
                             }
                         }}
                     >
-                        <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.playButton}>
+                        <LinearGradient
+                            colors={["#1DB954", "#1ed760"]}
+                            style={styles.playButton}
+                        >
                             <Ionicons name="play" size={28} color="#000" />
                             <Text style={styles.playButtonText}>Riproduci Album</Text>
                         </LinearGradient>
                     </TouchableOpacity>
-
                 </MotiView>
 
-                {/* 🎶 Tracklist Section */}
+                {/* 🎶 Tracklist */}
                 <MotiView
                     from={{ opacity: 0, translateY: 30 }}
                     animate={{ opacity: 1, translateY: 0 }}
@@ -370,7 +349,6 @@ export default function AlbumDetails() {
                             <Text style={styles.tracklistTitle}>Tracklist</Text>
                         </View>
 
-                        {/* Decorative line */}
                         <LinearGradient
                             colors={["#1DB954", "transparent"]}
                             start={{ x: 0, y: 0 }}
@@ -392,22 +370,19 @@ export default function AlbumDetails() {
                                 onPress={() => playSong(item, sortedSongs, index)}
                             />
                         )}
-
                         scrollEnabled={false}
                         ItemSeparatorComponent={() => (
                             <View style={styles.songSeparator} />
                         )}
                     />
                 </MotiView>
-            </ScrollView>
+            </SafeScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
+    container: { flex: 1 },
     particlesContainer: {
         ...StyleSheet.absoluteFillObject,
         overflow: "hidden",
@@ -446,10 +421,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    headerCenter: {
-        flex: 1,
-        marginHorizontal: 12,
-    },
+    headerCenter: { flex: 1, marginHorizontal: 12 },
     headerTitle: {
         color: "#fff",
         fontSize: 16,
@@ -467,14 +439,12 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingTop: Platform.OS === "ios" ? 120 : 110,
         paddingHorizontal: 20,
-        paddingBottom: 100,
     },
     heroSection: {
         alignItems: "center",
         marginBottom: 24,
     },
     coverContainer: {
-        position: "relative",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 20,
@@ -487,10 +457,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#1DB954",
         opacity: 0.3,
     },
-    coverBorder: {
-        padding: 3,
-        borderRadius: 24,
-    },
+    coverBorder: { padding: 3, borderRadius: 24 },
     coverWrapper: {
         width: COVER_SIZE,
         height: COVER_SIZE,
@@ -498,13 +465,8 @@ const styles = StyleSheet.create({
         overflow: "hidden",
         backgroundColor: "#1a1a1a",
     },
-    cover: {
-        width: "100%",
-        height: "100%",
-    },
-    coverOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
+    cover: { width: "100%", height: "100%" },
+    coverOverlay: { ...StyleSheet.absoluteFillObject },
     shineEffect: {
         position: "absolute",
         top: 0,
@@ -513,10 +475,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255, 255, 255, 0.15)",
         transform: [{ skewX: "-20deg" }],
     },
-    albumInfo: {
-        alignItems: "center",
-        paddingHorizontal: 20,
-    },
+    albumInfo: { alignItems: "center", paddingHorizontal: 20 },
     albumTitle: {
         color: "#fff",
         fontSize: 28,
@@ -525,27 +484,15 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         letterSpacing: -0.5,
     },
-    artistRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-    },
-    albumArtist: {
-        color: "#888",
-        fontSize: 16,
-        fontWeight: "600",
-    },
+    artistRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    albumArtist: { color: "#888", fontSize: 16, fontWeight: "600" },
     statsContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
         marginBottom: 24,
         gap: 12,
     },
-    statCard: {
-        flex: 1,
-        borderRadius: 16,
-        overflow: "hidden",
-    },
+    statCard: { flex: 1, borderRadius: 16, overflow: "hidden" },
     statGradient: {
         padding: 16,
         alignItems: "center",
@@ -554,20 +501,14 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         gap: 6,
     },
-    statValue: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "900",
-    },
+    statValue: { color: "#fff", fontSize: 18, fontWeight: "900" },
     statLabel: {
         color: "#888",
         fontSize: 10,
         fontWeight: "600",
         textTransform: "uppercase",
     },
-    playButtonContainer: {
-        marginBottom: 32,
-    },
+    playButtonContainer: { marginBottom: 32 },
     playButton: {
         flexDirection: "row",
         alignItems: "center",
@@ -588,12 +529,8 @@ const styles = StyleSheet.create({
         fontWeight: "900",
         letterSpacing: 0.5,
     },
-    tracklistSection: {
-        marginBottom: 20,
-    },
-    tracklistHeader: {
-        marginBottom: 16,
-    },
+    tracklistSection: { marginBottom: 20 },
+    tracklistHeader: { marginBottom: 16 },
     tracklistTitleRow: {
         flexDirection: "row",
         alignItems: "center",
