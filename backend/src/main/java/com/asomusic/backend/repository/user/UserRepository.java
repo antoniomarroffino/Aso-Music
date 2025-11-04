@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 @ApplicationScoped
 public class UserRepository implements IUserRepository {
 
+    @Override
     public void createUserDocument(String uid, String email, String firstName, String lastName, String username)
             throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
@@ -22,12 +23,13 @@ public class UserRepository implements IUserRepository {
         userData.put("username", username);
         userData.put("firstName", firstName);
         userData.put("lastName", lastName);
-        userData.put("createdAt", System.currentTimeMillis());
         userData.put("subscriptionType", "free");
+        userData.put("createdAt", System.currentTimeMillis());
         userData.put("isVerified", false);
 
         db.collection("users").document(uid).set(userData).get();
     }
+
 
     @Override
     public UserDTO getUserByUid(String uid) throws ExecutionException, InterruptedException {

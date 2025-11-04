@@ -39,7 +39,7 @@ public class AuthService implements IAuthService {
                 throw new RuntimeException("Utente non trovato nel database Firestore");
             }
 
-            // 3️⃣ Ritorna response completa
+            // 3️⃣ Ritorna response completa (tutti i campi coerenti con UserDTO)
             return LoginResponseDTO.builder()
                     .uid(uid)
                     .email(user.getEmail())
@@ -72,7 +72,7 @@ public class AuthService implements IAuthService {
                 throw new RuntimeException("Username già in uso");
             }
 
-            // 3️⃣ Controlla se l’utente esiste già in Firestore (es. retry del frontend)
+            // 3️⃣ Controlla se l’utente esiste già in Firestore
             if (userRepository.getUserByUid(uid) != null) {
                 System.out.println("⚠️ Utente già presente in Firestore, skip creazione");
             } else {
@@ -87,11 +87,14 @@ public class AuthService implements IAuthService {
                 System.out.println("✅ Utente creato su Firestore con UID: " + uid);
             }
 
-            // 5️⃣ Ritorna la response
+            // 5️⃣ Ritorna la response completa (anche con nome e cognome)
             return SignupResponseDTO.builder()
                     .uid(uid)
                     .email(request.getEmail())
                     .username(request.getUsername())
+                    .firstName(request.getFirstName())
+                    .lastName(request.getLastName())
+                    .subscriptionType("free")
                     .idToken(request.getIdToken())
                     .build();
 

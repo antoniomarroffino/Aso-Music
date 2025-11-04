@@ -83,15 +83,6 @@ export default function TabsLayout() {
                     }}
                 />
 
-                <Tabs.Screen
-                    name="settings"
-                    options={{
-                        title: "Profile",
-                        tabBarIcon: ({ color, size }) => (
-                            <Ionicons name="settings" color={color} size={size} />
-                        ),
-                    }}
-                />
             </Tabs>
 
             {/* 🎵 MiniPlayer sempre sopra la tab bar */}

@@ -15,5 +15,6 @@ public class SignupResponseDTO {
     private String username;
     private String firstName;
     private String lastName;
+    private String subscriptionType;
     private String idToken;
 }
