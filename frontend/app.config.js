@@ -2,24 +2,28 @@ import "dotenv/config";
 
 export default {
     expo: {
-        name: "ReactNativeProva",
-        slug: "ReactNativeProva",
+        name: "ASO Music",
+        slug: "aso-music",
         version: "1.0.0",
         orientation: "portrait",
         icon: "./assets/images/icon.png",
-        scheme: "reactnativeprova",
+        scheme: "asomusic",
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
 
         ios: {
             supportsTablet: true,
+            bundleIdentifier: "com.asomusic.app",
+            buildNumber: "1.0.0",
         },
 
         android: {
+            package: "com.asomusic.app",
             adaptiveIcon: {
                 foregroundImage: "./assets/images/icon.png",
                 backgroundColor: "#000000",
             },
+            versionCode: 1,
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
         },
@@ -35,10 +39,10 @@ export default {
             [
                 "expo-splash-screen",
                 {
-                    image: "./assets/images/splash-icon.png",
-                    imageWidth: 200,
+                    image: "./assets/images/icon.png",
+                    imageWidth: 180,
                     resizeMode: "contain",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "#000000",
                     dark: {
                         backgroundColor: "#000000",
                     },
