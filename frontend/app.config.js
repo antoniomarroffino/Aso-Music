@@ -20,8 +20,8 @@ export default {
         android: {
             package: "com.asomusic.app",
             adaptiveIcon: {
-                foregroundImage: "./assets/images/icon.png",
-                backgroundColor: "#000000",
+                foregroundImage: "./assets/images/android-icon-foreground.png",
+                backgroundImage: "./assets/images/android-icon-background.png",
             },
             versionCode: 1,
             edgeToEdgeEnabled: true,
@@ -39,8 +39,8 @@ export default {
             [
                 "expo-splash-screen",
                 {
-                    image: "./assets/images/icon.png",
-                    imageWidth: 180,
+                    image: "./assets/images/splash-icon.png",
+                    imageWidth: 200,
                     resizeMode: "contain",
                     backgroundColor: "#000000",
                     dark: {
