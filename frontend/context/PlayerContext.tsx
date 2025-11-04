@@ -1,12 +1,25 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+    ReactNode,
+    useRef,
+} from "react";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { SongDTO } from "@/types/music";
+import { incrementStreamCount } from "@/api/songs"; // 👈 chiamata API
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
     nextSong: SongDTO | null;
     isPlaying: boolean;
-    playSong: (song: SongDTO, queue?: SongDTO[], startIndex?: number) => void;
+    playSong: (
+        song: SongDTO,
+        queue?: SongDTO[],
+        startIndex?: number,
+        albumId?: string
+    ) => void;
     togglePlayPause: () => void;
     stopSong: () => void;
     nextSongAction: () => void;
@@ -23,21 +36,23 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [currentQueue, setCurrentQueue] = useState<SongDTO[]>([]);
     const [currentIndex, setCurrentIndex] = useState<number>(0);
     const [source, setSource] = useState<{ uri: string } | undefined>();
+    const [currentAlbumId, setCurrentAlbumId] = useState<string | null>(null);
 
     const player = useAudioPlayer(source);
     const status = useAudioPlayerStatus(player);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // 🔹 Flag per ignorare aggiornamenti durante seek
     const isSeekingRef = useRef(false);
     const wasPlayingBeforeSeek = useRef(false);
+
+    const lastStreamedSongId = useRef<string | null>(null);
+    const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // ✅ FIX TYPE
 
     const nextSong =
         currentQueue.length > 0
             ? currentQueue[(currentIndex + 1) % currentQueue.length]
             : null;
 
-    // 🔹 Aggiorna isPlaying SOLO se non stiamo facendo seek
     useEffect(() => {
         if (status && !isSeekingRef.current) {
             setIsPlaying(status.playing ?? false);
@@ -55,7 +70,23 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [status]);
 
-    const playSong = (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
+    /** 🎵 Avvia la riproduzione e imposta il timer per incrementare gli stream */
+    const playSong = (
+        song: SongDTO,
+        queue?: SongDTO[],
+        startIndex?: number,
+        albumId?: string
+    ) => {
+        // 🔹 reset del timer precedente
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+        }
+
+        // 🔹 salva album corrente
+        if (albumId) setCurrentAlbumId(albumId);
+
+        // 🔹 gestione della queue
         if (queue && queue.length > 0) {
             setCurrentQueue(queue);
             const index =
@@ -73,11 +104,42 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         setCurrentSong(song);
         setSource({ uri: song.audioURL });
+
+        // 🔥 Incrementa stream dopo 20 secondi
+        if (albumId && song.id) {
+            streamTimeoutRef.current = setTimeout(() => {
+                if (lastStreamedSongId.current !== song.id) {
+                    lastStreamedSongId.current = song.id;
+                    console.log(`🎧 Incremento stream per "${song.title}" (${albumId})`);
+                    incrementStreamCount(albumId, song.id);
+                }
+            }, 20000);
+        }
     };
 
     const togglePlayPause = () => {
-        if (isPlaying) player.pause();
-        else player.play();
+        if (isPlaying) {
+            player.pause();
+            if (streamTimeoutRef.current) {
+                clearTimeout(streamTimeoutRef.current);
+                streamTimeoutRef.current = null;
+            }
+        } else {
+            player.play();
+
+            // se riprende, fai ripartire il timer solo se non ancora conteggiato
+            if (
+                currentSong &&
+                currentAlbumId &&
+                lastStreamedSongId.current !== currentSong.id
+            ) {
+                streamTimeoutRef.current = setTimeout(() => {
+                    console.log(`🎧 Incremento stream (ripresa) per "${currentSong.title}"`);
+                    incrementStreamCount(currentAlbumId, currentSong.id);
+                    lastStreamedSongId.current = currentSong.id;
+                }, 20000);
+            }
+        }
     };
 
     const stopSong = () => {
@@ -87,6 +149,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentSong(null);
         setSource(undefined);
         setCurrentQueue([]);
+        setCurrentAlbumId(null);
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+        }
     };
 
     const nextSongAction = () => {
@@ -96,6 +164,19 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentIndex(nextIndex);
         setCurrentSong(next);
         setSource({ uri: next.audioURL });
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+        }
+
+        if (currentAlbumId && next.id) {
+            streamTimeoutRef.current = setTimeout(() => {
+                console.log(`🎧 Incremento stream per "${next.title}" (${currentAlbumId})`);
+                incrementStreamCount(currentAlbumId, next.id);
+                lastStreamedSongId.current = next.id;
+            }, 20000);
+        }
     };
 
     const prevSong = () => {
@@ -105,21 +186,28 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentIndex(prevIndex);
         setCurrentSong(prev);
         setSource({ uri: prev.audioURL });
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+        }
+
+        if (currentAlbumId && prev.id) {
+            streamTimeoutRef.current = setTimeout(() => {
+                console.log(`🎧 Incremento stream per "${prev.title}" (${currentAlbumId})`);
+                incrementStreamCount(currentAlbumId, prev.id);
+                lastStreamedSongId.current = prev.id;
+            }, 20000);
+        }
     };
 
     const seekTo = (seconds: number) => {
         if (!player) return;
-
-        // 🔹 Blocca aggiornamenti di isPlaying durante seek
         isSeekingRef.current = true;
         wasPlayingBeforeSeek.current = isPlaying;
-
         player.seekTo(seconds);
-
-        // 🔹 Ripristina lo stato dopo 200ms
         setTimeout(() => {
             isSeekingRef.current = false;
-            // Forza lo stato corretto
             if (wasPlayingBeforeSeek.current && !status?.playing) {
                 player.play();
             }
@@ -152,6 +240,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
 export const usePlayer = () => {
     const ctx = useContext(PlayerContext);
-    if (!ctx) throw new Error("usePlayer deve essere usato dentro <PlayerProvider>");
+    if (!ctx)
+        throw new Error("usePlayer deve essere usato dentro <PlayerProvider>");
     return ctx;
 };

@@ -5,6 +5,7 @@ import com.asomusic.backend.model.dto.LoginResponseDTO;
 import com.asomusic.backend.model.dto.SignupRequestDTO;
 import com.asomusic.backend.model.dto.SignupResponseDTO;
 import com.asomusic.backend.repository.auth.IAuthRepository;
+import com.asomusic.backend.repository.user.IUserRepository;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
@@ -19,19 +20,33 @@ public class AuthService implements IAuthService {
 
     private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
 
-    /**
-     * 🔐 Verifica un token ID Firebase e restituisce le informazioni utente base.
-     */
+    @Inject
+    IUserRepository userRepository;
+
     @Override
     public LoginResponseDTO login(LoginRequestDTO request) {
         try {
+            // 1️⃣ Verifica token Firebase
             var decodedToken = authRepository.verifyToken(request.getIdToken());
+            String uid = decodedToken.getUid();
 
-            System.out.println("✅ Token verificato per UID: " + decodedToken.getUid());
+            System.out.println("✅ Token verificato per UID: " + uid);
 
+            // 2️⃣ Recupera utente da Firestore tramite UserRepository
+            var user = userRepository.getUserByUid(uid);
+
+            if (user == null) {
+                throw new RuntimeException("Utente non trovato nel database Firestore");
+            }
+
+            // 3️⃣ Ritorna response completa
             return LoginResponseDTO.builder()
-                    .uid(decodedToken.getUid())
-                    .email(decodedToken.getEmail())
+                    .uid(uid)
+                    .email(user.getEmail())
+                    .username(user.getUsername())
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .subscriptionType(user.getSubscriptionType())
                     .build();
 
         } catch (FirebaseAuthException e) {
@@ -43,41 +58,50 @@ public class AuthService implements IAuthService {
         }
     }
 
-    /**
-     * 🆕 Crea un nuovo utente in Firebase Authentication e restituisce il suo token custom.
-     */
+
+
     @Override
     public SignupResponseDTO signup(SignupRequestDTO request) {
         try {
-            // ✅ Crea l'utente su Firebase
+            // 🔹 1️⃣ Verifica che l'username non sia già usato
+            if (userRepository.isUsernameTaken(request.getUsername())) {
+                throw new RuntimeException("Username già in uso");
+            }
+
+            // 🔹 2️⃣ Crea utente su Firebase Auth
             UserRecord.CreateRequest createRequest = new UserRecord.CreateRequest()
                     .setEmail(request.getEmail())
-                    .setPassword(request.getPassword());
-
-            if (request.getDisplayName() != null && !request.getDisplayName().isBlank()) {
-                createRequest.setDisplayName(request.getDisplayName());
-            }
+                    .setPassword(request.getPassword())
+                    .setDisplayName(request.getUsername());
 
             UserRecord userRecord = firebaseAuth.createUser(createRequest);
 
-            // 🔐 Genera un custom token per autenticazione immediata lato client
+            // 🔹 3️⃣ Crea documento su Firestore
+            userRepository.createUserDocument(
+                    userRecord,
+                    request.getFirstName(),
+                    request.getLastName(),
+                    request.getUsername()
+            );
+
+            // 🔹 4️⃣ Genera custom token
             String customToken = firebaseAuth.createCustomToken(userRecord.getUid());
 
-            System.out.println("🆕 Utente creato con UID: " + userRecord.getUid());
-
+            // 🔹 5️⃣ Ritorna risposta
             return SignupResponseDTO.builder()
                     .uid(userRecord.getUid())
                     .email(userRecord.getEmail())
-                    .displayName(userRecord.getDisplayName())
+                    .username(request.getUsername())
                     .idToken(customToken)
                     .build();
 
-        } catch (FirebaseAuthException e) {
-            System.err.println("❌ Errore durante la creazione utente Firebase: " + e.getMessage());
-            throw new RuntimeException("Errore creazione utente Firebase: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            // Rilancia eccezioni custom (come “Username già in uso”)
+            throw e;
         } catch (Exception e) {
-            System.err.println("❌ Errore generico durante signup: " + e.getMessage());
-            throw new RuntimeException("Errore durante la registrazione", e);
+            throw new RuntimeException("Errore durante la registrazione: " + e.getMessage(), e);
         }
     }
+
+
 }

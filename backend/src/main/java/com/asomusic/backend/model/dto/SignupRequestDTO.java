@@ -12,5 +12,7 @@ import lombok.NoArgsConstructor;
 public class SignupRequestDTO {
     private String email;
     private String password;
-    private String displayName;
+    private String firstName;
+    private String lastName;
+    private String username;
 }
