@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
     View,
     Text,
@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSongs } from "@/hooks/useSongs";
 import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
+import RotatingLogo from "@/components/RotatingLogo";
 import { BlurView } from "expo-blur";
 import { useAuth } from "@/context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,34 +24,80 @@ import { useRouter } from "expo-router";
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
 
+type SortOrder = "newest" | "oldest" | "alphabetical";
+
 export default function HomeScreen() {
     const { data: albums, isLoading, refetch, isFetching } = useSongs();
     const { appUser } = useAuth();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+    const [showSortMenu, setShowSortMenu] = useState(false);
 
-    // 🎯 Statistiche dinamiche
-    useMemo(() => {
-        if (!albums) return { total: 0, artists: 0, recent: 0 };
+    // 🎯 Ordinamento album
+    const sortedAlbums = useMemo(() => {
+        if (!albums) return [];
 
-        const uniqueArtists = new Set(albums.map((a) => a.artist)).size;
-        const recentAlbums = albums.filter((a) => albums.indexOf(a) < 5).length;
+        const sorted = [...albums];
 
-        return {
-            total: albums.length,
-            artists: uniqueArtists,
-            recent: recentAlbums,
-        };
-    }, [albums]);
+        switch (sortOrder) {
+            case "newest":
+                return sorted.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
+            case "oldest":
+                return sorted.sort((a, b) => (a.releaseYear || 0) - (b.releaseYear || 0));
+            case "alphabetical":
+                return sorted.sort((a, b) => a.name.localeCompare(b.name));
+            default:
+                return sorted;
+        }
+    }, [albums, sortOrder]);
+
+    const getSortLabel = (order: SortOrder) => {
+        switch (order) {
+            case "newest":
+                return "Più recenti";
+            case "oldest":
+                return "Più vecchi";
+            case "alphabetical":
+                return "A-Z";
+        }
+    };
+
+    const getSortIcon = (order: SortOrder) => {
+        switch (order) {
+            case "newest":
+                return "arrow-down-outline";
+            case "oldest":
+                return "arrow-up-outline";
+            case "alphabetical":
+                return "text-outline";
+        }
+    };
+
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={() => router.push("/settings")}
-            >
-                <Ionicons name="settings-outline" size={24} color="#1DB954" />
-            </TouchableOpacity>
+            {/* Top Bar con logo e impostazioni */}
+            <View style={styles.topBar}>
+                <MotiView
+                    from={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: "timing", duration: 600 }}
+                    style={styles.appLogoContainer}
+                >
+                    <Text style={styles.appName}>ASO Music</Text>
+                </MotiView>
 
+                <TouchableOpacity
+                    style={styles.settingsButton}
+                    onPress={() => router.push("/settings")}
+                >
+                    <BlurView intensity={80} tint="dark" style={styles.settingsBlur}>
+                        <Ionicons name="settings-outline" size={22} color="#1DB954" />
+                    </BlurView>
+                </TouchableOpacity>
+            </View>
+
+            {/* Hero Section */}
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
                 animate={{ opacity: 1, translateY: 0 }}
@@ -70,33 +117,16 @@ export default function HomeScreen() {
                         <View style={styles.heroContent}>
                             <View style={styles.greetingSection}>
                                 <Text style={styles.greeting}>Benvenuto 👋</Text>
-
                                 <Text style={styles.username}>
                                     {appUser?.username ?? "Utente"}
                                 </Text>
-
                                 <Text style={styles.subtitle}>
                                     Esplora la tua musica preferita
                                 </Text>
                             </View>
 
-                            <MotiView
-                                from={{ rotate: "0deg", scale: 0.8 }}
-                                animate={{ rotate: "360deg", scale: 1 }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 20000,
-                                    loop: true,
-                                }}
-                                style={styles.heroIcon}
-                            >
-                                <LinearGradient
-                                    colors={["#1DB954", "#1ed760"]}
-                                    style={styles.heroIconGradient}
-                                >
-                                    <Ionicons name="musical-notes" size={32} color="#000" />
-                                </LinearGradient>
-                            </MotiView>
+                            {/* Logo App Rotante - Ora è un componente separato */}
+                            <RotatingLogo size={70} />
                         </View>
                     </LinearGradient>
                 </BlurView>
@@ -112,16 +142,99 @@ export default function HomeScreen() {
             style={styles.sectionHeaderContainer}
         >
             <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionIconContainer}>
-                    <LinearGradient
-                        colors={["#1DB954", "#1ed760"]}
-                        style={styles.sectionIconGradient}
-                    >
-                        <Ionicons name="disc" size={20} color="#000" />
-                    </LinearGradient>
+                <View style={styles.sectionLeft}>
+                    <View style={styles.sectionIconContainer}>
+                        <LinearGradient
+                            colors={["#1DB954", "#1ed760"]}
+                            style={styles.sectionIconGradient}
+                        >
+                            <Ionicons name="disc" size={20} color="#000" />
+                        </LinearGradient>
+                    </View>
+                    <Text style={styles.sectionTitle}>La Tua Libreria</Text>
                 </View>
-                <Text style={styles.sectionTitle}>La Tua Libreria</Text>
+
+                {/* Sort Button */}
+                <TouchableOpacity
+                    style={styles.sortButton}
+                    onPress={() => setShowSortMenu(!showSortMenu)}
+                >
+                    <BlurView intensity={80} tint="dark" style={styles.sortButtonBlur}>
+                        <Ionicons
+                            name={getSortIcon(sortOrder)}
+                            size={18}
+                            color="#1DB954"
+                        />
+                        <Text style={styles.sortButtonText}>
+                            {getSortLabel(sortOrder)}
+                        </Text>
+                        <Ionicons
+                            name={showSortMenu ? "chevron-up" : "chevron-down"}
+                            size={16}
+                            color="#888"
+                        />
+                    </BlurView>
+                </TouchableOpacity>
             </View>
+
+            {/* Sort Menu */}
+            {showSortMenu && (
+                <MotiView
+                    from={{ opacity: 0, translateY: -10, scale: 0.9 }}
+                    animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                    exit={{ opacity: 0, translateY: -10, scale: 0.9 }}
+                    transition={{ type: "timing", duration: 200 }}
+                    style={styles.sortMenuContainer}
+                >
+                    <BlurView intensity={90} tint="dark" style={styles.sortMenu}>
+                        <LinearGradient
+                            colors={["rgba(26, 26, 26, 0.95)", "rgba(18, 18, 18, 0.95)"]}
+                            style={styles.sortMenuGradient}
+                        >
+                            {(["newest", "oldest", "alphabetical"] as SortOrder[]).map(
+                                (order) => (
+                                    <TouchableOpacity
+                                        key={order}
+                                        style={[
+                                            styles.sortMenuItem,
+                                            sortOrder === order &&
+                                            styles.sortMenuItemActive,
+                                        ]}
+                                        onPress={() => {
+                                            setSortOrder(order);
+                                            setShowSortMenu(false);
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name={getSortIcon(order)}
+                                            size={20}
+                                            color={
+                                                sortOrder === order ? "#1DB954" : "#888"
+                                            }
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.sortMenuItemText,
+                                                sortOrder === order &&
+                                                styles.sortMenuItemTextActive,
+                                            ]}
+                                        >
+                                            {getSortLabel(order)}
+                                        </Text>
+                                        {sortOrder === order && (
+                                            <Ionicons
+                                                name="checkmark-circle"
+                                                size={20}
+                                                color="#1DB954"
+                                            />
+                                        )}
+                                    </TouchableOpacity>
+                                )
+                            )}
+                        </LinearGradient>
+                    </BlurView>
+                </MotiView>
+            )}
 
             <View style={styles.sectionDividerContainer}>
                 <LinearGradient
@@ -216,11 +329,11 @@ export default function HomeScreen() {
                 {renderHeader()}
                 {renderSectionHeader()}
 
-                {isLoading || !albums ? (
+                {isLoading || !sortedAlbums ? (
                     renderSkeletons()
                 ) : (
                     <FlatList
-                        data={albums}
+                        data={sortedAlbums}
                         keyExtractor={(item) => item.id}
                         numColumns={2}
                         columnWrapperStyle={styles.row}
@@ -247,25 +360,49 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 16, paddingTop: 60 },
-    logoutButton: {
-        position: "absolute",
-        top: 10,
-        right: 10,
-        zIndex: 20,
-        padding: 8,
+    content: { flex: 1, paddingHorizontal: 16, paddingTop: 50 },
+
+    // Top Bar
+    topBar: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20,
+        paddingHorizontal: 4,
     },
+    appLogoContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    appName: {
+        color: "#1DB954",
+        fontSize: 20,
+        fontWeight: "900",
+        letterSpacing: 0.5,
+    },
+    settingsButton: {
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+    settingsBlur: {
+        padding: 10,
+        borderRadius: 12,
+    },
+
+    // Particles
     particlesContainer: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
     particle: { position: "absolute", backgroundColor: "#1DB954", borderRadius: 50 },
+
+    // Header
     headerContainer: { marginBottom: 24 },
-    heroBlur: { borderRadius: 24, overflow: "hidden", marginBottom: 16 },
+    heroBlur: { borderRadius: 24, overflow: "hidden" },
     heroGradient: { padding: 24 },
     heroContent: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
-    greetingSection: { flex: 1 },
+    greetingSection: { flex: 1, paddingRight: 16 },
     greeting: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
     username: {
         color: "#fff",
@@ -275,20 +412,20 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
-    heroIcon: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 8,
+
+    // Section Header
+    sectionHeaderContainer: { marginBottom: 20, zIndex: 100 },
+    sectionTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
     },
-    heroIconGradient: { flex: 1, justifyContent: "center", alignItems: "center" },
-    sectionHeaderContainer: { marginBottom: 20 },
-    sectionTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+    sectionLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 1,
+    },
     sectionIconContainer: {
         marginRight: 12,
         borderRadius: 12,
@@ -299,13 +436,89 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 4,
     },
-    sectionIconGradient: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-    sectionTitle: { color: "#fff", fontSize: 24, fontWeight: "900", letterSpacing: -0.5 },
+    sectionIconGradient: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    sectionTitle: {
+        color: "#fff",
+        fontSize: 24,
+        fontWeight: "900",
+        letterSpacing: -0.5,
+    },
+
+    // Sort Button
+    sortButton: {
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+    sortButtonBlur: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        gap: 8,
+    },
+    sortButtonText: {
+        color: "#fff",
+        fontSize: 13,
+        fontWeight: "600",
+    },
+
+    // Sort Menu
+    sortMenuContainer: {
+        position: "absolute",
+        top: 52,
+        right: 0,
+        zIndex: 1000,
+        minWidth: 200,
+        borderRadius: 16,
+        overflow: "hidden",
+    },
+    sortMenu: {
+        borderRadius: 16,
+        overflow: "hidden",
+    },
+    sortMenuGradient: {
+        padding: 8,
+    },
+    sortMenuItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 14,
+        gap: 12,
+        borderRadius: 12,
+        marginBottom: 4,
+    },
+    sortMenuItemActive: {
+        backgroundColor: "rgba(29, 185, 84, 0.15)",
+    },
+    sortMenuItemText: {
+        flex: 1,
+        color: "#888",
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    sortMenuItemTextActive: {
+        color: "#fff",
+    },
+
+    // Divider
     sectionDividerContainer: { width: "100%" },
     sectionDivider: { height: 3, width: "30%", borderRadius: 2 },
+
+    // List
     row: { justifyContent: "space-between", marginBottom: 16 },
     listContent: { paddingBottom: 100 },
-    skeletonGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+
+    // Skeleton
+    skeletonGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+    },
     skeletonCard: {
         width: CARD_WIDTH,
         height: CARD_WIDTH + 60,
