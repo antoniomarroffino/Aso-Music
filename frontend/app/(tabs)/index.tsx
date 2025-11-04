@@ -76,7 +76,6 @@ export default function HomeScreen() {
 
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            {/* Top Bar con logo e impostazioni */}
             <View style={styles.topBar}>
                 <MotiView
                     from={{ opacity: 0, scale: 0.8 }}
@@ -97,7 +96,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Hero Section */}
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
                 animate={{ opacity: 1, translateY: 0 }}
@@ -125,7 +123,6 @@ export default function HomeScreen() {
                                 </Text>
                             </View>
 
-                            {/* Logo App Rotante - Ora è un componente separato */}
                             <RotatingLogo size={70} />
                         </View>
                     </LinearGradient>
@@ -148,13 +145,12 @@ export default function HomeScreen() {
                             colors={["#1DB954", "#1ed760"]}
                             style={styles.sectionIconGradient}
                         >
-                            <Ionicons name="disc" size={20} color="#000" />
+                            <Ionicons name="disc" size={18} color="#000" />
                         </LinearGradient>
                     </View>
                     <Text style={styles.sectionTitle}>La Tua Libreria</Text>
                 </View>
 
-                {/* Sort Button */}
                 <TouchableOpacity
                     style={styles.sortButton}
                     onPress={() => setShowSortMenu(!showSortMenu)}
@@ -162,7 +158,7 @@ export default function HomeScreen() {
                     <BlurView intensity={80} tint="dark" style={styles.sortButtonBlur}>
                         <Ionicons
                             name={getSortIcon(sortOrder)}
-                            size={18}
+                            size={16} // ✅ RIDOTTO: da 18 a 16
                             color="#1DB954"
                         />
                         <Text style={styles.sortButtonText}>
@@ -170,14 +166,13 @@ export default function HomeScreen() {
                         </Text>
                         <Ionicons
                             name={showSortMenu ? "chevron-up" : "chevron-down"}
-                            size={16}
+                            size={14} // ✅ RIDOTTO: da 16 a 14
                             color="#888"
                         />
                     </BlurView>
                 </TouchableOpacity>
             </View>
 
-            {/* Sort Menu */}
             {showSortMenu && (
                 <MotiView
                     from={{ opacity: 0, translateY: -10, scale: 0.9 }}
@@ -413,22 +408,24 @@ const styles = StyleSheet.create({
     },
     subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
 
-    // Section Header
+    // Section Header - MODIFICATO
     sectionHeaderContainer: { marginBottom: 20, zIndex: 100 },
     sectionTitleRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: 12,
+        gap: 8, // ✅ AGGIUNTO: Spazio tra sinistra e destra
     },
     sectionLeft: {
         flexDirection: "row",
         alignItems: "center",
         flex: 1,
+        minWidth: 0, // ✅ AGGIUNTO: Permette il text truncation se necessario
     },
     sectionIconContainer: {
-        marginRight: 12,
-        borderRadius: 12,
+        marginRight: 10, // ✅ RIDOTTO: da 12 a 10
+        borderRadius: 10, // ✅ RIDOTTO: da 12 a 10
         overflow: "hidden",
         shadowColor: "#1DB954",
         shadowOffset: { width: 0, height: 2 },
@@ -437,36 +434,37 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     sectionIconGradient: {
-        width: 40,
-        height: 40,
+        width: 34, // ✅ RIDOTTO: da 40 a 34
+        height: 34, // ✅ RIDOTTO: da 40 a 34
         justifyContent: "center",
         alignItems: "center",
     },
     sectionTitle: {
         color: "#fff",
-        fontSize: 24,
+        fontSize: 20, // ✅ RIDOTTO: da 24 a 20
         fontWeight: "900",
-        letterSpacing: -0.5,
+        letterSpacing: -0.3, // ✅ RIDOTTO: da -0.5 a -0.3
+        flexShrink: 1, // ✅ AGGIUNTO: Permette al testo di ridursi se necessario
     },
 
-    // Sort Button
+// Sort Button - MODIFICATO
     sortButton: {
-        borderRadius: 12,
+        borderRadius: 10, // ✅ RIDOTTO: da 12 a 10
         overflow: "hidden",
+        flexShrink: 0, // ✅ AGGIUNTO: Impedisce al pulsante di comprimersi
     },
     sortButtonBlur: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        gap: 8,
+        paddingHorizontal: 10, // ✅ RIDOTTO: da 14 a 10
+        paddingVertical: 8, // ✅ RIDOTTO: da 10 a 8
+        gap: 6, // ✅ RIDOTTO: da 8 a 6
     },
     sortButtonText: {
         color: "#fff",
-        fontSize: 13,
+        fontSize: 12, // ✅ RIDOTTO: da 13 a 12
         fontWeight: "600",
     },
-
     // Sort Menu
     sortMenuContainer: {
         position: "absolute",

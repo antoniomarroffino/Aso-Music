@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import {
     View,
     Text,
@@ -129,6 +129,8 @@ export default function FullPlayer() {
                 }),
         [duration, seekTo]
     );
+
+    const [showTooltip, setShowTooltip] = useState(false);
 
     const composedGesture = useMemo(
         () => Gesture.Race(tapProgress, panProgress),
@@ -452,12 +454,45 @@ export default function FullPlayer() {
 
                     {/* Extra controls */}
                     <View style={styles.extraControls}>
-                        <TouchableOpacity style={styles.extraButton} activeOpacity={0.7}>
-                            <Ionicons name="heart-outline" size={24} color="#888" />
+                        <TouchableOpacity
+                            style={styles.extraButton}
+                            activeOpacity={0.7}
+                            onPress={() => {
+                                setShowTooltip(true);
+                                setTimeout(() => setShowTooltip(false), 2500);
+                            }}
+                        >
+                            <Ionicons name="heart-outline" size={24} color="#555" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.extraButton} activeOpacity={0.7}>
-                            <Ionicons name="share-outline" size={24} color="#888" />
-                        </TouchableOpacity>
+
+                        {/* Tooltip */}
+                        {showTooltip && (
+                            <MotiView
+                                from={{ opacity: 0, translateY: 10, scale: 0.9 }}
+                                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                                exit={{ opacity: 0, translateY: 10, scale: 0.9 }}
+                                transition={{ type: "spring", damping: 15 }}
+                                style={styles.tooltipContainer}
+                            >
+                                <BlurView intensity={90} tint="dark" style={styles.tooltipBlur}>
+                                    <LinearGradient
+                                        colors={["rgba(255, 165, 0, 0.2)", "rgba(255, 140, 0, 0.15)"]}
+                                        style={styles.tooltipGradient}
+                                    >
+                                        <View style={styles.tooltipContent}>
+                                            <Ionicons name="construct-outline" size={16} color="#FFA500" />
+                                            <Text style={styles.tooltipText}>
+                                                In fase di sviluppo, sarà presto disponibile!
+                                            </Text>
+                                        </View>
+                                    </LinearGradient>
+                                </BlurView>
+                                {/* Freccia del tooltip */}
+                                <View style={styles.tooltipArrow}>
+                                    <View style={styles.tooltipArrowInner} />
+                                </View>
+                            </MotiView>
+                        )}
                     </View>
                 </MotiView>
 
@@ -768,7 +803,7 @@ const styles = StyleSheet.create({
     extraControls: {
         flexDirection: "row",
         justifyContent: "center",
-        gap: 48,
+        position: "relative", // ✅ AGGIUNTO per posizionare il tooltip
     },
     extraButton: {
         width: 44,
@@ -777,6 +812,62 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(255, 255, 255, 0.05)",
+        opacity: 0.6, // ✅ AGGIUNTO per rendere visivamente inattivo
+    },
+// ✅ NUOVI STILI PER IL TOOLTIP
+    tooltipContainer: {
+        position: "absolute",
+        bottom: 60,
+        alignSelf: "center",
+        minWidth: 250,
+        maxWidth: 320,
+    },
+    tooltipBlur: {
+        borderRadius: 16,
+        overflow: "hidden",
+        shadowColor: "#FFA500",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    tooltipGradient: {
+        padding: 14,
+        borderWidth: 1,
+        borderColor: "rgba(255, 165, 0, 0.3)",
+        borderRadius: 16,
+    },
+    tooltipContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    tooltipText: {
+        color: "#fff",
+        fontSize: 13,
+        fontWeight: "600",
+        flex: 1,
+        lineHeight: 18,
+    },
+    tooltipArrow: {
+        position: "absolute",
+        bottom: -8,
+        alignSelf: "center",
+        width: 16,
+        height: 16,
+        overflow: "hidden",
+    },
+    tooltipArrowInner: {
+        width: 12,
+        height: 12,
+        backgroundColor: "rgba(26, 26, 26, 0.95)",
+        transform: [{ rotate: "45deg" }],
+        position: "absolute",
+        bottom: 8,
+        left: 2,
+        borderBottomWidth: 1,
+        borderRightWidth: 1,
+        borderColor: "rgba(255, 165, 0, 0.3)",
     },
     nextSongContainer: {
         position: "absolute",
