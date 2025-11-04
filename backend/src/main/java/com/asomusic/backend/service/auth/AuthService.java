@@ -8,7 +8,7 @@ import com.asomusic.backend.repository.auth.IAuthRepository;
 import com.asomusic.backend.repository.user.IUserRepository;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.UserRecord;
+import com.google.firebase.auth.FirebaseToken;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -18,16 +18,16 @@ public class AuthService implements IAuthService {
     @Inject
     IAuthRepository authRepository;
 
-    private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
-
     @Inject
     IUserRepository userRepository;
+
+    private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
 
     @Override
     public LoginResponseDTO login(LoginRequestDTO request) {
         try {
             // 1️⃣ Verifica token Firebase
-            var decodedToken = authRepository.verifyToken(request.getIdToken());
+            FirebaseToken decodedToken = authRepository.verifyToken(request.getIdToken());
             String uid = decodedToken.getUid();
 
             System.out.println("✅ Token verificato per UID: " + uid);
@@ -58,50 +58,48 @@ public class AuthService implements IAuthService {
         }
     }
 
-
-
     @Override
     public SignupResponseDTO signup(SignupRequestDTO request) {
         try {
-            // 🔹 1️⃣ Verifica che l'username non sia già usato
+            // 1️⃣ Verifica il token inviato dal frontend
+            FirebaseToken decodedToken = firebaseAuth.verifyIdToken(request.getIdToken());
+            String uid = decodedToken.getUid();
+
+            System.out.println("✅ Token verificato correttamente per UID: " + uid);
+
+            // 2️⃣ Controlla se lo username è già in uso
             if (userRepository.isUsernameTaken(request.getUsername())) {
                 throw new RuntimeException("Username già in uso");
             }
 
-            // 🔹 2️⃣ Crea utente su Firebase Auth
-            UserRecord.CreateRequest createRequest = new UserRecord.CreateRequest()
-                    .setEmail(request.getEmail())
-                    .setPassword(request.getPassword())
-                    .setDisplayName(request.getUsername());
+            // 3️⃣ Controlla se l’utente esiste già in Firestore (es. retry del frontend)
+            if (userRepository.getUserByUid(uid) != null) {
+                System.out.println("⚠️ Utente già presente in Firestore, skip creazione");
+            } else {
+                // 4️⃣ Crea documento utente su Firestore
+                userRepository.createUserDocument(
+                        uid,
+                        request.getEmail(),
+                        request.getFirstName(),
+                        request.getLastName(),
+                        request.getUsername()
+                );
+                System.out.println("✅ Utente creato su Firestore con UID: " + uid);
+            }
 
-            UserRecord userRecord = firebaseAuth.createUser(createRequest);
-
-            // 🔹 3️⃣ Crea documento su Firestore
-            userRepository.createUserDocument(
-                    userRecord,
-                    request.getFirstName(),
-                    request.getLastName(),
-                    request.getUsername()
-            );
-
-            // 🔹 4️⃣ Genera custom token
-            String customToken = firebaseAuth.createCustomToken(userRecord.getUid());
-
-            // 🔹 5️⃣ Ritorna risposta
+            // 5️⃣ Ritorna la response
             return SignupResponseDTO.builder()
-                    .uid(userRecord.getUid())
-                    .email(userRecord.getEmail())
+                    .uid(uid)
+                    .email(request.getEmail())
                     .username(request.getUsername())
-                    .idToken(customToken)
+                    .idToken(request.getIdToken())
                     .build();
 
         } catch (RuntimeException e) {
-            // Rilancia eccezioni custom (come “Username già in uso”)
             throw e;
         } catch (Exception e) {
+            System.err.println("❌ Errore durante la registrazione: " + e.getMessage());
             throw new RuntimeException("Errore durante la registrazione: " + e.getMessage(), e);
         }
     }
-
-
 }

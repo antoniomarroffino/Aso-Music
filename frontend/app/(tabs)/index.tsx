@@ -6,7 +6,6 @@ import {
     StyleSheet,
     RefreshControl,
     Dimensions,
-    Alert,
     TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -18,32 +17,20 @@ import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
 import { BlurView } from "expo-blur";
 import { useAuth } from "@/context/AuthContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context"; // ✅ AGGIUNTO
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
 
 export default function HomeScreen() {
     const { data: albums, isLoading, refetch, isFetching } = useSongs();
-    const { logout, user } = useAuth();
-    const insets = useSafeAreaInsets(); // ✅ per gestire spazio MiniPlayer / tab bar
-
-    // 🔐 Logout con conferma
-    const handleLogout = () => {
-        Alert.alert("Logout", "Vuoi davvero uscire?", [
-            { text: "Annulla", style: "cancel" },
-            {
-                text: "Esci",
-                style: "destructive",
-                onPress: async () => {
-                    await logout();
-                },
-            },
-        ]);
-    };
+    const { appUser } = useAuth();
+    const insets = useSafeAreaInsets();
+    const router = useRouter();
 
     // 🎯 Statistiche dinamiche
-    const stats = useMemo(() => {
+    useMemo(() => {
         if (!albums) return { total: 0, artists: 0, recent: 0 };
 
         const uniqueArtists = new Set(albums.map((a) => a.artist)).size;
@@ -55,12 +42,13 @@ export default function HomeScreen() {
             recent: recentAlbums,
         };
     }, [albums]);
-
-    // 🎧 Header con saluto e logout
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={22} color="#1DB954" />
+            <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={() => router.push("/settings")}
+            >
+                <Ionicons name="settings-outline" size={24} color="#1DB954" />
             </TouchableOpacity>
 
             <MotiView
@@ -82,15 +70,16 @@ export default function HomeScreen() {
                         <View style={styles.heroContent}>
                             <View style={styles.greetingSection}>
                                 <Text style={styles.greeting}>Benvenuto 👋</Text>
+
                                 <Text style={styles.username}>
-                                    {user?.email?.split("@")[0] ?? "Utente"}
+                                    {appUser?.username ?? "Utente"}
                                 </Text>
+
                                 <Text style={styles.subtitle}>
                                     Esplora la tua musica preferita
                                 </Text>
                             </View>
 
-                            {/* Icona decorativa */}
                             <MotiView
                                 from={{ rotate: "0deg", scale: 0.8 }}
                                 animate={{ rotate: "360deg", scale: 1 }}
@@ -115,7 +104,6 @@ export default function HomeScreen() {
         </View>
     );
 
-    // 📀 Sezione “La tua libreria”
     const renderSectionHeader = () => (
         <MotiView
             from={{ opacity: 0, translateX: -20 }}
@@ -150,7 +138,6 @@ export default function HomeScreen() {
         <AlbumCard album={item} index={index} />
     );
 
-    // Effetto particelle
     const renderParticles = () => (
         <View style={styles.particlesContainer}>
             {[...Array(12)].map((_, i) => (
@@ -249,7 +236,7 @@ export default function HomeScreen() {
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={[
                             styles.listContent,
-                            { paddingBottom: insets.bottom + 120 }, // ✅ aggiunto
+                            { paddingBottom: insets.bottom + 120 },
                         ]}
                     />
                 )}
@@ -280,7 +267,13 @@ const styles = StyleSheet.create({
     },
     greetingSection: { flex: 1 },
     greeting: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
-    username: { color: "#fff", fontSize: 32, fontWeight: "900", letterSpacing: -1, marginBottom: 4 },
+    username: {
+        color: "#fff",
+        fontSize: 32,
+        fontWeight: "900",
+        letterSpacing: -1,
+        marginBottom: 4,
+    },
     subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
     heroIcon: {
         width: 64,

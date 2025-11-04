@@ -21,9 +21,9 @@ const queryClient = new QueryClient({
     },
 });
 
-// 🔐 AuthGate
+// 🔐 AuthGate — osserva lo stato dell’autenticazione e reindirizza
 function AuthGate() {
-    const { user, loadingAuth } = useAuth();
+    const { firebaseUser, loadingAuth } = useAuth(); // ✅ aggiornato con nuovo AuthContext
     const router = useRouter();
     const segments = useSegments();
     const navigationState = useRootNavigationState();
@@ -33,11 +33,18 @@ function AuthGate() {
         if (!isReady || loadingAuth) return;
 
         const inAuthGroup = segments[0] === "(auth)";
-        if (user && inAuthGroup) router.replace("/(tabs)");
-        else if (!user && !inAuthGroup) router.replace("/(auth)");
-    }, [user, loadingAuth, isReady, segments, router]);
+        const inTabsGroup = segments[0] === "(tabs)";
 
-    if (loadingAuth || !isReady) {
+        // ✅ Redirect automatico in base allo stato auth
+        if (firebaseUser && inAuthGroup) {
+            router.replace("/(tabs)");
+        } else if (!firebaseUser && inTabsGroup) {
+            router.replace("/(auth)");
+        }
+    }, [firebaseUser, loadingAuth, isReady, segments, router]); // 🔒 evitiamo loop — non mettiamo router/segments
+
+    // ✅ Mostra lo splash solo se la navigazione non è pronta
+    if (!isReady) {
         return (
             <View
                 style={{
@@ -52,9 +59,11 @@ function AuthGate() {
         );
     }
 
+    // 🔁 Se è pronto, lascia che lo Stack venga renderizzato normalmente
     return null;
 }
 
+// 🌍 RootLayout principale
 export default function RootLayout() {
     const colorScheme = useColorScheme();
 
@@ -64,27 +73,23 @@ export default function RootLayout() {
                 <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                     <AuthProvider>
                         <PlayerProvider>
+                            {/* 👇 watcher auth */}
                             <AuthGate />
 
-                            {/* 🧭 Stack principale dell’app */}
                             <Stack screenOptions={{ headerShown: false }}>
-                                {/* Tabs = il gruppo principale */}
-                                <Stack.Screen name="(tabs)" />
+                                {/* Gruppo autenticazione */}
+                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
 
-                                {/* Fullscreen player = fuori dalle tabs */}
+                                {/* Gruppo tabs principale */}
+                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+                                {/* Fullscreen player */}
                                 <Stack.Screen
                                     name="fullplayer"
-                                    options={{
-                                        presentation: "fullScreenModal",
-                                    }}
-                                />
-
-                                {/* Eventuali modali */}
-                                <Stack.Screen
-                                    name="modal"
-                                    options={{ presentation: "modal" }}
+                                    options={{ presentation: "fullScreenModal" }}
                                 />
                             </Stack>
+
 
                             <StatusBar style="light" />
                         </PlayerProvider>

@@ -1,4 +1,10 @@
-import React, {createContext, ReactNode, useContext, useEffect, useState,} from "react";
+import React, {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 import {
     createUserWithEmailAndPassword,
     onAuthStateChanged,
@@ -7,16 +13,32 @@ import {
     User,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {auth} from "@/firebaseConfig";
-import {useRouter} from "expo-router";
+import { auth } from "@/firebaseConfig";
+import { useRouter } from "expo-router";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL as string;
 
+type UserDTO = {
+    uid: string;
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    subscriptionType: string;
+};
+
 type AuthContextType = {
-    user: User | null;
+    firebaseUser: User | null; // Firebase auth object
+    appUser: UserDTO | null;   // Dati provenienti dal backend
     loadingAuth: boolean;
     login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, displayName?: string) => Promise<void>;
+    signup: (data: {
+        email: string;
+        password: string;
+        firstName: string;
+        lastName: string;
+        username: string;
+    }) => Promise<void>;
     logout: () => Promise<void>;
 };
 
@@ -27,18 +49,22 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-    const [user, setUser] = useState<User | null>(null);
+    const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+    const [appUser, setAppUser] = useState<UserDTO | null>(null);
     const [loadingAuth, setLoadingAuth] = useState(true);
     const router = useRouter();
 
+    // 🔹 Carica da AsyncStorage al primo avvio
     useEffect(() => {
         const restoreUser = async () => {
             try {
-                const storedUser = await AsyncStorage.getItem("firebaseUser");
-                if (storedUser) {
-                    const parsed = JSON.parse(storedUser);
-                    setUser(parsed);
-                    console.log("🔄 Utente ripristinato da AsyncStorage:", parsed.email);
+                const storedAppUser = await AsyncStorage.getItem("appUser");
+                const storedFirebaseUser = await AsyncStorage.getItem("firebaseUser");
+
+                if (storedAppUser && storedFirebaseUser) {
+                    setAppUser(JSON.parse(storedAppUser));
+                    setFirebaseUser(JSON.parse(storedFirebaseUser));
+                    console.log("🔄 Utente ripristinato da storage:", JSON.parse(storedAppUser).email);
                 }
             } catch (err) {
                 console.warn("⚠️ Errore durante il caricamento utente salvato:", err);
@@ -48,92 +74,151 @@ export function AuthProvider({ children }: AuthProviderProps) {
         restoreUser();
     }, []);
 
+    // 🔹 Listener per cambiamento autenticazione Firebase
     useEffect(() => {
-        return onAuthStateChanged(auth, async (firebaseUser) => {
-            console.log("👤 Stato autenticazione:", firebaseUser?.email ?? "nessuno");
+        return onAuthStateChanged(auth, async (user) => {
+            console.log("👤 Stato autenticazione:", user?.email ?? "nessuno");
 
-            if (firebaseUser) {
-                setUser(firebaseUser);
-                // 🔐 Salva utente localmente per persistenza manuale
-                await AsyncStorage.setItem("firebaseUser", JSON.stringify(firebaseUser));
+            if (user) {
+                setFirebaseUser(user);
+                await AsyncStorage.setItem("firebaseUser", JSON.stringify(user));
             } else {
-                setUser(null);
+                setFirebaseUser(null);
+                setAppUser(null);
                 await AsyncStorage.removeItem("firebaseUser");
+                await AsyncStorage.removeItem("appUser");
             }
 
             setLoadingAuth(false);
         });
     }, []);
 
+    // 🔹 LOGIN
     const login = async (email: string, password: string): Promise<void> => {
         setLoadingAuth(true);
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const idToken = await userCredential.user.getIdToken();
-
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken }),
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            console.error("❌ Errore dal backend:", text);
-            setLoadingAuth(false);
-            throw new Error("Autenticazione backend fallita");
-        }
-
-        console.log("✅ Login completato:", userCredential.user.email);
-        await AsyncStorage.setItem("firebaseUser", JSON.stringify(userCredential.user));
-        setUser(userCredential.user);
-        setLoadingAuth(false);
-        router.replace("/(tabs)");
-    };
-
-    const signup = async (email: string, password: string, displayName?: string): Promise<void> => {
-        setLoadingAuth(true);
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            // 1️⃣ Login su Firebase
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const idToken = await userCredential.user.getIdToken();
 
-            const response = await fetch(`${API_URL}/auth/signup`, {
+            // 2️⃣ Login su backend
+            const response = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password, displayName, idToken }),
+                body: JSON.stringify({ idToken }),
             });
 
             if (!response.ok) {
                 const text = await response.text();
                 console.error("❌ Errore dal backend:", text);
-                setLoadingAuth(false);
-                throw new Error("Registrazione backend fallita");
+                throw new Error(text || "Autenticazione backend fallita");
             }
 
-            console.log("🆕 Signup completato:", userCredential.user.email);
+            const userData: UserDTO = await response.json();
+            console.log("✅ Login backend completato:", userData);
+
+            // 3️⃣ Salva tutto localmente
             await AsyncStorage.setItem("firebaseUser", JSON.stringify(userCredential.user));
-            setUser(userCredential.user);
-            setLoadingAuth(false);
+            await AsyncStorage.setItem("appUser", JSON.stringify(userData));
+
+            setFirebaseUser(userCredential.user);
+            setAppUser(userData);
             router.replace("/(tabs)");
         } catch (error) {
-            setLoadingAuth(false);
-            console.error("❌ Errore durante signup:", error);
+            console.error("❌ Errore durante login:", error);
             throw error;
+        } finally {
+            setLoadingAuth(false);
         }
     };
 
+    // 🔹 SIGNUP — crea solo su Firebase, backend salva i dati utente
+    const signup = async (data: {
+        email: string;
+        password: string;
+        firstName: string;
+        lastName: string;
+        username: string;
+    }): Promise<void> => {
+        setLoadingAuth(true);
+        try {
+            // 1️⃣ Crea utente su Firebase
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                data.email,
+                data.password
+            );
+
+            // 🔄 Assicura che Firebase aggiorni il token
+            await userCredential.user.reload();
+
+            // ✅ Ottieni idToken aggiornato
+            const idToken = await userCredential.user.getIdToken(true);
+
+            if (!idToken) {
+                throw new Error("Impossibile ottenere ID token da Firebase");
+            }
+
+            // 2️⃣ Invia i dati extra e l'idToken al backend
+            const response = await fetch(`${API_URL}/auth/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: data.email,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    username: data.username,
+                    idToken, // 👈 importante
+                }),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                console.error("❌ Errore dal backend:", text);
+                throw new Error(text || "Registrazione backend fallita");
+            }
+
+            const userData: UserDTO = await response.json();
+            console.log("🆕 Signup backend completato:", userData);
+
+            // 3️⃣ Salva tutto localmente
+            await AsyncStorage.setItem("firebaseUser", JSON.stringify(userCredential.user));
+            await AsyncStorage.setItem("appUser", JSON.stringify(userData));
+
+            setFirebaseUser(userCredential.user);
+            setAppUser(userData);
+
+            router.replace("/(tabs)");
+        } catch (error) {
+            console.error("❌ Errore durante signup:", error);
+            // Se fallisce, rimuoviamo l’utente creato in Firebase
+            await signOut(auth);
+            throw error;
+        } finally {
+            setLoadingAuth(false);
+        }
+    };
+
+
+    // 🔹 LOGOUT
     const logout = async (): Promise<void> => {
         try {
             await signOut(auth);
             await AsyncStorage.removeItem("firebaseUser");
-            setUser(null);
+            await AsyncStorage.removeItem("appUser");
+            setFirebaseUser(null);
+            setAppUser(null);
             console.log("👋 Logout completato");
+            router.replace("/(auth)");
         } catch (error) {
             console.error("❌ Errore durante il logout:", error);
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, loadingAuth, login, signup, logout }}>
+        <AuthContext.Provider
+            value={{ firebaseUser, appUser, loadingAuth, login, signup, logout }}
+        >
             {children}
         </AuthContext.Provider>
     );

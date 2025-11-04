@@ -6,7 +6,7 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 import MiniPlayer from "@/components/ui/MiniPlayer";
 
 export default function TabsLayout() {
-    const { user, loadingAuth } = useAuth();
+    const { firebaseUser, loadingAuth } = useAuth();
 
     if (loadingAuth) {
         return (
@@ -16,11 +16,10 @@ export default function TabsLayout() {
         );
     }
 
-    if (!user) return null;
+    if (!firebaseUser) return null;
 
     return (
         <View style={styles.container}>
-            {/* 🧭 Tabs principali */}
             <Tabs
                 screenOptions={{
                     headerShown: false,
@@ -35,7 +34,7 @@ export default function TabsLayout() {
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        zIndex: 1, // sotto il mini player
+                        zIndex: 1,
                     },
                 }}
             >
@@ -70,18 +69,27 @@ export default function TabsLayout() {
                     }}
                 />
 
-                {/* --- PAGINE SECONDARIE (nascoste) --- */}
                 <Tabs.Screen
                     name="albumdetails"
                     options={{
-                        href: null, // 🚫 non mostra la tab
+                        href: null,
                     }}
                 />
 
                 <Tabs.Screen
                     name="artistdetails"
                     options={{
-                        href: null, // 🚫 non mostra la tab
+                        href: null, // 🚫 non mostra nella tab bar
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="settings"
+                    options={{
+                        title: "Profile",
+                        tabBarIcon: ({ color, size }) => (
+                            <Ionicons name="settings" color={color} size={size} />
+                        ),
                     }}
                 />
             </Tabs>
@@ -110,6 +118,6 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 999, // sempre sopra le tabs
+        zIndex: 999,
     },
 });

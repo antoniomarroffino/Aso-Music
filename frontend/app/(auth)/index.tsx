@@ -21,17 +21,18 @@ import { MotiView } from "moti";
 const { width } = Dimensions.get("window");
 
 export default function LoginScreen() {
-    const { login, user, loadingAuth } = useAuth();
+    const { login, firebaseUser, loadingAuth } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
+    // 🔹 Se l’utente è già loggato, vai direttamente alle tabs
     useEffect(() => {
-        if (!loadingAuth && user) {
+        if (!loadingAuth && firebaseUser) {
             router.replace("/(tabs)");
         }
-    }, [user, loadingAuth, router]);
+    }, [firebaseUser, loadingAuth, router]);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -41,10 +42,23 @@ export default function LoginScreen() {
 
         try {
             setLoading(true);
-            await login(email, password);
-        } catch (error) {
-            console.error("Errore login:", error);
-            Alert.alert("Errore", "Credenziali non valide o utente inesistente");
+            await login(email.trim(), password.trim());
+        } catch (error: any) {
+            console.error("❌ Errore login:", error);
+            let message = "Errore durante il login";
+
+            // 🔹 Gestione errori comuni
+            if (error.message?.includes("auth/invalid-credential")) {
+                message = "Credenziali non valide.";
+            } else if (error.message?.includes("auth/user-not-found")) {
+                message = "Utente non trovato.";
+            } else if (error.message?.includes("auth/wrong-password")) {
+                message = "Password errata.";
+            } else if (error.message?.includes("Autenticazione backend fallita")) {
+                message = "Errore di autenticazione con il server.";
+            }
+
+            Alert.alert("Errore", message);
         } finally {
             setLoading(false);
         }
@@ -59,7 +73,7 @@ export default function LoginScreen() {
                 style={styles.innerContainer}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                {/* 🔥 Logo con animazione leggera */}
+                {/* 🔥 Logo animato */}
                 <View style={styles.logoContainer}>
                     <MotiView
                         from={{ opacity: 0.5, scale: 0.9 }}
@@ -74,13 +88,20 @@ export default function LoginScreen() {
                     </MotiView>
 
                     <Text style={styles.appName}>ASO Music</Text>
-                    <Text style={styles.subtitle}>Accedi e ascolta un po&#39; di buona musica</Text>
+                    <Text style={styles.subtitle}>
+                        Accedi e ascolta un po&#39; di buona musica
+                    </Text>
                 </View>
 
                 {/* 🔹 Form di login */}
                 <View style={styles.form}>
                     <View style={styles.inputContainer}>
-                        <Ionicons name="mail-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <Ionicons
+                            name="mail-outline"
+                            size={20}
+                            color="#1DB954"
+                            style={styles.icon}
+                        />
                         <TextInput
                             style={styles.input}
                             placeholder="Email"
@@ -93,7 +114,12 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.inputContainer}>
-                        <Ionicons name="lock-closed-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <Ionicons
+                            name="lock-closed-outline"
+                            size={20}
+                            color="#1DB954"
+                            style={styles.icon}
+                        />
                         <TextInput
                             style={styles.input}
                             placeholder="Password"
@@ -105,11 +131,11 @@ export default function LoginScreen() {
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
+                        style={[styles.button, (loading || loadingAuth) && styles.buttonDisabled]}
                         onPress={handleLogin}
-                        disabled={loading}
+                        disabled={loading || loadingAuth}
                     >
-                        {loading ? (
+                        {loading || loadingAuth ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <Text style={styles.buttonText}>Accedi</Text>
@@ -118,7 +144,10 @@ export default function LoginScreen() {
 
                     <Text style={styles.hint}>
                         Non hai un account?{" "}
-                        <Text style={styles.link} onPress={() => router.push("/(auth)/signup")}>
+                        <Text
+                            style={styles.link}
+                            onPress={() => router.push("/(auth)/signup")}
+                        >
                             Registrati
                         </Text>
                     </Text>
@@ -138,8 +167,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 24,
     },
-
-    // 🔥 Logo area
     logoContainer: {
         alignItems: "center",
         marginBottom: 50,
@@ -168,10 +195,8 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginTop: 4,
     },
-
-    // 🔹 Form
     form: {
-        width: width * 0.9, // 👈 input e bottone più larghi (90% dello schermo)
+        width: width * 0.9,
     },
     inputContainer: {
         flexDirection: "row",
@@ -198,7 +223,7 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         alignItems: "center",
         marginTop: 14,
-        width: "100%", // 👈 piena larghezza
+        width: "100%",
     },
     buttonDisabled: {
         opacity: 0.7,

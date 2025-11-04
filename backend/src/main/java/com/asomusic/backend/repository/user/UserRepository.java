@@ -2,7 +2,6 @@ package com.asomusic.backend.repository.user;
 
 import com.asomusic.backend.model.dto.UserDTO;
 import com.google.cloud.firestore.Firestore;
-import com.google.firebase.auth.UserRecord;
 import com.google.firebase.cloud.FirestoreClient;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -13,13 +12,13 @@ import java.util.concurrent.ExecutionException;
 @ApplicationScoped
 public class UserRepository implements IUserRepository {
 
-    @Override
-    public void createUserDocument(UserRecord userRecord, String firstName, String lastName, String username) throws ExecutionException, InterruptedException {
+    public void createUserDocument(String uid, String email, String firstName, String lastName, String username)
+            throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
 
         Map<String, Object> userData = new HashMap<>();
-        userData.put("uid", userRecord.getUid());
-        userData.put("email", userRecord.getEmail());
+        userData.put("uid", uid);
+        userData.put("email", email);
         userData.put("username", username);
         userData.put("firstName", firstName);
         userData.put("lastName", lastName);
@@ -27,7 +26,7 @@ public class UserRepository implements IUserRepository {
         userData.put("subscriptionType", "free");
         userData.put("isVerified", false);
 
-        db.collection("users").document(userRecord.getUid()).set(userData).get();
+        db.collection("users").document(uid).set(userData).get();
     }
 
     @Override
@@ -62,6 +61,4 @@ public class UserRepository implements IUserRepository {
 
         return !query.isEmpty();
     }
-
-
 }

@@ -24,14 +24,27 @@ export default function SignupScreen() {
     const router = useRouter();
     const { signup } = useAuth();
 
+    // 🔹 Campi aggiornati
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [displayName, setDisplayName] = useState("");
     const [loading, setLoading] = useState(false);
 
     const validateForm = (): boolean => {
-        if (!displayName.trim()) {
-            Alert.alert("Attenzione", "Inserisci un nome utente valido");
+        if (!firstName.trim()) {
+            Alert.alert("Attenzione", "Inserisci il tuo nome");
+            return false;
+        }
+
+        if (!lastName.trim()) {
+            Alert.alert("Attenzione", "Inserisci il tuo cognome");
+            return false;
+        }
+
+        if (!username.trim()) {
+            Alert.alert("Attenzione", "Inserisci uno username valido");
             return false;
         }
 
@@ -54,18 +67,27 @@ export default function SignupScreen() {
 
         try {
             setLoading(true);
-            await signup(email.trim(), password.trim(), displayName.trim());
+
+            await signup({
+                email: email.trim(),
+                password: password.trim(),
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                username: username.trim(),
+            });
+
             Alert.alert("Benvenuto 🎉", "Account creato con successo!");
+            router.replace("/(auth)"); // oppure router.push("/home") se hai già la home
         } catch (error: any) {
             console.error("❌ Errore signup:", error);
             let message = "Errore durante la registrazione";
 
-            if (error.code === "auth/email-already-in-use") {
-                message = "Questa email è già registrata";
-            } else if (error.code === "auth/invalid-email") {
-                message = "Email non valida";
-            } else if (error.code === "auth/weak-password") {
-                message = "La password è troppo debole";
+            if (error.message?.includes("Username già in uso")) {
+                message = "Questo username è già stato preso. Scegline un altro.";
+            } else if (error.message?.includes("email-already-in-use")) {
+                message = "Questa email è già registrata.";
+            } else if (error.message?.includes("weak-password")) {
+                message = "La password è troppo debole.";
             }
 
             Alert.alert("Errore", message);
@@ -83,7 +105,7 @@ export default function SignupScreen() {
                 style={styles.innerContainer}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                {/* 🔥 Logo animato come in Login */}
+                {/* 🔥 Logo */}
                 <View style={styles.logoContainer}>
                     <MotiView
                         from={{ opacity: 0.5, scale: 0.9 }}
@@ -103,18 +125,46 @@ export default function SignupScreen() {
 
                 {/* 🔹 Form di registrazione */}
                 <View style={styles.form}>
+                    {/* Nome */}
                     <View style={styles.inputContainer}>
                         <Ionicons name="person-outline" size={20} color="#1DB954" style={styles.icon} />
                         <TextInput
                             style={styles.input}
-                            placeholder="Nome utente"
+                            placeholder="Nome"
                             placeholderTextColor="#888"
-                            value={displayName}
-                            onChangeText={setDisplayName}
+                            value={firstName}
+                            onChangeText={setFirstName}
                             autoCapitalize="words"
                         />
                     </View>
 
+                    {/* Cognome */}
+                    <View style={styles.inputContainer}>
+                        <Ionicons name="person-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Cognome"
+                            placeholderTextColor="#888"
+                            value={lastName}
+                            onChangeText={setLastName}
+                            autoCapitalize="words"
+                        />
+                    </View>
+
+                    {/* Username */}
+                    <View style={styles.inputContainer}>
+                        <Ionicons name="at-outline" size={20} color="#1DB954" style={styles.icon} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Username"
+                            placeholderTextColor="#888"
+                            value={username}
+                            onChangeText={setUsername}
+                            autoCapitalize="none"
+                        />
+                    </View>
+
+                    {/* Email */}
                     <View style={styles.inputContainer}>
                         <Ionicons name="mail-outline" size={20} color="#1DB954" style={styles.icon} />
                         <TextInput
@@ -128,6 +178,7 @@ export default function SignupScreen() {
                         />
                     </View>
 
+                    {/* Password */}
                     <View style={styles.inputContainer}>
                         <Ionicons name="lock-closed-outline" size={20} color="#1DB954" style={styles.icon} />
                         <TextInput
@@ -140,6 +191,7 @@ export default function SignupScreen() {
                         />
                     </View>
 
+                    {/* Bottone */}
                     <TouchableOpacity
                         style={[styles.button, loading && styles.buttonDisabled]}
                         onPress={handleSignup}
@@ -172,8 +224,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 24,
     },
-
-    // 🔥 Logo area (uguale alla login)
     logoContainer: {
         alignItems: "center",
         marginBottom: 50,
@@ -202,8 +252,6 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginTop: 4,
     },
-
-    // 🔹 Form (omologato alla login)
     form: {
         width: width * 0.9,
     },
