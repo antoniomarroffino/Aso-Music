@@ -110,7 +110,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             streamTimeoutRef.current = setTimeout(() => {
                 if (lastStreamedSongId.current !== song.id) {
                     lastStreamedSongId.current = song.id;
-                    console.log(`🎧 Incremento stream per "${song.title}" (${albumId})`);
                     incrementStreamCount(albumId, song.id);
                 }
             }, 20000);
@@ -127,14 +126,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         } else {
             player.play();
 
-            // se riprende, fai ripartire il timer solo se non ancora conteggiato
             if (
                 currentSong &&
                 currentAlbumId &&
                 lastStreamedSongId.current !== currentSong.id
             ) {
                 streamTimeoutRef.current = setTimeout(() => {
-                    console.log(`🎧 Incremento stream (ripresa) per "${currentSong.title}"`);
                     incrementStreamCount(currentAlbumId, currentSong.id);
                     lastStreamedSongId.current = currentSong.id;
                 }, 20000);
@@ -172,7 +169,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentAlbumId && next.id) {
             streamTimeoutRef.current = setTimeout(() => {
-                console.log(`🎧 Incremento stream per "${next.title}" (${currentAlbumId})`);
                 incrementStreamCount(currentAlbumId, next.id);
                 lastStreamedSongId.current = next.id;
             }, 20000);
@@ -194,7 +190,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentAlbumId && prev.id) {
             streamTimeoutRef.current = setTimeout(() => {
-                console.log(`🎧 Incremento stream per "${prev.title}" (${currentAlbumId})`);
                 incrementStreamCount(currentAlbumId, prev.id);
                 lastStreamedSongId.current = prev.id;
             }, 20000);

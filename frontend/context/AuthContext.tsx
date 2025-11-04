@@ -64,7 +64,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 if (storedAppUser && storedFirebaseUser) {
                     setAppUser(JSON.parse(storedAppUser));
                     setFirebaseUser(JSON.parse(storedFirebaseUser));
-                    console.log("🔄 Utente ripristinato da storage:", JSON.parse(storedAppUser).email);
                 }
             } catch (err) {
                 console.warn("⚠️ Errore durante il caricamento utente salvato:", err);
@@ -77,7 +76,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 🔹 Listener per cambiamento autenticazione Firebase
     useEffect(() => {
         return onAuthStateChanged(auth, async (user) => {
-            console.log("👤 Stato autenticazione:", user?.email ?? "nessuno");
 
             if (user) {
                 setFirebaseUser(user);
@@ -115,7 +113,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
 
             const userData: UserDTO = await response.json();
-            console.log("✅ Login backend completato:", userData);
 
             // 3️⃣ Salva tutto localmente
             await AsyncStorage.setItem("firebaseUser", JSON.stringify(userCredential.user));
@@ -179,7 +176,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
 
             const userData: UserDTO = await response.json();
-            console.log("🆕 Signup backend completato:", userData);
 
             // 3️⃣ Salva tutto localmente
             await AsyncStorage.setItem("firebaseUser", JSON.stringify(userCredential.user));
@@ -208,7 +204,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             await AsyncStorage.removeItem("appUser");
             setFirebaseUser(null);
             setAppUser(null);
-            console.log("👋 Logout completato");
             router.replace("/(auth)");
         } catch (error) {
             console.error("❌ Errore durante il logout:", error);

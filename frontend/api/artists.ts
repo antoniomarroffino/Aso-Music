@@ -5,7 +5,6 @@ const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
 
 export async function fetchAllArtists(): Promise<ArtistDTO[]> {
     try {
-        console.log("🌍 GET:", `${BASE_URL}/artists/all`);
         const res = await fetch(`${BASE_URL}/artists/all`);
 
         if (!res.ok) {
@@ -13,7 +12,6 @@ export async function fetchAllArtists(): Promise<ArtistDTO[]> {
         }
 
         const data: ArtistDTO[] = await res.json();
-        console.log("🎨 Artisti ricevuti:", data);
         return data;
     } catch (err) {
         console.error("❌ Errore fetchAllArtists:", err);
@@ -23,7 +21,6 @@ export async function fetchAllArtists(): Promise<ArtistDTO[]> {
 
 export async function fetchArtistById(id: string): Promise<ArtistDTO> {
     try {
-        console.log("🌍 GET:", `${BASE_URL}/artists/${id}`);
         const res = await fetch(`${BASE_URL}/artists/${id}`);
 
         if (!res.ok) {
@@ -31,7 +28,6 @@ export async function fetchArtistById(id: string): Promise<ArtistDTO> {
         }
 
         const data: ArtistDTO = await res.json();
-        console.log("🎤 Artista ricevuto:", data);
         return data;
     } catch (err) {
         console.error("❌ Errore fetchArtistById:", err);

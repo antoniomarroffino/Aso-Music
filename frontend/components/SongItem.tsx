@@ -21,7 +21,6 @@ interface SongItemProps {
 
 function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, onPress }: SongItemProps) {
     const router = useRouter();
-    console.log("🎨 SongItem -> song.artists:", song.artists);
     const formattedNumber =
         song.tracklistPosition < 10
             ? `0${song.tracklistPosition}`
@@ -41,8 +40,7 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
             return `${mins}:${secs.toString().padStart(2, "0")}`;
         }
     };
-
-    const artistNames = useMemo(() => {
+    useMemo(() => {
         if (!Array.isArray(song.artists) || !allArtists) {
             return ["Artista sconosciuto"];
         }
@@ -58,38 +56,6 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
 
         return names.length > 0 ? names : ["Artista sconosciuto"];
     }, [song.artists, allArtists]);
-
-
-
-    // 🧪 Test fetch dell'URL
-    const testUrl = async (audioUrl: string): Promise<boolean> => {
-        try {
-            console.log("🧪 Testing URL con fetch:", audioUrl);
-
-            const response = await fetch(audioUrl, { method: "HEAD" });
-
-            console.log("📊 Response status:", response.status);
-            console.log("📊 Headers:");
-            console.log("   Content-Type:", response.headers.get("content-type"));
-            console.log(
-                "   Content-Length:",
-                response.headers.get("content-length")
-            );
-
-            if (response.ok) {
-                console.log("✅ Fetch OK - URL è valido!");
-                return true;
-            } else {
-                console.log("❌ Fetch failed - Status:", response.status);
-                console.log("❌ URL:", audioUrl);
-                return false;
-            }
-        } catch (error: any) {
-            console.error("❌ Fetch error:", error.message);
-            console.error("❌ URL testato:", audioUrl);
-            return false;
-        }
-    };
 
     return (
         <TouchableOpacity
