@@ -67,6 +67,14 @@ export default {
             reactCompiler: true,
         },
 
+        updates: {
+            url: "https://u.expo.dev/b47492e5-b933-48b8-83d1-553e8d5c4a0e",
+        },
+        runtimeVersion: {
+            policy: "appVersion",
+        },
+
+
         extra: {
             EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
             EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
