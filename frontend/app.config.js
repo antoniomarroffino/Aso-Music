@@ -10,7 +10,6 @@ export default {
         scheme: "asomusic",
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
-
         ios: {
             supportsTablet: true,
             bundleIdentifier: "com.asomusic.app",
@@ -77,6 +76,9 @@ export default {
             EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
             process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
             EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+            eas: {
+                projectId: "b47492e5-b933-48b8-83d1-553e8d5c4a0e",
+            },
         },
     },
 };
