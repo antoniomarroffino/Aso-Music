@@ -36,7 +36,6 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 let MediaSession: any = null;
 try {
     MediaSession = require("expo-media-session");
-    console.log("✅ MediaSession caricato (dev build attiva)");
 } catch (e) {
     console.log("⚠️ MediaSession non disponibile (probabilmente Expo Go)");
 }
@@ -125,13 +124,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         albumId?: string,
         albumName?: string
     ) => {
-        console.log("🎵 playSong chiamato:", {
-            song: song.title,
-            queueLength: queue?.length,
-            startIndex,
-            albumId,
-        });
-
         // Stop e cleanup precedente
         if (soundRef.current) {
             soundRef.current.setOnPlaybackStatusUpdate(null);
@@ -152,12 +144,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     : queue.findIndex((s) => s.id === song.id);
             currentIndexRef.current = index !== -1 ? index : 0;
 
-            console.log("📋 Queue aggiornata:", {
-                queueLength: queue.length,
-                currentIndex: currentIndexRef.current,
-                currentSong: queue[currentIndexRef.current]?.title,
-                nextSong: queue[(currentIndexRef.current + 1) % queue.length]?.title,
-            });
         }
 
         setCurrentSong(song);
@@ -180,9 +166,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             setIsPlaying(status.isPlaying ?? false);
 
             if (status.didJustFinish) {
-                console.log("🏁 Canzone finita, passo alla successiva");
-                console.log("   Current queue length:", currentQueueRef.current.length);
-                console.log("   Current index:", currentIndexRef.current);
                 nextSongAction();
             }
         });
@@ -203,14 +186,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         // Stream increment
         if (albumId && song.id) {
-            console.log("⏰ Timer stream avviato (20s)");
             if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
             streamTimeoutRef.current = setTimeout(() => {
                 if (lastStreamedSongId.current !== song.id) {
-                    console.log("🚀 Incremento stream per:", song.title);
                     lastStreamedSongId.current = song.id;
                     incrementStreamCount(albumId, song.id)
-                        .then(() => console.log("✅ Stream incrementato"))
                         .catch((e) => console.error("❌ Errore stream:", e));
                 }
             }, 20000);
@@ -261,16 +241,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
     };
 
-    /** ⏭ Prossima */
     const nextSongAction = async () => {
         const queue = currentQueueRef.current;
         const currentIndex = currentIndexRef.current;
-
-        console.log("⏭️ nextSongAction:", {
-            queueLength: queue.length,
-            currentIndex,
-            currentSong: queue[currentIndex]?.title,
-        });
 
         if (!queue.length) {
             console.warn("⚠️ Queue vuota!");
@@ -279,11 +252,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         const nextIndex = (currentIndex + 1) % queue.length;
         const next = queue[nextIndex];
-
-        console.log("   -> Prossima canzone:", {
-            nextIndex,
-            nextSong: next?.title,
-        });
 
         await playSong(
             next,
@@ -303,11 +271,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
         const prev = queue[prevIndex];
-
-        console.log("⏮️ prevSong:", {
-            prevIndex,
-            prevSong: prev?.title,
-        });
 
         await playSong(
             prev,

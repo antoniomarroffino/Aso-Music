@@ -35,7 +35,6 @@ public class ArtistRepository implements IArtistRepository {
             artists.add(artist);
         }
 
-        System.out.println("🎨 Recuperati " + artists.size() + " artisti da Firestore.");
         return artists;
     }
 
@@ -51,10 +50,8 @@ public class ArtistRepository implements IArtistRepository {
             if (artist != null) {
                 artist.setId(docSnap.getId());
             }
-            System.out.println("🎤 Artista trovato: " + artist.getName());
             return artist;
         } else {
-            System.out.println("⚠️ Nessun artista trovato con ID: " + artistId);
             return null;
         }
     }

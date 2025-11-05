@@ -19,16 +19,12 @@ export async function fetchAllSongs(): Promise<AlbumDTO[]> {
 
 export async function incrementStreamCount(albumId: string, songId: string): Promise<void> {
     try {
-        console.log("🎵 Incremento stream ->", { albumId, songId, url: `${BASE_URL}/songs/${albumId}/songs/${songId}/listen` });
-
         const res = await fetch(`${BASE_URL}/songs/${albumId}/songs/${songId}/listen`, {
             method: "POST",
         });
 
         if (!res.ok) {
             console.warn(`⚠️ Errore incrementStreamCount (${res.status}): ${await res.text()}`);
-        } else {
-            console.log("✅ Stream incrementato con successo!");
         }
     } catch (err) {
         console.error("❌ Errore incremento stream:", err);

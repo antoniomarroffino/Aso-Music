@@ -69,7 +69,6 @@ public class SongRepository implements ISongRepository {
 
     @Override
     public void incrementListenCount(String albumId, String songId) throws ExecutionException, InterruptedException {
-        System.out.println("🎵 incrementListenCount chiamato -> albumId: " + albumId + ", songId: " + songId);
 
         DocumentReference songRef = db
                 .collection("album")
@@ -86,11 +85,8 @@ public class SongRepository implements ISongRepository {
         Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : 0L;
         Long newCount = currentCount + 1;
 
-        System.out.println("📊 Stream count -> Old: " + currentCount + ", New: " + newCount);
-
         songRef.update("stream", newCount);
 
-        System.out.println("✅ Stream incrementato con successo!");
     }
 
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {
@@ -98,7 +94,6 @@ public class SongRepository implements ISongRepository {
 
         Object rawArtists = songDoc.get("artist");
         if (!(rawArtists instanceof List<?> artistList)) {
-            System.out.println("⚠️ Nessun campo 'artist' per la canzone " + songDoc.getId());
             return artistDTOs;
         }
 
@@ -129,10 +124,6 @@ public class SongRepository implements ISongRepository {
                 System.err.println("❌ Errore recupero artista per song " + songDoc.getId() + ": " + e.getMessage());
             }
         }
-
-        System.out.println("🎨 SongRepository -> " + songDoc.getString("title") +
-                " resolved " + artistDTOs.size() + " artist(s)");
-
         return artistDTOs;
     }
 
