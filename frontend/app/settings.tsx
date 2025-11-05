@@ -44,9 +44,9 @@ export default function SettingsScreen() {
 
     const patchNotes = [
         {
-            version: "1.0.0",
+            version: "1.1.0",
             date: "Novembre 2025",
-            title: "rima Release",
+            title: "Prima release ufficiale",
             items: [
                 "TM2 (ALIENS) fuori ora!",
 
