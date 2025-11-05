@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import {
     View,
     Text,
@@ -8,28 +8,28 @@ import {
     Platform,
     ScrollView,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { MotiView } from "moti";
-import { BlurView } from "expo-blur";
-import { useArtists } from "@/hooks/useArtists";
-import { useSongs } from "@/hooks/useSongs";
+import {useLocalSearchParams, useRouter} from "expo-router";
+import {Image} from "expo-image";
+import {LinearGradient} from "expo-linear-gradient";
+import {Ionicons} from "@expo/vector-icons";
+import {MotiView} from "moti";
+import {BlurView} from "expo-blur";
+import {useArtists} from "@/hooks/useArtists";
+import {useSongs} from "@/hooks/useSongs";
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
 import SafeScrollView from "@/components/ui/SafeScrollView";
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
-    const { artistId, from, albumId } = useLocalSearchParams<{
+    const {artistId, from, albumId} = useLocalSearchParams<{
         artistId?: string;
         from?: string;
         albumId?: string;
     }>();
 
-    const { data: artists, isLoading } = useArtists();
-    const { data: albums } = useSongs();
+    const {data: artists, isLoading} = useArtists();
+    const {data: albums} = useSongs();
 
     const [visibleCount, setVisibleCount] = useState(5);
 
@@ -43,7 +43,7 @@ export default function ArtistDetailsScreen() {
         } else if (from === "albumdetails" && albumId) {
             router.replace({
                 pathname: "/(tabs)/albumdetails",
-                params: { id: albumId },
+                params: {id: albumId},
             });
         } else {
             router.back();
@@ -75,16 +75,172 @@ export default function ArtistDetailsScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.centered}>
-                <Text style={styles.loadingText}>Caricamento artista...</Text>
+            <View style={styles.container}>
+                <LinearGradient
+                    colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
+                    locations={[0, 0.3, 0.7, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                />
+
+                {/* Particles durante il loading */}
+                <View style={styles.particlesContainer}>
+                    {[...Array(15)].map((_, i) => (
+                        <MotiView
+                            key={i}
+                            from={{
+                                opacity: 0.1,
+                                translateY: 0,
+                                translateX: Math.random() * Dimensions.get("window").width,
+                            }}
+                            animate={{
+                                opacity: [0.1, 0.3, 0.1],
+                                translateY: Dimensions.get("window").height,
+                            }}
+                            transition={{
+                                loop: true,
+                                type: "timing",
+                                duration: 8000 + Math.random() * 4000,
+                                delay: Math.random() * 2000,
+                            }}
+                            style={[
+                                styles.particle,
+                                {
+                                    left: Math.random() * Dimensions.get("window").width,
+                                    width: 2 + Math.random() * 3,
+                                    height: 2 + Math.random() * 3,
+                                },
+                            ]}
+                        />
+                    ))}
+                </View>
+
+                <View style={styles.loadingContainer}>
+                    <MotiView
+                        from={{opacity: 0, scale: 0.8}}
+                        animate={{opacity: 1, scale: 1}}
+                        transition={{type: "spring", damping: 15}}
+                    >
+                        {/* Icona artista animata */}
+                        <MotiView
+                            from={{rotate: "0deg"}}
+                            animate={{rotate: "360deg"}}
+                            transition={{
+                                type: "timing",
+                                duration: 2000,
+                                loop: true,
+                            }}
+                            style={styles.loadingIcon}
+                        >
+                            <LinearGradient
+                                colors={["#1DB954", "#1ed760"]}
+                                style={styles.loadingIconGradient}
+                            >
+                                <Ionicons name="person" size={40} color="#000"/>
+                            </LinearGradient>
+                        </MotiView>
+
+                        {/* Testo con animazione */}
+                        <MotiView
+                            from={{opacity: 0, translateY: 10}}
+                            animate={{opacity: 1, translateY: 0}}
+                            transition={{type: "timing", delay: 200}}
+                        >
+                            <Text style={styles.loadingText}>Caricamento artista...</Text>
+                        </MotiView>
+
+                        {/* Dots animati */}
+                        <View style={styles.loadingDotsContainer}>
+                            {[0, 1, 2].map((i) => (
+                                <MotiView
+                                    key={i}
+                                    from={{opacity: 0.3, scale: 0.8}}
+                                    animate={{opacity: 1, scale: 1}}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 800,
+                                        loop: true,
+                                        delay: i * 200,
+                                        repeatReverse: true,
+                                    }}
+                                    style={styles.loadingDot}
+                                />
+                            ))}
+                        </View>
+                    </MotiView>
+                </View>
             </View>
         );
     }
 
     if (!artist) {
         return (
-            <View style={styles.centered}>
-                <Text style={styles.errorText}>Artista non trovato 😢</Text>
+            <View style={styles.container}>
+                <LinearGradient
+                    colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
+                    locations={[0, 0.3, 0.7, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                />
+
+                {/* Particles */}
+                <View style={styles.particlesContainer}>
+                    {[...Array(15)].map((_, i) => (
+                        <MotiView
+                            key={i}
+                            from={{
+                                opacity: 0.1,
+                                translateY: 0,
+                                translateX: Math.random() * Dimensions.get("window").width,
+                            }}
+                            animate={{
+                                opacity: [0.1, 0.3, 0.1],
+                                translateY: Dimensions.get("window").height,
+                            }}
+                            transition={{
+                                loop: true,
+                                type: "timing",
+                                duration: 8000 + Math.random() * 4000,
+                                delay: Math.random() * 2000,
+                            }}
+                            style={[
+                                styles.particle,
+                                {
+                                    left: Math.random() * Dimensions.get("window").width,
+                                    width: 2 + Math.random() * 3,
+                                    height: 2 + Math.random() * 3,
+                                },
+                            ]}
+                        />
+                    ))}
+                </View>
+
+                <View style={styles.loadingContainer}>
+                    <MotiView
+                        from={{opacity: 0, scale: 0.8}}
+                        animate={{opacity: 1, scale: 1}}
+                        transition={{type: "spring", damping: 15}}
+                    >
+                        <View style={styles.errorIcon}>
+                            <Ionicons name="alert-circle" size={60} color="#FF453A"/>
+                        </View>
+                        <Text style={styles.errorTextStyled}>Artista non trovato</Text>
+                        <Text style={styles.errorSubtext}>
+                            L&#39;artista che stai cercando non esiste o è stato rimosso 😢
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.backToHomeButton}
+                            onPress={handleGoBack}
+                            activeOpacity={0.8}
+                        >
+                            <LinearGradient
+                                colors={["#1DB954", "#1ed760"]}
+                                style={styles.backToHomeGradient}
+                            >
+                                <Ionicons name="arrow-back" size={20} color="#000"/>
+                                <Text style={styles.backToHomeText}>Torna indietro</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </MotiView>
+                </View>
             </View>
         );
     }
@@ -99,18 +255,18 @@ export default function ArtistDetailsScreen() {
                     style={styles.backWrapper}
                 >
                     <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={26} color="#fff" />
+                        <Ionicons name="chevron-back" size={26} color="#fff"/>
                     </TouchableOpacity>
                 </BlurView>
 
                 <MotiView
-                    from={{ opacity: 0, translateY: -20 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: "timing", duration: 600 }}
+                    from={{opacity: 0, translateY: -20}}
+                    animate={{opacity: 1, translateY: 0}}
+                    transition={{type: "timing", duration: 600}}
                 >
                     <View style={styles.imageWrapper}>
                         <Image
-                            source={{ uri: artist.profileURL }}
+                            source={{uri: artist.profileURL}}
                             style={styles.image}
                             contentFit="cover"
                         />
@@ -174,9 +330,9 @@ export default function ArtistDetailsScreen() {
                     </>
                 ) : (
                     <MotiView
-                        from={{ opacity: 0, translateY: 20 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "spring", damping: 15 }}
+                        from={{opacity: 0, translateY: 20}}
+                        animate={{opacity: 1, translateY: 0}}
+                        transition={{type: "spring", damping: 15}}
                         style={styles.emptyContainer}
                     >
                         <LinearGradient
@@ -184,7 +340,7 @@ export default function ArtistDetailsScreen() {
                             style={styles.emptyGradient}
                         >
                             <View style={styles.emptyIconContainer}>
-                                <Ionicons name="musical-notes-outline" size={48} color="#555" />
+                                <Ionicons name="musical-notes-outline" size={48} color="#555"/>
                             </View>
                             <Text style={styles.emptyTitle}>Nessuna canzone disponibile</Text>
                             <Text style={styles.emptySubtitle}>
@@ -215,7 +371,7 @@ export default function ArtistDetailsScreen() {
                                         showsHorizontalScrollIndicator={false}
                                         contentContainerStyle={styles.albumsRow}
                                     >
-                                        <AlbumCard album={latest} index={0} />
+                                        <AlbumCard album={latest} index={0}/>
                                     </ScrollView>
                                 </View>
 
@@ -245,9 +401,9 @@ export default function ArtistDetailsScreen() {
                     <View style={styles.subSection}>
                         <Text style={styles.subSectionTitle}>💿 Albums</Text>
                         <MotiView
-                            from={{ opacity: 0, translateY: 20 }}
-                            animate={{ opacity: 1, translateY: 0 }}
-                            transition={{ type: "spring", damping: 15, delay: 200 }}
+                            from={{opacity: 0, translateY: 20}}
+                            animate={{opacity: 1, translateY: 0}}
+                            transition={{type: "spring", damping: 15, delay: 200}}
                             style={styles.emptyContainer}
                         >
                             <LinearGradient
@@ -255,7 +411,7 @@ export default function ArtistDetailsScreen() {
                                 style={styles.emptyGradient}
                             >
                                 <View style={styles.emptyIconContainer}>
-                                    <Ionicons name="disc-outline" size={48} color="#555" />
+                                    <Ionicons name="disc-outline" size={48} color="#555"/>
                                 </View>
                                 <Text style={styles.emptyTitle}>Nessun album disponibile</Text>
                                 <Text style={styles.emptySubtitle}>
@@ -270,24 +426,16 @@ export default function ArtistDetailsScreen() {
     );
 }
 
-const { width } = Dimensions.get("window");
+const {width} = Dimensions.get("window");
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#0a0a0a" },
     centered: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#000",
     },
-    loadingText: { color: "#888" },
-    errorText: { color: "#fff" },
-    header: {
-        paddingTop: 80,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingBottom: 40,
-    },
+    errorText: {color: "#fff"},
     backWrapper: {
         position: "absolute",
         top: 50,
@@ -308,16 +456,16 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: "#1DB95430",
     },
-    image: { width: "100%", height: "100%" },
+    image: {width: "100%", height: "100%"},
     artistName: {
         color: "#fff",
         fontSize: 30,
         fontWeight: "900",
         textAlign: "center",
     },
-    bioContainer: { paddingHorizontal: 20, marginVertical: 20 },
-    bio: { color: "#ddd", fontSize: 15, lineHeight: 22, textAlign: "center" },
-    section: { marginTop: 20, paddingHorizontal: 20 },
+    bioContainer: {paddingHorizontal: 20, marginVertical: 20},
+    bio: {color: "#ddd", fontSize: 15, lineHeight: 22, textAlign: "center"},
+    section: {marginTop: 20, paddingHorizontal: 20},
     sectionTitle: {
         color: "#fff",
         fontSize: 20,
@@ -351,7 +499,7 @@ const styles = StyleSheet.create({
         gap: 16,
         paddingRight: 10,
     },
-    showMoreText: { color: "#1DB954", fontWeight: "600" },
+    showMoreText: {color: "#1DB954", fontWeight: "600"},
     emptyContainer: {
         marginVertical: 16,
     },
@@ -385,4 +533,105 @@ const styles = StyleSheet.create({
         textAlign: "center",
         lineHeight: 20,
     },
+    container: {flex: 1, backgroundColor: "#0a0a0a"},
+    particlesContainer: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: "hidden",
+    },
+    particle: {
+        position: "absolute",
+        backgroundColor: "#1DB954",
+        borderRadius: 50,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 40,
+    },
+    loadingIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        marginBottom: 24,
+        shadowColor: "#1DB954",
+        shadowOffset: {width: 0, height: 8},
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    loadingIconGradient: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 50,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    loadingText: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
+        textAlign: "center",
+        marginBottom: 20,
+        letterSpacing: -0.3,
+    },
+    loadingDotsContainer: {
+        flexDirection: "row",
+        gap: 10,
+        justifyContent: "center",
+    },
+    loadingDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#1DB954",
+    },
+    errorIcon: {
+        marginBottom: 24,
+    },
+    errorTextStyled: {
+        color: "#fff",
+        fontSize: 22,
+        fontWeight: "800",
+        textAlign: "center",
+        marginBottom: 12,
+    },
+    errorSubtext: {
+        color: "#888",
+        fontSize: 15,
+        fontWeight: "500",
+        textAlign: "center",
+        marginBottom: 32,
+        lineHeight: 22,
+        paddingHorizontal: 20,
+    },
+    backToHomeButton: {
+        borderRadius: 30,
+        overflow: "hidden",
+        shadowColor: "#1DB954",
+        shadowOffset: {width: 0, height: 4},
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    backToHomeGradient: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+    },
+    backToHomeText: {
+        color: "#000",
+        fontSize: 16,
+        fontWeight: "800",
+    },
+
+    header: {
+        paddingTop: 80,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingBottom: 40,
+    },
+
 });

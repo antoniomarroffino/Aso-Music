@@ -26,20 +26,14 @@ public class AuthService implements IAuthService {
     @Override
     public LoginResponseDTO login(LoginRequestDTO request) {
         try {
-            // 1️⃣ Verifica token Firebase
             FirebaseToken decodedToken = authRepository.verifyToken(request.getIdToken());
             String uid = decodedToken.getUid();
-
-            System.out.println("✅ Token verificato per UID: " + uid);
-
-            // 2️⃣ Recupera utente da Firestore tramite UserRepository
             var user = userRepository.getUserByUid(uid);
 
             if (user == null) {
                 throw new RuntimeException("Utente non trovato nel database Firestore");
             }
 
-            // 3️⃣ Ritorna response completa (tutti i campi coerenti con UserDTO)
             return LoginResponseDTO.builder()
                     .uid(uid)
                     .email(user.getEmail())
@@ -61,22 +55,14 @@ public class AuthService implements IAuthService {
     @Override
     public SignupResponseDTO signup(SignupRequestDTO request) {
         try {
-            // 1️⃣ Verifica il token inviato dal frontend
             FirebaseToken decodedToken = firebaseAuth.verifyIdToken(request.getIdToken());
             String uid = decodedToken.getUid();
 
-            System.out.println("✅ Token verificato correttamente per UID: " + uid);
-
-            // 2️⃣ Controlla se lo username è già in uso
             if (userRepository.isUsernameTaken(request.getUsername())) {
                 throw new RuntimeException("Username già in uso");
             }
 
-            // 3️⃣ Controlla se l’utente esiste già in Firestore
-            if (userRepository.getUserByUid(uid) != null) {
-                System.out.println("⚠️ Utente già presente in Firestore, skip creazione");
-            } else {
-                // 4️⃣ Crea documento utente su Firestore
+            if (userRepository.getUserByUid(uid) == null) {
                 userRepository.createUserDocument(
                         uid,
                         request.getEmail(),
@@ -84,10 +70,8 @@ public class AuthService implements IAuthService {
                         request.getLastName(),
                         request.getUsername()
                 );
-                System.out.println("✅ Utente creato su Firestore con UID: " + uid);
             }
 
-            // 5️⃣ Ritorna la response completa (anche con nome e cognome)
             return SignupResponseDTO.builder()
                     .uid(uid)
                     .email(request.getEmail())

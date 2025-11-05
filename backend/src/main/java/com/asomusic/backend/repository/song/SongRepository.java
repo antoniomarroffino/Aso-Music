@@ -80,14 +80,10 @@ public class SongRepository implements ISongRepository {
             throw new IllegalArgumentException("Song not found: " + songId);
         }
 
-        Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : 0L;
+        Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : Long.valueOf(0L);
         songRef.update("stream", currentCount + 1);
     }
 
-
-    /**
-     * Risolve gli artisti da Firestore (supporta sia DocumentReference sia ID string)
-     */
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {
         List<ArtistDTO> artistDTOs = new ArrayList<>();
 
@@ -101,17 +97,14 @@ public class SongRepository implements ISongRepository {
             try {
                 DocumentSnapshot artistDoc = null;
 
-                // 🔹 Caso 1: DocumentReference
                 if (refObj instanceof DocumentReference ref) {
                     artistDoc = ref.get().get();
                 }
 
-                // 🔹 Caso 2: String ID
                 else if (refObj instanceof String artistId && !artistId.isBlank()) {
                     artistDoc = db.collection("artists").document(artistId).get().get();
                 }
 
-                // 🔹 Se trovato, mappa in ArtistDTO
                 if (artistDoc != null && artistDoc.exists()) {
                     ArtistDTO artist = ArtistDTO.builder()
                             .id(artistDoc.getId())

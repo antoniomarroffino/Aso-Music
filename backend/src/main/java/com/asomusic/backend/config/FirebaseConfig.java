@@ -24,7 +24,6 @@ public class FirebaseConfig {
         try (InputStream serviceAccount = getClass().getClassLoader()
                 .getResourceAsStream("serviceAccountKey.json")) {
 
-            // ✅ Salva le credenziali come variabile di classe
             this.credentials = GoogleCredentials.fromStream(serviceAccount);
 
             FirebaseOptions options = FirebaseOptions.builder()
@@ -33,24 +32,20 @@ public class FirebaseConfig {
 
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);
-                System.out.println("✅ Firebase initialized");
             }
 
-            // ✅ Inizializza Storage (il bucket si specifica dopo, nella richiesta)
             this.storage = StorageOptions.newBuilder()
                     .setCredentials(credentials)
                     .setProjectId("asomusic-d39c4")
                     .build()
                     .getService();
 
-            System.out.println("✅ Firebase Storage initialized");
 
         } catch (Exception e) {
             throw new RuntimeException("❌ Failed to initialize Firebase", e);
         }
     }
 
-    // ✅ Producer che ritorna lo storage già inizializzato
     @Produces
     @ApplicationScoped
     public Storage getStorage() {

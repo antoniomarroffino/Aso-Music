@@ -93,13 +93,108 @@ export default function AlbumDetails() {
 
     if (isLoading || loadingArtists) {
         return (
-            <View
-                style={[
-                    styles.container,
-                    {justifyContent: "center", alignItems: "center"},
-                ]}
-            >
-                <Text style={{color: "#888"}}>Caricamento album...</Text>
+            <View style={styles.container}>
+                <LinearGradient
+                    colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
+                    locations={[0, 0.3, 0.7, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                />
+                <StatusBar style="light" />
+
+
+                <View style={styles.loadingContainer}>
+                    <MotiView
+                        from={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", damping: 15 }}
+                    >
+                        {/* Logo animato */}
+                        <MotiView
+                            from={{ rotate: "0deg" }}
+                            animate={{ rotate: "360deg" }}
+                            transition={{
+                                type: "timing",
+                                duration: 2000,
+                                loop: true,
+                            }}
+                            style={styles.loadingIcon}
+                        >
+                            <LinearGradient
+                                colors={["#1DB954", "#1ed760"]}
+                                style={styles.loadingIconGradient}
+                            >
+                                <Ionicons name="disc" size={40} color="#000" />
+                            </LinearGradient>
+                        </MotiView>
+
+                        {/* Testo con animazione */}
+                        <MotiView
+                            from={{ opacity: 0, translateY: 10 }}
+                            animate={{ opacity: 1, translateY: 0 }}
+                            transition={{ type: "timing", delay: 200 }}
+                        >
+                            <Text style={styles.loadingText}>Caricamento album...</Text>
+                        </MotiView>
+
+                        {/* Dots animati */}
+                        <View style={styles.loadingDotsContainer}>
+                            {[0, 1, 2].map((i) => (
+                                <MotiView
+                                    key={i}
+                                    from={{ opacity: 0.3, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 800,
+                                        loop: true,
+                                        delay: i * 200,
+                                        repeatReverse: true,
+                                    }}
+                                    style={styles.loadingDot}
+                                />
+                            ))}
+                        </View>
+                    </MotiView>
+                </View>
+            </View>
+        );
+    }
+
+    if (!parsedAlbum) {
+        return (
+            <View style={styles.container}>
+                <LinearGradient
+                    colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
+                    locations={[0, 0.3, 0.7, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                />
+                <StatusBar style="light" />
+
+                <View style={styles.loadingContainer}>
+                    <MotiView
+                        from={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", damping: 15 }}
+                    >
+                        <View style={styles.errorIcon}>
+                            <Ionicons name="alert-circle" size={60} color="#FF453A" />
+                        </View>
+                        <Text style={styles.errorText}>Album non trovato</Text>
+                        <TouchableOpacity
+                            style={styles.backToHomeButton}
+                            onPress={() => router.back()}
+                            activeOpacity={0.8}
+                        >
+                            <LinearGradient
+                                colors={["#1DB954", "#1ed760"]}
+                                style={styles.backToHomeGradient}
+                            >
+                                <Ionicons name="arrow-back" size={20} color="#000" />
+                                <Text style={styles.backToHomeText}>Torna indietro</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </MotiView>
+                </View>
             </View>
         );
     }
@@ -582,5 +677,80 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: "rgba(255, 255, 255, 0.05)",
         marginVertical: 8,
+    },
+    // Aggiungi alla fine degli styles
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 40,
+    },
+    loadingIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        marginBottom: 24,
+        shadowColor: "#1DB954",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    loadingIconGradient: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 50,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    loadingText: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "700",
+        textAlign: "center",
+        marginBottom: 20,
+        letterSpacing: -0.3,
+    },
+    loadingDotsContainer: {
+        flexDirection: "row",
+        gap: 10,
+        justifyContent: "center",
+    },
+    loadingDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#1DB954",
+    },
+    errorIcon: {
+        marginBottom: 24,
+    },
+    errorText: {
+        color: "#888",
+        fontSize: 18,
+        fontWeight: "600",
+        textAlign: "center",
+        marginBottom: 32,
+    },
+    backToHomeButton: {
+        borderRadius: 30,
+        overflow: "hidden",
+        shadowColor: "#1DB954",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    backToHomeGradient: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 28,
+    },
+    backToHomeText: {
+        color: "#000",
+        fontSize: 16,
+        fontWeight: "800",
     },
 });

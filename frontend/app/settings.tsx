@@ -45,14 +45,11 @@ export default function SettingsScreen() {
     const patchNotes = [
         {
             version: "1.0.0",
-            date: "Gennaio 2025",
-            title: "🎉 Prima Release",
+            date: "Novembre 2025",
+            title: "rima Release",
             items: [
-                "Interfaccia moderna e fluida",
-                "Player musicale completo",
-                "Gestione libreria personale",
-                "Sistema di autenticazione",
-                "Ordinamento album avanzato",
+                "TM2 (ALIENS) fuori ora!",
+
             ],
         },
     ];
@@ -149,9 +146,6 @@ export default function SettingsScreen() {
                                 <Text style={styles.versionText}>v{APP_VERSION}</Text>
                             </View>
                         </View>
-                        <Text style={styles.versionSubtext}>
-                            ASO Music - La tua musica, ovunque
-                        </Text>
                     </BlurView>
                 </MotiView>
 

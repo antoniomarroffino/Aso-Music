@@ -175,40 +175,6 @@ export default function FullPlayer() {
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
-    // 🎨 Particelle animate
-    const renderParticles = () => (
-        <View style={styles.particlesContainer}>
-            {[...Array(20)].map((_, i) => (
-                <MotiView
-                    key={i}
-                    from={{
-                        opacity: 0.1,
-                        translateY: 0,
-                        translateX: Math.random() * width,
-                    }}
-                    animate={{
-                        opacity: [0.1, 0.4, 0.1],
-                        translateY: height,
-                    }}
-                    transition={{
-                        loop: true,
-                        type: "timing",
-                        duration: 6000 + Math.random() * 4000,
-                        delay: Math.random() * 3000,
-                    }}
-                    style={[
-                        styles.particle,
-                        {
-                            left: Math.random() * width,
-                            width: 2 + Math.random() * 4,
-                            height: 2 + Math.random() * 4,
-                        },
-                    ]}
-                />
-            ))}
-        </View>
-    );
-
     return (
         <GestureDetector gesture={panDown}>
             <Animated.View style={[styles.container, animatedStyle]}>
@@ -220,8 +186,6 @@ export default function FullPlayer() {
                     locations={[0, 0.3, 0.6, 1]}
                     style={StyleSheet.absoluteFillObject}
                 />
-
-                {renderParticles()}
 
                 {/* 🔝 Custom Header con Blur */}
                 <MotiView
@@ -278,56 +242,15 @@ export default function FullPlayer() {
                     style={styles.heroSection}
                 >
                     <View style={styles.coverContainer}>
-                        {/* Glow effect */}
-                        <MotiView
-                            from={{ opacity: 0.3, scale: 0.9 }}
-                            animate={{ opacity: 0.7, scale: 1.15 }}
-                            transition={{
-                                loop: true,
-                                type: "timing",
-                                duration: 3000,
-                                repeatReverse: true,
-                            }}
-                            style={styles.coverGlow}
-                        />
-
-                        {/* Cover con bordo gradient */}
-                        <LinearGradient
-                            colors={[
-                                "rgba(29, 185, 84, 0.6)",
-                                "rgba(138, 43, 226, 0.5)",
-                                "rgba(29, 185, 84, 0.6)",
-                            ]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.coverBorder}
-                        >
-                            <View style={styles.coverWrapper}>
-                                <Image
-                                    source={{ uri: currentSong.coverURL }}
-                                    style={styles.cover}
-                                    contentFit="cover"
-                                    transition={400}
-                                />
-                                <LinearGradient
-                                    colors={["transparent", "rgba(0, 0, 0, 0.4)"]}
-                                    style={styles.coverOverlay}
-                                />
-                            </View>
-                        </LinearGradient>
-
-                        {/* Shine effect */}
-                        <MotiView
-                            from={{ translateX: -COVER_SIZE }}
-                            animate={{ translateX: COVER_SIZE * 2 }}
-                            transition={{
-                                loop: true,
-                                type: "timing",
-                                duration: 3500,
-                                delay: 800,
-                            }}
-                            style={styles.shineEffect}
-                        />
+                        {/* Cover pulita senza effetti */}
+                        <View style={styles.coverWrapper}>
+                            <Image
+                                source={{ uri: currentSong.coverURL }}
+                                style={styles.cover}
+                                contentFit="cover"
+                                transition={400}
+                            />
+                        </View>
                     </View>
                 </MotiView>
 
@@ -540,16 +463,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingTop: Platform.OS === "ios" ? 50 : 40,
     },
-    particlesContainer: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: "hidden",
-    },
-    particle: {
-        position: "absolute",
-        backgroundColor: "#1DB954",
-        borderRadius: 50,
-        opacity: 0.3,
-    },
+
     customHeader: {
         position: "absolute",
         top: 0,
@@ -615,6 +529,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
+    // ✅ STILI SEMPLIFICATI PER LA COVER
     heroSection: {
         alignItems: "center",
         marginTop: Platform.OS === "ios" ? 100 : 90,
@@ -623,23 +538,6 @@ const styles = StyleSheet.create({
     coverContainer: {
         alignItems: "center",
         justifyContent: "center",
-        position: "relative",
-    },
-    coverGlow: {
-        position: "absolute",
-        width: COVER_SIZE + 60,
-        height: COVER_SIZE + 60,
-        borderRadius: (COVER_SIZE + 60) / 2,
-        backgroundColor: "#1DB954",
-    },
-    coverBorder: {
-        padding: 4,
-        borderRadius: 28,
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
-        elevation: 12,
     },
     coverWrapper: {
         width: COVER_SIZE,
@@ -647,21 +545,15 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         overflow: "hidden",
         backgroundColor: "#1a1a1a",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.6,
+        shadowRadius: 20,
+        elevation: 15,
     },
     cover: {
         width: "100%",
         height: "100%",
-    },
-    coverOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    shineEffect: {
-        position: "absolute",
-        top: 0,
-        width: 80,
-        height: COVER_SIZE,
-        backgroundColor: "rgba(255, 255, 255, 0.12)",
-        transform: [{ skewX: "-20deg" }],
     },
     infoSection: {
         alignItems: "center",
