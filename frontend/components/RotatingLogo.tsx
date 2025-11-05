@@ -12,6 +12,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
+import { useSongs } from "@/hooks/useSongs";
+import { usePlayer } from "@/context/PlayerContext";
+import { SongDTO, AlbumDTO } from "@/types/music";
 
 const { width } = Dimensions.get("window");
 
@@ -21,16 +24,41 @@ interface RotatingLogoProps {
 
 export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
     const [showMessage, setShowMessage] = useState(false);
+    const [suggestedSong, setSuggestedSong] = useState<SongDTO | null>(null);
+    const { data: albums } = useSongs();
+    const { playSong } = usePlayer();
 
-    const dailyMessage = {
-        title: "Oggi ti consiglio...",
-        text: "In giro con Trix",
-        author: "Nico",
-        emoji: "✨",
+    // ✨ Quando clicchi, scegli una canzone casuale dall'elenco completo
+    const handlePress = () => {
+        if (!albums || albums.length === 0) return;
+
+        // Prendi un album casuale
+        const randomAlbum = albums[Math.floor(Math.random() * albums.length)];
+        // Prendi una canzone casuale da quell'album
+        const randomSong =
+            randomAlbum.songs[Math.floor(Math.random() * randomAlbum.songs.length)];
+
+        // Salva la canzone scelta (serve per mostrarla nel modal)
+        setSuggestedSong({ ...randomSong });
+        setShowMessage(true);
     };
 
-    const handlePress = () => {
-        setShowMessage(!showMessage);
+    // ▶️ Quando clicchi il titolo del brano nel popup, parte la canzone
+    const handlePlay = async () => {
+        if (!suggestedSong || !albums) return;
+
+        // Trova l'album che contiene la canzone
+        const album = albums.find((a) =>
+            a.songs.some((s) => s.id === suggestedSong.id)
+        );
+
+        if (!album) return;
+
+        const queue = album.songs;
+        const startIndex = queue.findIndex((s) => s.id === suggestedSong.id);
+
+        await playSong(suggestedSong, queue, startIndex, album.id, album.name);
+        setShowMessage(false);
     };
 
     return (
@@ -41,7 +69,7 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                     from={{ rotate: "0deg", scale: 0.8 }}
                     animate={{
                         rotate: "360deg",
-                        scale: showMessage ? 1.1 : 1
+                        scale: showMessage ? 1.1 : 1,
                     }}
                     transition={{
                         rotate: {
@@ -52,9 +80,12 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                         scale: {
                             type: "spring",
                             duration: 300,
-                        }
+                        },
                     }}
-                    style={[styles.logoContainer, { width: size, height: size, borderRadius: size / 2 }]}
+                    style={[
+                        styles.logoContainer,
+                        { width: size, height: size, borderRadius: size / 2 },
+                    ]}
                 >
                     <View style={styles.logoWrapper}>
                         <Image
@@ -85,7 +116,7 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                 </MotiView>
             </TouchableOpacity>
 
-            {/* Modal per il Messaggio del Giorno */}
+            {/* Modal dinamico */}
             <Modal
                 visible={showMessage}
                 transparent
@@ -100,82 +131,70 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                     <MotiView
                         from={{ opacity: 0, scale: 0.8, translateY: -50 }}
                         animate={{ opacity: 1, scale: 1, translateY: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, translateY: -50 }}
                         transition={{ type: "spring", damping: 15 }}
                         style={styles.messageWrapper}
                     >
-                        <TouchableOpacity activeOpacity={1}>
-                            <BlurView intensity={90} tint="dark" style={styles.messageBlur}>
+                        <BlurView intensity={90} tint="dark" style={styles.messageBlur}>
+                            <LinearGradient
+                                colors={[
+                                    "rgba(29, 185, 84, 0.2)",
+                                    "rgba(138, 43, 226, 0.15)",
+                                ]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.messageGradient}
+                            >
+                                {/* Header */}
+                                <View style={styles.messageHeader}>
+                                    <View style={styles.messageHeaderLeft}>
+                                        <Text style={styles.messageEmoji}>🎧</Text>
+                                        <Text style={styles.messageTitle}>DJ Cheddar</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => setShowMessage(false)}
+                                        style={styles.closeButton}
+                                    >
+                                        <Ionicons name="close-circle" size={24} color="#888" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Divider */}
                                 <LinearGradient
-                                    colors={[
-                                        "rgba(29, 185, 84, 0.2)",
-                                        "rgba(138, 43, 226, 0.15)",
-                                    ]}
+                                    colors={["#1DB954", "transparent"]}
                                     start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.messageGradient}
-                                >
-                                    {/* Header del messaggio */}
-                                    <View style={styles.messageHeader}>
-                                        <View style={styles.messageHeaderLeft}>
-                                            <Text style={styles.messageEmoji}>
-                                                {dailyMessage.emoji}
-                                            </Text>
-                                            <Text style={styles.messageTitle}>
-                                                {dailyMessage.title}
-                                            </Text>
-                                        </View>
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.messageDivider}
+                                />
+
+                                {/* Contenuto dinamico */}
+                                <View style={styles.messageContent}>
+                                    {suggestedSong ? (
                                         <TouchableOpacity
-                                            onPress={() => setShowMessage(false)}
-                                            style={styles.closeButton}
+                                            onPress={handlePlay}
+                                            activeOpacity={0.7}
                                         >
-                                            <Ionicons name="close-circle" size={24} color="#888" />
+                                            <Text style={styles.messageText}>
+                                                Ti consiglio di ascoltare{" "}
+                                                <Text
+                                                    style={{
+                                                        color: "#1DB954",
+                                                        fontWeight: "bold",
+                                                    }}
+                                                >
+                                                    {suggestedSong.title}
+                                                </Text>
+                                                .
+                                            </Text>
                                         </TouchableOpacity>
-                                    </View>
-
-                                    {/* Divider */}
-                                    <LinearGradient
-                                        colors={["#1DB954", "transparent"]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.messageDivider}
-                                    />
-
-                                    {/* Contenuto del messaggio */}
-                                    <View style={styles.messageContent}>
+                                    ) : (
                                         <Text style={styles.messageText}>
-                                            "{dailyMessage.text}"
+                                            Ti consiglio di ascoltare una canzone a caso.
                                         </Text>
-                                        <Text style={styles.messageAuthor}>
-                                            — {dailyMessage.author}
-                                        </Text>
-                                    </View>
-
-                                    {/* Decorative elements */}
-                                    <View style={styles.decorativeElements}>
-                                        {[...Array(3)].map((_, i) => (
-                                            <MotiView
-                                                key={i}
-                                                from={{ opacity: 0, scale: 0 }}
-                                                animate={{ opacity: 0.4, scale: 1 }}
-                                                transition={{
-                                                    type: "timing",
-                                                    duration: 1000,
-                                                    delay: i * 200,
-                                                    loop: true,
-                                                    repeatReverse: true,
-                                                }}
-                                                style={[
-                                                    styles.decorativeDot,
-                                                    { left: 20 + i * 30 },
-                                                ]}
-                                            />
-                                        ))}
-                                    </View>
-
-                                </LinearGradient>
-                            </BlurView>
-                        </TouchableOpacity>
+                                    )}
+                                    <Text style={styles.messageAuthor}>— ASO Music</Text>
+                                </View>
+                            </LinearGradient>
+                        </BlurView>
                     </MotiView>
                 </TouchableOpacity>
             </Modal>
@@ -184,9 +203,8 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
 }
 
 const styles = StyleSheet.create({
-    // Logo
     logoContainer: {
-        overflow: "visible", // 🔥 Cambiato da hidden a visible
+        overflow: "visible",
         shadowColor: "#1DB954",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.5,
@@ -205,8 +223,6 @@ const styles = StyleSheet.create({
     logoOverlay: {
         ...StyleSheet.absoluteFillObject,
     },
-
-    // Badge
     badge: {
         position: "absolute",
         top: -4,
@@ -224,8 +240,6 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-
-    // Modal
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -241,10 +255,10 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         overflow: "hidden",
         shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
-        elevation: 20,
+        shadowOffset: { width: 0, height: 120 },
+        shadowOpacity: 0.8,
+        shadowRadius: 0,
+        elevation: 0,
     },
     messageGradient: {
         padding: 24,
@@ -273,16 +287,12 @@ const styles = StyleSheet.create({
     closeButton: {
         padding: 4,
     },
-
-    // Divider
     messageDivider: {
         height: 3,
         width: "100%",
         marginBottom: 20,
         borderRadius: 2,
     },
-
-    // Content
     messageContent: {
         gap: 16,
     },
@@ -298,38 +308,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: "700",
         textAlign: "right",
-    },
-
-    // Decorative
-    decorativeElements: {
-        flexDirection: "row",
-        marginTop: 20,
-        marginBottom: 12,
-        position: "relative",
-        height: 8,
-    },
-    decorativeDot: {
-        position: "absolute",
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#1DB954",
-    },
-
-    // Tap hint
-    tapHint: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        marginTop: 16,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255, 255, 255, 0.1)",
-    },
-    tapHintText: {
-        color: "#666",
-        fontSize: 12,
-        fontWeight: "600",
     },
 });

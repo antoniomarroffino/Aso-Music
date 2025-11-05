@@ -53,22 +53,24 @@ type MediaSessionEvent =
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [currentSong, setCurrentSong] = useState<SongDTO | null>(null);
-    const [currentQueue, setCurrentQueue] = useState<SongDTO[]>([]);
-    const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [currentAlbumId, setCurrentAlbumId] = useState<string | null>(null);
-    const [currentAlbumName, setCurrentAlbumName] = useState<string | null>(null);
-
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
+
+    // ✅ USA REF PER VALORI CHE CAMBIANO E SERVONO NEI CALLBACK
+    const currentQueueRef = useRef<SongDTO[]>([]);
+    const currentIndexRef = useRef<number>(0);
+    const currentAlbumIdRef = useRef<string | null>(null);
+    const currentAlbumNameRef = useRef<string | null>(null);
 
     const soundRef = useRef<Audio.Sound | null>(null);
     const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
 
+    // ✅ Calcola nextSong da ref invece che da state
     const nextSong =
-        currentQueue.length > 0
-            ? currentQueue[(currentIndex + 1) % currentQueue.length]
+        currentQueueRef.current.length > 0
+            ? currentQueueRef.current[(currentIndexRef.current + 1) % currentQueueRef.current.length]
             : null;
 
     /** 🧠 Attiva MediaSession una sola volta (se disponibile) */
@@ -107,13 +109,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             MediaSession.setMetadata?.({
                 title: currentSong.title || "Brano",
                 artist: artistNames,
-                album: currentAlbumName || "",
+                album: currentAlbumNameRef.current || "",
                 artwork: currentSong.coverURL || "",
             });
         }
 
         MediaSession.setPlaybackState?.(isPlaying ? "playing" : "paused");
-    }, [currentSong, isPlaying, currentAlbumName]);
+    }, [currentSong, isPlaying]);
 
     /** 🎵 Avvia riproduzione */
     const playSong = async (
@@ -123,6 +125,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         albumId?: string,
         albumName?: string
     ) => {
+        console.log("🎵 playSong chiamato:", {
+            song: song.title,
+            queueLength: queue?.length,
+            startIndex,
+            albumId,
+        });
+
         // Stop e cleanup precedente
         if (soundRef.current) {
             soundRef.current.setOnPlaybackStatusUpdate(null);
@@ -130,17 +139,25 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             soundRef.current = null;
         }
 
-        if (albumId) setCurrentAlbumId(albumId);
-        if (albumName) setCurrentAlbumName(albumName);
+        // ✅ Aggiorna i ref
+        if (albumId) currentAlbumIdRef.current = albumId;
+        if (albumName) currentAlbumNameRef.current = albumName;
 
-        // Aggiorna queue e indice
+        // ✅ Aggiorna queue e indice nei ref
         if (queue && queue.length > 0) {
-            setCurrentQueue(queue);
+            currentQueueRef.current = queue;
             const index =
                 typeof startIndex === "number"
                     ? startIndex
                     : queue.findIndex((s) => s.id === song.id);
-            setCurrentIndex(index !== -1 ? index : 0);
+            currentIndexRef.current = index !== -1 ? index : 0;
+
+            console.log("📋 Queue aggiornata:", {
+                queueLength: queue.length,
+                currentIndex: currentIndexRef.current,
+                currentSong: queue[currentIndexRef.current]?.title,
+                nextSong: queue[(currentIndexRef.current + 1) % queue.length]?.title,
+            });
         }
 
         setCurrentSong(song);
@@ -154,6 +171,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setIsPlaying(true);
 
         await sound.setProgressUpdateIntervalAsync(500);
+
+        // ✅ Callback che usa sempre i valori aggiornati dai ref
         sound.setOnPlaybackStatusUpdate((status) => {
             if (!status.isLoaded) return;
             setProgress(status.positionMillis / 1000);
@@ -161,6 +180,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             setIsPlaying(status.isPlaying ?? false);
 
             if (status.didJustFinish) {
+                console.log("🏁 Canzone finita, passo alla successiva");
+                console.log("   Current queue length:", currentQueueRef.current.length);
+                console.log("   Current index:", currentIndexRef.current);
                 nextSongAction();
             }
         });
@@ -173,19 +195,23 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             MediaSession.setMetadata?.({
                 title: song.title || "Brano",
                 artist: artistNames,
-                album: albumName || currentAlbumName || "",
+                album: albumName || currentAlbumNameRef.current || "",
                 artwork: song.coverURL || "",
             });
             MediaSession.setPlaybackState?.("playing");
         }
 
-        // 🔥 Incrementa stream dopo 20 secondi
+        // Stream increment
         if (albumId && song.id) {
+            console.log("⏰ Timer stream avviato (20s)");
             if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
             streamTimeoutRef.current = setTimeout(() => {
                 if (lastStreamedSongId.current !== song.id) {
+                    console.log("🚀 Incremento stream per:", song.title);
                     lastStreamedSongId.current = song.id;
-                    incrementStreamCount(albumId, song.id);
+                    incrementStreamCount(albumId, song.id)
+                        .then(() => console.log("✅ Stream incrementato"))
+                        .catch((e) => console.error("❌ Errore stream:", e));
                 }
             }, 20000);
         }
@@ -223,9 +249,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentSong(null);
         setProgress(0);
         setDuration(0);
-        setCurrentQueue([]);
-        setCurrentAlbumId(null);
-        setCurrentAlbumName(null);
+
+        // ✅ Resetta anche i ref
+        currentQueueRef.current = [];
+        currentIndexRef.current = 0;
+        currentAlbumIdRef.current = null;
+        currentAlbumNameRef.current = null;
 
         MediaSession?.setPlaybackState?.("none");
 
@@ -234,18 +263,59 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     /** ⏭ Prossima */
     const nextSongAction = async () => {
-        if (!currentQueue.length) return;
-        const nextIndex = (currentIndex + 1) % currentQueue.length;
-        const next = currentQueue[nextIndex];
-        await playSong(next, currentQueue, nextIndex, currentAlbumId || undefined, currentAlbumName || undefined);
+        const queue = currentQueueRef.current;
+        const currentIndex = currentIndexRef.current;
+
+        console.log("⏭️ nextSongAction:", {
+            queueLength: queue.length,
+            currentIndex,
+            currentSong: queue[currentIndex]?.title,
+        });
+
+        if (!queue.length) {
+            console.warn("⚠️ Queue vuota!");
+            return;
+        }
+
+        const nextIndex = (currentIndex + 1) % queue.length;
+        const next = queue[nextIndex];
+
+        console.log("   -> Prossima canzone:", {
+            nextIndex,
+            nextSong: next?.title,
+        });
+
+        await playSong(
+            next,
+            queue,
+            nextIndex,
+            currentAlbumIdRef.current || undefined,
+            currentAlbumNameRef.current || undefined
+        );
     };
 
     /** ⏮ Precedente */
     const prevSong = async () => {
-        if (!currentQueue.length) return;
-        const prevIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
-        const prev = currentQueue[prevIndex];
-        await playSong(prev, currentQueue, prevIndex, currentAlbumId || undefined, currentAlbumName || undefined);
+        const queue = currentQueueRef.current;
+        const currentIndex = currentIndexRef.current;
+
+        if (!queue.length) return;
+
+        const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
+        const prev = queue[prevIndex];
+
+        console.log("⏮️ prevSong:", {
+            prevIndex,
+            prevSong: prev?.title,
+        });
+
+        await playSong(
+            prev,
+            queue,
+            prevIndex,
+            currentAlbumIdRef.current || undefined,
+            currentAlbumNameRef.current || undefined
+        );
     };
 
     /** ⏩ Seek */

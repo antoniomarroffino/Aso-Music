@@ -1,18 +1,19 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
-import { ArtistDTO, SongDTO } from "@/types/music";
-import { usePlayer } from "@/context/PlayerContext";
-import { useRouter } from "expo-router";
+import React, {useMemo} from "react";
+import {View, Text, StyleSheet, TouchableOpacity} from "react-native";
+import {LinearGradient} from "expo-linear-gradient";
+import {MotiView} from "moti";
+import {Ionicons} from "@expo/vector-icons";
+import {ArtistDTO, SongDTO} from "@/types/music";
+import {usePlayer} from "@/context/PlayerContext";
+import {useRouter} from "expo-router";
 
 interface SongItemArtistProps {
     song: SongDTO;
-    rank: number; // 🏆 Posizione classifica (1, 2, 3…)
+    rank: number;
     queue?: SongDTO[];
     allArtists?: ArtistDTO[];
     albumId: string;
+    albumName?: string;
     onPress?: () => void;
 }
 
@@ -22,9 +23,10 @@ export default function SongItemArtist({
                                            queue,
                                            allArtists,
                                            albumId,
+                                           albumName,
                                            onPress,
                                        }: SongItemArtistProps) {
-    const { playSong, currentSong, isPlaying } = usePlayer();
+    const {playSong, currentSong, isPlaying} = usePlayer();
     const router = useRouter();
 
     const isCurrent = currentSong?.id === song.id;
@@ -45,10 +47,10 @@ export default function SongItemArtist({
     };
 
     const handlePlay = async () => {
-        playSong(song, queue, rank - 1);
+        playSong(song, queue, rank - 1, albumId, albumName);
     };
 
-    const artistNames = useMemo(() => {
+    useMemo(() => {
         if (!Array.isArray(song.artists) || !allArtists) {
             return ["Artista sconosciuto"];
         }
@@ -64,7 +66,6 @@ export default function SongItemArtist({
 
         return names.length > 0 ? names : ["Artista sconosciuto"];
     }, [song.artists, allArtists]);
-
     return (
         <TouchableOpacity
             style={styles.container}
@@ -72,8 +73,8 @@ export default function SongItemArtist({
             onPress={onPress ?? handlePlay}
         >
             <MotiView
-                from={{ opacity: 0, translateY: 15 }}
-                animate={{ opacity: 1, translateY: 0 }}
+                from={{opacity: 0, translateY: 15}}
+                animate={{opacity: 1, translateY: 0}}
                 transition={{
                     type: "timing",
                     duration: 300,
@@ -82,8 +83,8 @@ export default function SongItemArtist({
             >
                 <LinearGradient
                     colors={["rgba(29, 185, 84, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 0}}
                     style={styles.wrapper}
                 >
                     <View style={styles.inner}>
@@ -93,14 +94,14 @@ export default function SongItemArtist({
                         {/* Info canzone */}
                         <View style={styles.info}>
                             <Text
-                                style={[styles.title, isCurrent && { color: "#1DB954" }]}
+                                style={[styles.title, isCurrent && {color: "#1DB954"}]}
                                 numberOfLines={1}
                             >
                                 {song.title}
                             </Text>
 
                             <View style={styles.artistRow}>
-                                <Ionicons name="person-outline" size={12} color="#666" />
+                                <Ionicons name="person-outline" size={12} color="#666"/>
                                 {song.artists.map((artist, i) => (
                                     <TouchableOpacity
                                         key={artist.id}
@@ -126,7 +127,7 @@ export default function SongItemArtist({
 
                             {/* 🔢 Numero ascolti */}
                             <View style={styles.streamRow}>
-                                <Ionicons name="headset-outline" size={13} color="#777" />
+                                <Ionicons name="headset-outline" size={13} color="#777"/>
                                 <Text style={styles.streams}>
                                     {song.stream.toLocaleString()} ascolti
                                 </Text>
@@ -135,7 +136,7 @@ export default function SongItemArtist({
 
                         {/* Durata */}
                         <View style={styles.durationContainer}>
-                            <Ionicons name="time-outline" size={14} color="#666" />
+                            <Ionicons name="time-outline" size={14} color="#666"/>
                             <Text style={styles.duration}>
                                 {formatDuration(song.duration)}
                             </Text>

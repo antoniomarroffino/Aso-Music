@@ -116,8 +116,18 @@ export default function SearchScreen() {
         } else if (item.type === "song") {
             const queue = item.queue ?? [];
             const songIndex = queue.findIndex((s: any) => s.id === item.id);
-            playSong(queue[songIndex], queue, songIndex);
+
+            if (songIndex !== -1) {
+                playSong(
+                    queue[songIndex],
+                    queue,
+                    songIndex,
+                    item.albumId,
+                    item.albumName ?? ""
+                );
+            }
         }
+
     };
 
     // 🔸 UI elemento risultato

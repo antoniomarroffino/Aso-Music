@@ -4,18 +4,17 @@ import React, { useEffect } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { useRouter, useSegments, useRootNavigationState, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { PlayerProvider } from "@/context/PlayerContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
+import { Stack } from "expo-router";
 
-
-// ✅ React Query setup
+// ✅ Inizializziamo il client React Query solo una volta
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            staleTime: 1000 * 60 * 5,
+            staleTime: 1000 * 60 * 5, // 5 minuti
             retry: 2,
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
@@ -23,30 +22,12 @@ const queryClient = new QueryClient({
     },
 });
 
-// 🔐 AuthGate — osserva lo stato dell’autenticazione e reindirizza
-function AuthGate() {
-    const { firebaseUser, loadingAuth } = useAuth(); // ✅ aggiornato con nuovo AuthContext
-    const router = useRouter();
-    const segments = useSegments();
-    const navigationState = useRootNavigationState();
-    const isReady = !!navigationState?.key;
+// 🔐 Wrapper che aspetta la fine del caricamento auth
+function AuthGateLayout() {
+    const { firebaseUser, loadingAuth } = useAuth();
 
-    useEffect(() => {
-        if (!isReady || loadingAuth) return;
-
-        const inAuthGroup = segments[0] === "(auth)";
-        const inTabsGroup = segments[0] === "(tabs)";
-
-        // ✅ Redirect automatico in base allo stato auth
-        if (firebaseUser && inAuthGroup) {
-            router.replace("/(tabs)");
-        } else if (!firebaseUser && inTabsGroup) {
-            router.replace("/(auth)");
-        }
-    }, [firebaseUser, loadingAuth, isReady, segments, router]); // 🔒 evitiamo loop — non mettiamo router/segments
-
-    // ✅ Mostra lo splash solo se la navigazione non è pronta
-    if (!isReady) {
+    // ⏳ Mostra splash se ancora sta caricando l'autenticazione
+    if (loadingAuth) {
         return (
             <View
                 style={{
@@ -61,8 +42,25 @@ function AuthGate() {
         );
     }
 
-    // 🔁 Se è pronto, lascia che lo Stack venga renderizzato normalmente
-    return null;
+    // 🔓 Se l'utente è loggato, mostra il gruppo principale (tabs + player)
+    if (firebaseUser) {
+        return (
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                    name="fullplayer"
+                    options={{ presentation: "fullScreenModal", headerShown: false }}
+                />
+            </Stack>
+        );
+    }
+
+    // 🔒 Se non è loggato, mostra il gruppo di autenticazione
+    return (
+        <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack>
+    );
 }
 
 // 🌍 RootLayout principale
@@ -70,6 +68,7 @@ export default function RootLayout() {
     const colorScheme = useColorScheme();
 
     useEffect(() => {
+        // Imposta modalità audio globale (necessaria per player)
         Audio.setAudioModeAsync({
             allowsRecordingIOS: false,
             staysActiveInBackground: true,
@@ -81,32 +80,13 @@ export default function RootLayout() {
         });
     }, []);
 
-
-
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                     <AuthProvider>
                         <PlayerProvider>
-                            {/* 👇 watcher auth */}
-                            <AuthGate />
-
-                            <Stack screenOptions={{ headerShown: false }}>
-                                {/* Gruppo autenticazione */}
-                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-
-                                {/* Gruppo tabs principale */}
-                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
-                                {/* Fullscreen player */}
-                                <Stack.Screen
-                                    name="fullplayer"
-                                    options={{ presentation: "fullScreenModal" }}
-                                />
-                            </Stack>
-
-
+                            <AuthGateLayout />
                             <StatusBar style="light" />
                         </PlayerProvider>
                     </AuthProvider>

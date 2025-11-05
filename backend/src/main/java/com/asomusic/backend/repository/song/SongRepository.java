@@ -69,6 +69,8 @@ public class SongRepository implements ISongRepository {
 
     @Override
     public void incrementListenCount(String albumId, String songId) throws ExecutionException, InterruptedException {
+        System.out.println("🎵 incrementListenCount chiamato -> albumId: " + albumId + ", songId: " + songId);
+
         DocumentReference songRef = db
                 .collection("album")
                 .document(albumId)
@@ -77,11 +79,18 @@ public class SongRepository implements ISongRepository {
 
         DocumentSnapshot snapshot = songRef.get().get();
         if (!snapshot.exists()) {
+            System.err.println("❌ Song not found: " + songId);
             throw new IllegalArgumentException("Song not found: " + songId);
         }
 
-        Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : Long.valueOf(0L);
-        songRef.update("stream", currentCount + 1);
+        Long currentCount = snapshot.contains("stream") ? snapshot.getLong("stream") : 0L;
+        Long newCount = currentCount + 1;
+
+        System.out.println("📊 Stream count -> Old: " + currentCount + ", New: " + newCount);
+
+        songRef.update("stream", newCount);
+
+        System.out.println("✅ Stream incrementato con successo!");
     }
 
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {

@@ -49,10 +49,11 @@ export default function AlbumDetails() {
                 return;
             }
 
-            playSong(song, sortedSongs, index);
+            playSong(song, sortedSongs, index, parsedAlbum?.id, parsedAlbum?.name);
         },
-        [playSong, sortedSongs, togglePlayPause]
+        [playSong, sortedSongs, togglePlayPause, parsedAlbum]
     );
+
 
 
     const stats = useMemo(() => {
@@ -424,8 +425,8 @@ export default function AlbumDetails() {
                     <TouchableOpacity
                         activeOpacity={0.8}
                         onPress={() => {
-                            if (sortedSongs.length > 0) {
-                                playSong(sortedSongs[0], sortedSongs, 0);
+                            if (sortedSongs.length > 0 && parsedAlbum) {
+                                playSong(sortedSongs[0], sortedSongs, 0, parsedAlbum.id, parsedAlbum.name);
                             }
                         }}
                     >

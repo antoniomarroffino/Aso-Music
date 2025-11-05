@@ -302,7 +302,9 @@ export default function ArtistDetailsScreen() {
                                     queue={artistSongs}
                                     allArtists={artistSongs.flatMap((s) => s.artists)}
                                     albumId={album?.id ?? "unknown"}
+                                    albumName={album?.name ?? "unknown"}
                                 />
+
                             );
                         })}
 
