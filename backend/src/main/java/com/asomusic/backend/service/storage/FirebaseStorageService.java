@@ -35,6 +35,7 @@ public class FirebaseStorageService {
             Blob blob = storage.get(bucketName, filePath);
 
             if (blob == null) {
+                System.err.println(gsPath);
                 System.err.println("❌ FILE NON TROVATO in Storage!");
                 return gsPath;
             }

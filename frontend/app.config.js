@@ -15,6 +15,16 @@ export default {
             supportsTablet: true,
             bundleIdentifier: "com.asomusic.app",
             buildNumber: "1.0.0",
+
+            // ✅ Permetti all'app di riprodurre audio in background
+            infoPlist: {
+                UIBackgroundModes: ["audio"],
+
+                // (Opzionale ma consigliato)
+                AVAudioSessionCategory: "Playback",
+                AVAudioSessionCategoryMode: "Default",
+                AVAudioSessionCategoryOptions: ["MixWithOthers", "AllowBluetooth"],
+            },
         },
 
         android: {
@@ -26,6 +36,9 @@ export default {
             versionCode: 1,
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
+
+            // ✅ (Opzionale) Consente all’audio di rimanere attivo in background su Android
+            permissions: ["android.permission.FOREGROUND_SERVICE"],
         },
 
         web: {
@@ -61,7 +74,8 @@ export default {
             EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
             EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
             EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-            EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+            EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
+            process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
             EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
         },
     },

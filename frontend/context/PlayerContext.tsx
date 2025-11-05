@@ -6,9 +6,9 @@ import React, {
     ReactNode,
     useRef,
 } from "react";
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import { Audio } from "expo-av";
 import { SongDTO } from "@/types/music";
-import { incrementStreamCount } from "@/api/songs"; // 👈 chiamata API
+import { incrementStreamCount } from "@/api/songs";
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
@@ -18,75 +18,122 @@ type PlayerContextType = {
         song: SongDTO,
         queue?: SongDTO[],
         startIndex?: number,
-        albumId?: string
-    ) => void;
-    togglePlayPause: () => void;
-    stopSong: () => void;
-    nextSongAction: () => void;
-    prevSong: () => void;
-    seekTo: (seconds: number) => void;
+        albumId?: string,
+        albumName?: string
+    ) => Promise<void>;
+    togglePlayPause: () => Promise<void>;
+    stopSong: () => Promise<void>;
+    nextSongAction: () => Promise<void>;
+    prevSong: () => Promise<void>;
+    seekTo: (seconds: number) => Promise<void>;
     progress: number;
     duration: number;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
+// ✅ Safe dynamic import di expo-media-session
+let MediaSession: any = null;
+try {
+    MediaSession = require("expo-media-session");
+    console.log("✅ MediaSession caricato (dev build attiva)");
+} catch (e) {
+    console.log("⚠️ MediaSession non disponibile (probabilmente Expo Go)");
+}
+
+type MediaSessionEvent =
+    | "play"
+    | "pause"
+    | "next"
+    | "previous"
+    | "stop"
+    | "seekForward"
+    | "seekBackward"
+    | "seekTo";
+
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const [currentSong, setCurrentSong] = useState<SongDTO | null>(null);
     const [currentQueue, setCurrentQueue] = useState<SongDTO[]>([]);
     const [currentIndex, setCurrentIndex] = useState<number>(0);
-    const [source, setSource] = useState<{ uri: string } | undefined>();
     const [currentAlbumId, setCurrentAlbumId] = useState<string | null>(null);
+    const [currentAlbumName, setCurrentAlbumName] = useState<string | null>(null);
 
-    const player = useAudioPlayer(source);
-    const status = useAudioPlayerStatus(player);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
 
-    const isSeekingRef = useRef(false);
-    const wasPlayingBeforeSeek = useRef(false);
-
+    const soundRef = useRef<Audio.Sound | null>(null);
+    const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
-    const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // ✅ FIX TYPE
 
     const nextSong =
         currentQueue.length > 0
             ? currentQueue[(currentIndex + 1) % currentQueue.length]
             : null;
 
+    /** 🧠 Attiva MediaSession una sola volta (se disponibile) */
     useEffect(() => {
-        if (status && !isSeekingRef.current) {
-            setIsPlaying(status.playing ?? false);
+        if (MediaSession?.activate) {
+            MediaSession.activate();
+            const sub = MediaSession.addListener?.("event", (event: MediaSessionEvent) => {
+                switch (event) {
+                    case "pause":
+                    case "play":
+                        togglePlayPause();
+                        break;
+                    case "next":
+                        nextSongAction();
+                        break;
+                    case "previous":
+                        prevSong();
+                        break;
+                    case "stop":
+                        stopSong();
+                        break;
+                }
+            });
+            return () => sub?.remove?.();
         }
-    }, [status]);
+    }, []);
 
+    /** 🔁 Aggiorna metadati e stato nel lock screen */
     useEffect(() => {
-        if (source) player.play();
-    }, [player, source]);
+        if (!MediaSession) return;
 
-    useEffect(() => {
-        if (!status) return;
-        if (status.didJustFinish) {
-            nextSongAction();
+        if (currentSong) {
+            const artistNames =
+                currentSong.artists?.map((a) => a.name).join(", ") || "Artista sconosciuto";
+
+            MediaSession.setMetadata?.({
+                title: currentSong.title || "Brano",
+                artist: artistNames,
+                album: currentAlbumName || "",
+                artwork: currentSong.coverURL || "",
+            });
         }
-    }, [status]);
 
-    /** 🎵 Avvia la riproduzione e imposta il timer per incrementare gli stream */
-    const playSong = (
+        MediaSession.setPlaybackState?.(isPlaying ? "playing" : "paused");
+    }, [currentSong, isPlaying, currentAlbumName]);
+
+    /** 🎵 Avvia riproduzione */
+    const playSong = async (
         song: SongDTO,
         queue?: SongDTO[],
         startIndex?: number,
-        albumId?: string
+        albumId?: string,
+        albumName?: string
     ) => {
-        // 🔹 reset del timer precedente
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
+        // Stop e cleanup precedente
+        if (soundRef.current) {
+            soundRef.current.setOnPlaybackStatusUpdate(null);
+            await soundRef.current.unloadAsync();
+            soundRef.current = null;
         }
 
-        // 🔹 salva album corrente
         if (albumId) setCurrentAlbumId(albumId);
+        if (albumName) setCurrentAlbumName(albumName);
 
-        // 🔹 gestione della queue
+        // Aggiorna queue e indice
         if (queue && queue.length > 0) {
             setCurrentQueue(queue);
             const index =
@@ -94,19 +141,47 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     ? startIndex
                     : queue.findIndex((s) => s.id === song.id);
             setCurrentIndex(index !== -1 ? index : 0);
-        } else if (currentQueue.length > 0) {
-            const idx = currentQueue.findIndex((s) => s.id === song.id);
-            setCurrentIndex(idx !== -1 ? idx : 0);
-        } else {
-            setCurrentQueue([song]);
-            setCurrentIndex(0);
         }
 
         setCurrentSong(song);
-        setSource({ uri: song.audioURL });
+
+        const { sound } = await Audio.Sound.createAsync(
+            { uri: song.audioURL },
+            { shouldPlay: true }
+        );
+
+        soundRef.current = sound;
+        setIsPlaying(true);
+
+        await sound.setProgressUpdateIntervalAsync(500);
+        sound.setOnPlaybackStatusUpdate((status) => {
+            if (!status.isLoaded) return;
+            setProgress(status.positionMillis / 1000);
+            setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
+            setIsPlaying(status.isPlaying ?? false);
+
+            if (status.didJustFinish) {
+                nextSongAction();
+            }
+        });
+
+        // Aggiorna metadata se disponibile
+        if (MediaSession) {
+            const artistNames =
+                song.artists?.map((a) => a.name).join(", ") || "Artista sconosciuto";
+
+            MediaSession.setMetadata?.({
+                title: song.title || "Brano",
+                artist: artistNames,
+                album: albumName || currentAlbumName || "",
+                artwork: song.coverURL || "",
+            });
+            MediaSession.setPlaybackState?.("playing");
+        }
 
         // 🔥 Incrementa stream dopo 20 secondi
         if (albumId && song.id) {
+            if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
             streamTimeoutRef.current = setTimeout(() => {
                 if (lastStreamedSongId.current !== song.id) {
                     lastStreamedSongId.current = song.id;
@@ -116,101 +191,84 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const togglePlayPause = () => {
-        if (isPlaying) {
-            player.pause();
-            if (streamTimeoutRef.current) {
-                clearTimeout(streamTimeoutRef.current);
-                streamTimeoutRef.current = null;
-            }
-        } else {
-            player.play();
+    /** ⏯ Toggle play/pause */
+    const togglePlayPause = async () => {
+        const sound = soundRef.current;
+        if (!sound) return;
+        const status = await sound.getStatusAsync();
+        if (!status.isLoaded) return;
 
-            if (
-                currentSong &&
-                currentAlbumId &&
-                lastStreamedSongId.current !== currentSong.id
-            ) {
-                streamTimeoutRef.current = setTimeout(() => {
-                    incrementStreamCount(currentAlbumId, currentSong.id);
-                    lastStreamedSongId.current = currentSong.id;
-                }, 20000);
-            }
+        if (status.isPlaying) {
+            await sound.pauseAsync();
+            setIsPlaying(false);
+            MediaSession?.setPlaybackState?.("paused");
+            if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
+        } else {
+            await sound.playAsync();
+            setIsPlaying(true);
+            MediaSession?.setPlaybackState?.("playing");
         }
     };
 
-    const stopSong = () => {
-        player.pause();
-        player.seekTo(0);
+    /** ⏹ Stop */
+    const stopSong = async () => {
+        if (soundRef.current) {
+            soundRef.current.setOnPlaybackStatusUpdate(null);
+            await soundRef.current.stopAsync();
+            await soundRef.current.unloadAsync();
+            soundRef.current = null;
+        }
+
         setIsPlaying(false);
         setCurrentSong(null);
-        setSource(undefined);
+        setProgress(0);
+        setDuration(0);
         setCurrentQueue([]);
         setCurrentAlbumId(null);
+        setCurrentAlbumName(null);
 
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
-        }
+        MediaSession?.setPlaybackState?.("none");
+
+        if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
     };
 
-    const nextSongAction = () => {
+    /** ⏭ Prossima */
+    const nextSongAction = async () => {
         if (!currentQueue.length) return;
         const nextIndex = (currentIndex + 1) % currentQueue.length;
         const next = currentQueue[nextIndex];
-        setCurrentIndex(nextIndex);
-        setCurrentSong(next);
-        setSource({ uri: next.audioURL });
-
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
-        }
-
-        if (currentAlbumId && next.id) {
-            streamTimeoutRef.current = setTimeout(() => {
-                incrementStreamCount(currentAlbumId, next.id);
-                lastStreamedSongId.current = next.id;
-            }, 20000);
-        }
+        await playSong(next, currentQueue, nextIndex, currentAlbumId || undefined, currentAlbumName || undefined);
     };
 
-    const prevSong = () => {
+    /** ⏮ Precedente */
+    const prevSong = async () => {
         if (!currentQueue.length) return;
         const prevIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
         const prev = currentQueue[prevIndex];
-        setCurrentIndex(prevIndex);
-        setCurrentSong(prev);
-        setSource({ uri: prev.audioURL });
+        await playSong(prev, currentQueue, prevIndex, currentAlbumId || undefined, currentAlbumName || undefined);
+    };
 
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
-        }
-
-        if (currentAlbumId && prev.id) {
-            streamTimeoutRef.current = setTimeout(() => {
-                incrementStreamCount(currentAlbumId, prev.id);
-                lastStreamedSongId.current = prev.id;
-            }, 20000);
+    /** ⏩ Seek */
+    const seekTo = async (seconds: number) => {
+        const sound = soundRef.current;
+        if (!sound) return;
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded) {
+            await sound.setPositionAsync(seconds * 1000);
         }
     };
 
-    const seekTo = (seconds: number) => {
-        if (!player) return;
-        isSeekingRef.current = true;
-        wasPlayingBeforeSeek.current = isPlaying;
-        player.seekTo(seconds);
-        setTimeout(() => {
-            isSeekingRef.current = false;
-            if (wasPlayingBeforeSeek.current && !status?.playing) {
-                player.play();
+    /** 🧹 Cleanup */
+    useEffect(() => {
+        return () => {
+            if (soundRef.current) {
+                soundRef.current.setOnPlaybackStatusUpdate(null);
+                soundRef.current.unloadAsync();
             }
-        }, 200);
-    };
-
-    const progress = status?.currentTime ?? 0;
-    const duration = status?.duration ?? 0;
+            if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
+            MediaSession?.setPlaybackState?.("none");
+        };
+    }, []);
 
     return (
         <PlayerContext.Provider
@@ -223,9 +281,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 stopSong,
                 nextSongAction,
                 prevSong,
+                seekTo,
                 progress,
                 duration,
-                seekTo,
             }}
         >
             {children}

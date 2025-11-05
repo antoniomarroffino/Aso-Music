@@ -8,6 +8,8 @@ import { useRouter, useSegments, useRootNavigationState, Stack } from "expo-rout
 import { ActivityIndicator, View } from "react-native";
 import { PlayerProvider } from "@/context/PlayerContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
+
 
 // ✅ React Query setup
 const queryClient = new QueryClient({
@@ -66,6 +68,20 @@ function AuthGate() {
 // 🌍 RootLayout principale
 export default function RootLayout() {
     const colorScheme = useColorScheme();
+
+    useEffect(() => {
+        Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            staysActiveInBackground: true,
+            playsInSilentModeIOS: true,
+            interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+            shouldDuckAndroid: false,
+            playThroughEarpieceAndroid: false,
+        });
+    }, []);
+
+
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
