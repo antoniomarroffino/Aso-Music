@@ -6,20 +6,23 @@ export default {
         slug: "aso-music",
         version: "1.0.0",
         orientation: "portrait",
-        icon: "./assets/images/icon.png",
+        icon: "./assets/images/newicon.png",
         scheme: "asomusic",
         userInterfaceStyle: "automatic",
         newArchEnabled: true,
+
         ios: {
             supportsTablet: true,
-            bundleIdentifier: "com.asomusic.app",
-            buildNumber: "1.0.0",
+
+            // ✅ Apple richiede un bundleIdentifier univoco
+            bundleIdentifier: "com.antoniomarroffino.asomusic",
+
+            // ✅ Deve essere un numero, non una stringa con punti
+            buildNumber: "1",
 
             // ✅ Permetti all'app di riprodurre audio in background
             infoPlist: {
                 UIBackgroundModes: ["audio"],
-
-                // (Opzionale ma consigliato)
                 AVAudioSessionCategory: "Playback",
                 AVAudioSessionCategoryMode: "Default",
                 AVAudioSessionCategoryOptions: ["MixWithOthers", "AllowBluetooth"],
@@ -35,8 +38,6 @@ export default {
             versionCode: 1,
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
-
-            // ✅ (Opzionale) Consente all’audio di rimanere attivo in background su Android
             permissions: ["android.permission.FOREGROUND_SERVICE"],
         },
 
@@ -55,9 +56,7 @@ export default {
                     imageWidth: 200,
                     resizeMode: "contain",
                     backgroundColor: "#000000",
-                    dark: {
-                        backgroundColor: "#000000",
-                    },
+                    dark: { backgroundColor: "#000000" },
                 },
             ],
         ],
@@ -70,10 +69,7 @@ export default {
         updates: {
             url: "https://u.expo.dev/b47492e5-b933-48b8-83d1-553e8d5c4a0e",
         },
-        runtimeVersion: {
-            policy: "appVersion",
-        },
-
+        runtimeVersion: { policy: "appVersion" },
 
         extra: {
             EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
@@ -81,8 +77,7 @@ export default {
             EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
             EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
             EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-            EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:
-            process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+            EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
             EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
             eas: {
                 projectId: "b47492e5-b933-48b8-83d1-553e8d5c4a0e",
