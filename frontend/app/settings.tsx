@@ -23,18 +23,28 @@ export default function SettingsScreen() {
     const router = useRouter();
     const [copiedIban, setCopiedIban] = useState(false);
 
-    const handleLogout = () => {
-        Alert.alert("Logout", "Vuoi davvero uscire?", [
-            { text: "Annulla", style: "cancel" },
-            {
-                text: "Esci",
-                style: "destructive",
-                onPress: async () => {
-                    await logout();
+    const handleLogout = async () => {
+        if (typeof window !== "undefined") {
+            const confirmed = window.confirm("Vuoi davvero uscire?");
+            if (confirmed) {
+                await logout();
+                router.replace("/(auth)");
+
+            }
+        } else {
+            Alert.alert("Logout", "Vuoi davvero uscire?", [
+                { text: "Annulla", style: "cancel" },
+                {
+                    text: "Esci",
+                    style: "destructive",
+                    onPress: async () => {
+                        await logout();
+                    },
                 },
-            },
-        ]);
+            ]);
+        }
     };
+
 
     const copyToClipboard = () => {
         Clipboard.setString(IBAN);

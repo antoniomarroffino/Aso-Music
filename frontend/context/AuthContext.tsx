@@ -195,7 +195,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
 
-    // 🔹 LOGOUT
     const logout = async (): Promise<void> => {
         try {
             await signOut(auth);
@@ -203,11 +202,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
             await AsyncStorage.removeItem("appUser");
             setFirebaseUser(null);
             setAppUser(null);
-            router.replace("/(auth)");
         } catch (error) {
             console.error("❌ Errore durante il logout:", error);
         }
     };
+
 
     return (
         <AuthContext.Provider
