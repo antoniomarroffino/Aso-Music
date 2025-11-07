@@ -1,7 +1,6 @@
-import Constants from "expo-constants";
 import { AlbumPreviewDTO } from "@/types/music";
 
-const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export async function fetchAllAlbums(): Promise<AlbumPreviewDTO[]> {
     try {

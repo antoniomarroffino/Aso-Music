@@ -15,9 +15,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "@/firebaseConfig";
 import { useRouter } from "expo-router";
-import Constants from "expo-constants";
-
-const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type UserDTO = {
     uid: string;

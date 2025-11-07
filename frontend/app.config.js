@@ -13,19 +13,16 @@ export default {
 
         ios: {
             supportsTablet: true,
-
-            // ✅ Apple richiede un bundleIdentifier univoco
             bundleIdentifier: "com.antoniomarroffino.asomusic",
-
-            // ✅ Deve essere un numero, non una stringa con punti
             buildNumber: "1",
-
-            // ✅ Permetti all'app di riprodurre audio in background
             infoPlist: {
                 UIBackgroundModes: ["audio"],
                 AVAudioSessionCategory: "Playback",
                 AVAudioSessionCategoryMode: "Default",
-                AVAudioSessionCategoryOptions: ["MixWithOthers", "AllowBluetooth"],
+                AVAudioSessionCategoryOptions: [
+                    "MixWithOthers",
+                    "AllowBluetooth",
+                ],
             },
         },
 
@@ -42,8 +39,32 @@ export default {
         },
 
         web: {
-            output: "static",
             favicon: "./assets/images/favicon.png",
+            bundler: "metro", // ✅ necessario per Expo Router
+            output: "static", // ✅ genera file statici
+            pwa: {
+                name: "ASO Music",
+                shortName: "ASO",
+                description: "Music player PWA built with Expo",
+                themeColor: "#000000",
+                backgroundColor: "#000000",
+                startUrl: ".",
+                scope: ".",
+                display: "standalone",
+                orientation: "portrait",
+                icons: [
+                    {
+                        src: "./assets/images/pwa-icon-192.png",
+                        sizes: "192x192",
+                        type: "image/png",
+                    },
+                    {
+                        src: "./assets/images/pwa-icon-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                    },
+                ],
+            },
         },
 
         plugins: [
@@ -69,6 +90,7 @@ export default {
         updates: {
             url: "https://u.expo.dev/b47492e5-b933-48b8-83d1-553e8d5c4a0e",
         },
+
         runtimeVersion: { policy: "appVersion" },
 
         extra: {

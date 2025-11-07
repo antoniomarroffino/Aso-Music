@@ -1,7 +1,6 @@
-import Constants from "expo-constants";
 import { SongDTO, AlbumDTO, AlbumPreviewDTO } from "@/types/music";
 
-const BASE_URL: string | undefined = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL;
+const BASE_URL: string | undefined = process.env.EXPO_PUBLIC_API_URL;
 
 function ensureBaseUrl() {
     if (!BASE_URL) {
