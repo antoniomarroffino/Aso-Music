@@ -122,6 +122,7 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                 transparent
                 animationType="fade"
                 onRequestClose={() => setShowMessage(false)}
+                hardwareAccelerated={false}
             >
                 <TouchableOpacity
                     style={styles.modalOverlay}
@@ -129,73 +130,67 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                     onPress={() => setShowMessage(false)}
                 >
                     <MotiView
-                        from={{ opacity: 0, scale: 0.8, translateY: -50 }}
-                        animate={{ opacity: 1, scale: 1, translateY: 0 }}
-                        transition={{ type: "spring", damping: 15 }}
+                        from={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "timing", duration: 300 }}
                         style={styles.messageWrapper}
                     >
-                        <BlurView intensity={90} tint="dark" style={styles.messageBlur}>
-                            <LinearGradient
-                                colors={[
-                                    "rgba(29, 185, 84, 0.2)",
-                                    "rgba(138, 43, 226, 0.15)",
-                                ]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.messageGradient}
-                            >
-                                {/* Header */}
-                                <View style={styles.messageHeader}>
-                                    <View style={styles.messageHeaderLeft}>
-                                        <Text style={styles.messageEmoji}>🎧</Text>
-                                        <Text style={styles.messageTitle}>DJ Cheddar</Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => setShowMessage(false)}
-                                        style={styles.closeButton}
-                                    >
-                                        <Ionicons name="close-circle" size={24} color="#888" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Divider */}
+                        {/* 🔧 Spostiamo BlurView fuori da Moti per evitare il flicker */}
+                        <View style={styles.messageBlurContainer}>
+                            <BlurView intensity={85} tint="dark" style={styles.messageBlur}>
                                 <LinearGradient
-                                    colors={["#1DB954", "transparent"]}
+                                    colors={[
+                                        "rgba(29, 185, 84, 0.2)",
+                                        "rgba(138, 43, 226, 0.15)",
+                                    ]}
                                     start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.messageDivider}
-                                />
-
-                                {/* Contenuto dinamico */}
-                                <View style={styles.messageContent}>
-                                    {suggestedSong ? (
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.messageGradient}
+                                >
+                                    {/* Tutto il contenuto interno rimane invariato */}
+                                    <View style={styles.messageHeader}>
+                                        <View style={styles.messageHeaderLeft}>
+                                            <Text style={styles.messageEmoji}>🎧</Text>
+                                            <Text style={styles.messageTitle}>DJ Cheddar</Text>
+                                        </View>
                                         <TouchableOpacity
-                                            onPress={handlePlay}
-                                            activeOpacity={0.7}
+                                            onPress={() => setShowMessage(false)}
+                                            style={styles.closeButton}
                                         >
-                                            <Text style={styles.messageText}>
-                                                Ti consiglio di ascoltare{" "}
-                                                <Text
-                                                    style={{
-                                                        color: "#1DB954",
-                                                        fontWeight: "bold",
-                                                    }}
-                                                >
-                                                    {suggestedSong.title}
-                                                </Text>
-                                                .
-                                            </Text>
+                                            <Ionicons name="close-circle" size={24} color="#888" />
                                         </TouchableOpacity>
-                                    ) : (
-                                        <Text style={styles.messageText}>
-                                            Ti consiglio di ascoltare una canzone a caso.
-                                        </Text>
-                                    )}
-                                    <Text style={styles.messageAuthor}>— ASO Music</Text>
-                                </View>
-                            </LinearGradient>
-                        </BlurView>
+                                    </View>
+
+                                    <LinearGradient
+                                        colors={["#1DB954", "transparent"]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.messageDivider}
+                                    />
+
+                                    <View style={styles.messageContent}>
+                                        {suggestedSong ? (
+                                            <TouchableOpacity onPress={handlePlay} activeOpacity={0.7}>
+                                                <Text style={styles.messageText}>
+                                                    Ti consiglio di ascoltare{" "}
+                                                    <Text style={{ color: "#1DB954", fontWeight: "bold" }}>
+                                                        {suggestedSong.title}
+                                                    </Text>
+                                                    .
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <Text style={styles.messageText}>
+                                                Ti consiglio di ascoltare una canzone a caso.
+                                            </Text>
+                                        )}
+                                        <Text style={styles.messageAuthor}>— ASO Music</Text>
+                                    </View>
+                                </LinearGradient>
+                            </BlurView>
+                        </View>
                     </MotiView>
+
                 </TouchableOpacity>
             </Modal>
         </>
@@ -251,14 +246,14 @@ const styles = StyleSheet.create({
         width: width - 40,
         maxWidth: 400,
     },
+    messageBlurContainer: {
+        overflow: "hidden",
+        borderRadius: 24,
+        backgroundColor: "rgba(0,0,0,0.4)",
+    },
     messageBlur: {
         borderRadius: 24,
         overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 0,
     },
     messageGradient: {
         padding: 24,

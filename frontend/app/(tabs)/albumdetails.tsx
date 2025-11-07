@@ -472,25 +472,30 @@ export default function AlbumDetails() {
                         />
                     </View>
 
-                    <FlatList
-                        data={sortedSongs}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({item, index}) => (
-                            <SongItem
-                                song={item}
-                                index={index}
-                                allArtists={artists}
-                                albumId={parsedAlbum?.id}
-                                onPress={handlePlaySong}
-                                isActive={currentSong?.id === item.id}
-                                isPlaying={isPlaying}
-                            />
-                        )}
-                        scrollEnabled={false}
-                        nestedScrollEnabled={false}
-                        removeClippedSubviews={false}
-                        ItemSeparatorComponent={() => <View style={styles.songSeparator}/>}
-                    />
+                    <View
+                        style={{ flexGrow: 1 }}
+                        onLayout={(e) => {
+                            e.persist?.();
+                        }}
+                    >
+                        {sortedSongs.map((item, index) => (
+                            <View key={item.id}>
+                                <SongItem
+                                    song={item}
+                                    index={index}
+                                    allArtists={artists}
+                                    albumId={parsedAlbum?.id}
+                                    onPress={handlePlaySong}
+                                    isActive={currentSong?.id === item.id}
+                                    isPlaying={isPlaying}
+                                />
+                                {index < sortedSongs.length - 1 && (
+                                    <View style={styles.songSeparator} />
+                                )}
+                            </View>
+                        ))}
+                    </View>
+
 
 
                 </MotiView>
