@@ -9,6 +9,8 @@ import { PlayerProvider } from "@/context/PlayerContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
 import { Stack } from "expo-router";
+import {useAlbums} from "@/hooks/useAlbums";
+import {useLoadAllSongsLazy} from "@/hooks/useLoadAllSongsLazy";
 
 // ✅ Inizializziamo il client React Query solo una volta
 const queryClient = new QueryClient({
@@ -21,12 +23,16 @@ const queryClient = new QueryClient({
         },
     },
 });
-
-// 🔐 Wrapper che aspetta la fine del caricamento auth
 function AuthGateLayout() {
     const { firebaseUser, loadingAuth } = useAuth();
 
-    // ⏳ Mostra splash se ancora sta caricando l'autenticazione
+    // ✅ 1. Otteniamo gli album preview (una chiamata sola)
+    const { data: albumPreviews } = useAlbums();
+
+    // ✅ 2. Quando albumPreviews è disponibile → carichiamo TUTTE le songs (lazy)
+    useLoadAllSongsLazy(albumPreviews);
+
+    // ⏳ Splash mentre l'autenticazione sta caricando
     if (loadingAuth) {
         return (
             <View
@@ -42,7 +48,7 @@ function AuthGateLayout() {
         );
     }
 
-    // 🔓 Se l'utente è loggato, mostra il gruppo principale (tabs + player)
+    // 🔓 Se l’utente è loggato → tabs + full player
     if (firebaseUser) {
         return (
             <Stack screenOptions={{ headerShown: false }}>
@@ -55,13 +61,14 @@ function AuthGateLayout() {
         );
     }
 
-    // 🔒 Se non è loggato, mostra il gruppo di autenticazione
+    // 🔒 Login/register
     return (
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
     );
 }
+
 
 // 🌍 RootLayout principale
 export default function RootLayout() {

@@ -25,3 +25,12 @@ export type AlbumDTO = {
     releaseYear: number;
     songs: SongDTO[];
 };
+
+export type AlbumPreviewDTO = {
+    id: string;
+    name: string;
+    artist: string;
+    description: string;
+    coverURL: string;
+    releaseYear: number;
+};

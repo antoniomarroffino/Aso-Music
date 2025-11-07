@@ -12,7 +12,6 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import { useSongs } from "@/hooks/useSongs";
 import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
 import RotatingLogo from "@/components/RotatingLogo";
@@ -20,6 +19,9 @@ import { BlurView } from "expo-blur";
 import { useAuth } from "@/context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import {useAlbums} from "@/hooks/useAlbums";
+import {usePrefetchAllSongs} from "@/hooks/usePrefetchAllSongs";
+import {useQueryClient} from "@tanstack/react-query";
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
@@ -27,16 +29,28 @@ const CARD_WIDTH = width / 2.3;
 type SortOrder = "newest" | "oldest" | "alphabetical";
 
 export default function HomeScreen() {
-    const { data: albums, isLoading, refetch, isFetching } = useSongs();
+    const { data: albumPreviews, isLoading: albumsLoading } = useAlbums();
+    usePrefetchAllSongs(albumPreviews);
     const { appUser } = useAuth();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
     const [showSortMenu, setShowSortMenu] = useState(false);
+    const qc = useQueryClient();
+    const albums: AlbumDTO[] | null = useMemo(() => {
+        if (!albumPreviews) return null;
 
+        return albumPreviews.map((preview) => {
+            const songs = qc.getQueryData(["songs", preview.id]) ?? [];
+            return {
+                ...preview,
+                songs,
+            } as AlbumDTO;
+        });
+    }, [albumPreviews, qc]);
     // 🎯 Ordinamento album
     const sortedAlbums = useMemo(() => {
-        if (!albums) return [];
+        if (!albums || albums.length === 0) return [];
 
         const sorted = [...albums];
 
@@ -130,6 +144,29 @@ export default function HomeScreen() {
             </MotiView>
         </View>
     );
+
+    const renderLibraryLoading = () => {
+        if (!albumPreviews) return null;
+
+        const total = albumPreviews.length;
+        let loaded = 0;
+
+        albumPreviews.forEach((a) => {
+            const s = qc.getQueryData(["songs", a.id]);
+            if (s) loaded++;
+        });
+
+        if (loaded === total) return null;
+
+        return (
+            <View style={{ marginBottom: 10, alignSelf: "center" }}>
+                <Text style={{ color: "#1DB954", fontWeight: "600" }}>
+                    Caricamento libreria… {loaded}/{total}
+                </Text>
+            </View>
+        );
+    };
+
 
     const renderSectionHeader = () => (
         <MotiView
@@ -322,9 +359,10 @@ export default function HomeScreen() {
 
             <View style={styles.content}>
                 {renderHeader()}
+                {renderLibraryLoading()}
                 {renderSectionHeader()}
 
-                {isLoading || !sortedAlbums ? (
+                {albumsLoading || !sortedAlbums ? (
                     renderSkeletons()
                 ) : (
                     <FlatList
@@ -333,14 +371,6 @@ export default function HomeScreen() {
                         numColumns={2}
                         columnWrapperStyle={styles.row}
                         renderItem={renderAlbumCard}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={isFetching}
-                                onRefresh={refetch}
-                                tintColor="#1DB954"
-                                colors={["#1DB954"]}
-                            />
-                        }
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={[
                             styles.listContent,
