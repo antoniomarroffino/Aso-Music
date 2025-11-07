@@ -50,31 +50,19 @@ export default {
                 startUrl: ".",
                 scope: ".",
                 display: "standalone",
-                orientation: "portrait",
-                icons: [
-                    {
-                        src: "./assets/images/pwa-icon-192.png",
-                        sizes: "192x192",
-                        type: "image/png",
-                    },
-                    {
-                        src: "./assets/images/pwa-icon-512.png",
-                        sizes: "512x512",
-                        type: "image/png",
-                    },
-                ],
+                orientation: "portrait"
             },
             meta: {
                 apple: {
                     title: "ASO Music",
-                    statusBarStyle: "black-translucent",
-                    startupImage: "./assets/images/apple-splash.png",
-                    icon: "./assets/images/apple-icon.png"
+                    statusBarStyle: "black-translucent"
                 },
             },
+            staticOutputDir: "dist",
+            copy: [
+                { src: "./assets/apple-touch-icon.png", dest: "apple-touch-icon.png" }
+            ]
         },
-
-
         plugins: [
             "expo-router",
             "expo-asset",
