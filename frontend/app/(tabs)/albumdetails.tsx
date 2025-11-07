@@ -267,8 +267,8 @@ export default function AlbumDetails() {
                 transition={{type: "spring", damping: 15}}
                 style={styles.customHeader}
             >
-                <BlurView intensity={40} tint="dark" style={styles.headerBlur}>
-                    <LinearGradient
+                <BlurView intensity={40} tint="dark" style={styles.headerBlur} pointerEvents="none">
+                <LinearGradient
                         colors={[
                             "rgba(255, 255, 255, 0.08)",
                             "rgba(255, 255, 255, 0.04)",
@@ -317,7 +317,9 @@ export default function AlbumDetails() {
                                 repeatReverse: true,
                             }}
                             style={styles.coverGlow}
+                            pointerEvents="none"
                         />
+
 
                         <LinearGradient
                             colors={[
@@ -351,7 +353,9 @@ export default function AlbumDetails() {
                                 delay: 1000,
                             }}
                             style={styles.shineEffect}
+                            pointerEvents="none"
                         />
+
                     </View>
 
                     {/* Info Album */}
@@ -483,8 +487,11 @@ export default function AlbumDetails() {
                             />
                         )}
                         scrollEnabled={false}
+                        nestedScrollEnabled={false}
+                        removeClippedSubviews={false}
                         ItemSeparatorComponent={() => <View style={styles.songSeparator}/>}
                     />
+
 
                 </MotiView>
             </SafeScrollView>

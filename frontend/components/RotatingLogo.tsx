@@ -255,9 +255,9 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         overflow: "hidden",
         shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 120 },
-        shadowOpacity: 0.8,
-        shadowRadius: 0,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
         elevation: 0,
     },
     messageGradient: {
