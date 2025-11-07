@@ -40,12 +40,11 @@ export default {
 
         web: {
             favicon: "./assets/images/favicon.png",
-            bundler: "metro", // ✅ necessario per Expo Router
-            output: "static", // ✅ genera file statici
+            bundler: "metro",
+            output: "static",
             pwa: {
                 name: "ASO Music",
                 shortName: "ASO",
-                description: "Music player PWA built with Expo",
                 themeColor: "#000000",
                 backgroundColor: "#000000",
                 startUrl: ".",
@@ -65,7 +64,16 @@ export default {
                     },
                 ],
             },
+            meta: {
+                apple: {
+                    title: "ASO Music",
+                    statusBarStyle: "black-translucent",
+                    startupImage: "./assets/images/apple-splash.png",
+                    icon: "./assets/images/apple-icon.png"
+                },
+            },
         },
+
 
         plugins: [
             "expo-router",
