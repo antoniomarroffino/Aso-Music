@@ -26,6 +26,21 @@ public class SongController {
         return Response.ok(albums).build();
     }
 
+    @GET
+    @Path("/album/{albumId}")
+    @Operation(summary = "Recupera tutte le canzoni di un album specifico")
+    public Response getSongsByAlbum(@PathParam("albumId") String albumId) {
+        try {
+            return Response.ok(songService.fetchSongsByAlbum(albumId)).build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("{\"error\": \"" + e.getMessage() + "\"}")
+                    .build();
+        }
+    }
+
+
     @POST
     @Path("/{albumId}/songs/{songId}/listen")
     @Operation(summary = "Incrementa il numero di ascolti per una canzone in un album")

@@ -89,6 +89,39 @@ public class SongRepository implements ISongRepository {
 
     }
 
+    @Override
+    public List<SongDTO> fetchSongsByAlbum(String albumId) throws ExecutionException, InterruptedException {
+
+        List<SongDTO> songs = new ArrayList<>();
+
+        ApiFuture<QuerySnapshot> songsFuture = db.collection("album")
+                .document(albumId)
+                .collection("songs")
+                .orderBy("tracklistPosition")
+                .get();
+
+        for (QueryDocumentSnapshot songDoc : songsFuture.get().getDocuments()) {
+
+            List<ArtistDTO> artistDTOs = resolveArtists(songDoc);
+
+            SongDTO song = SongDTO.builder()
+                    .id(songDoc.getId())
+                    .title(songDoc.getString("title"))
+                    .duration(songDoc.getString("duration"))
+                    .audioURL(songDoc.getString("audioURL"))
+                    .coverURL(songDoc.getString("coverURL"))
+                    .stream(asInt(songDoc.get("stream")))
+                    .tracklistPosition(asInt(songDoc.get("tracklistPosition")))
+                    .artists(artistDTOs)
+                    .build();
+
+            songs.add(song);
+        }
+
+        return songs;
+    }
+
+
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {
         List<ArtistDTO> artistDTOs = new ArrayList<>();
 

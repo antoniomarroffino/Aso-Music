@@ -44,6 +44,19 @@ public class SongService implements ISongService {
         }
     }
 
+    @Override
+    public List<SongDTO> fetchSongsByAlbum(String albumId) {
+        try {
+            return songRepository.fetchSongsByAlbum(albumId)
+                    .stream()
+                    .map(this::convertSongStorageUrlsSafe)
+                    .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException("❌ Errore durante il recupero delle canzoni dell'album", e);
+        }
+    }
+
+
     private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
         return AlbumDTO.builder()
                 .id(album.getId())
