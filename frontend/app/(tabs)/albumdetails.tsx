@@ -267,8 +267,8 @@ export default function AlbumDetails() {
                 transition={{type: "spring", damping: 15}}
                 style={styles.customHeader}
             >
-                <BlurView intensity={40} tint="dark" style={styles.headerBlur} pointerEvents="none">
-                <LinearGradient
+                <BlurView intensity={40} tint="dark" style={styles.headerBlur}>
+                    <LinearGradient
                         colors={[
                             "rgba(255, 255, 255, 0.08)",
                             "rgba(255, 255, 255, 0.04)",
@@ -280,7 +280,7 @@ export default function AlbumDetails() {
                             style={styles.backButton}
                             activeOpacity={0.7}
                         >
-                            <Ionicons name="arrow-back" size={24} color="#fff"/>
+                            <Ionicons name="arrow-back" size={24} color="#fff" />
                         </TouchableOpacity>
 
                         <View style={styles.headerCenter}>
@@ -289,11 +289,16 @@ export default function AlbumDetails() {
                             </Text>
                         </View>
 
-                        <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
-                            <Ionicons name="ellipsis-horizontal" size={24} color="#fff"/>
+                        <TouchableOpacity
+                            onPress={() => alert("Non ancora disponibile")}
+                            style={styles.moreButton}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
                         </TouchableOpacity>
                     </LinearGradient>
                 </BlurView>
+
             </MotiView>
 
             {/* ✅ Usa SafeScrollView per gestire il bottom padding dinamico */}

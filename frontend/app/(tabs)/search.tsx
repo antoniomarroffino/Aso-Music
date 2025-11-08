@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, {useState, useMemo} from "react";
 import {
     View,
     Text,
@@ -8,23 +8,23 @@ import {
     TouchableOpacity,
     FlatList,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
-import { useSongs } from "@/hooks/useSongs";
-import { useArtists } from "@/hooks/useArtists";
-import { useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { usePlayer } from "@/context/PlayerContext";
+import {LinearGradient} from "expo-linear-gradient";
+import {StatusBar} from "expo-status-bar";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
+import {MotiView} from "moti";
+import {Ionicons} from "@expo/vector-icons";
+import {useSongs} from "@/hooks/useSongs";
+import {useArtists} from "@/hooks/useArtists";
+import {useRouter} from "expo-router";
+import {Image} from "expo-image";
+import {usePlayer} from "@/context/PlayerContext";
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { playSong } = usePlayer();
-    const { data: albums } = useSongs();
-    const { data: artists } = useArtists();
+    const {playSong} = usePlayer();
+    const {data: albums} = useSongs();
+    const {data: artists} = useArtists();
 
     const [searchType, setSearchType] = useState<"all" | "songs" | "albums" | "artists">("all");
     const [query, setQuery] = useState("");
@@ -106,12 +106,12 @@ export default function SearchScreen() {
         if (item.type === "artist") {
             router.push({
                 pathname: "/(tabs)/artistdetails",
-                params: { artistId: item.id, from: "search" },
+                params: {artistId: item.id, from: "search"},
             });
         } else if (item.type === "album") {
             router.push({
                 pathname: "/(tabs)/albumdetails",
-                params: { id: item.id, from: "search" },
+                params: {id: item.id, from: "search"},
             });
         } else if (item.type === "song") {
             const queue = item.queue ?? [];
@@ -131,7 +131,7 @@ export default function SearchScreen() {
     };
 
     // 🔸 UI elemento risultato
-    const renderResultItem = ({ item }: any) => {
+    const renderResultItem = ({item}: any) => {
         const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
             song: "musical-notes-outline",
             album: "disc-outline",
@@ -156,7 +156,7 @@ export default function SearchScreen() {
                 >
                     {item.image || item.albumCover ? (
                         <Image
-                            source={{ uri: item.image || item.albumCover }}
+                            source={{uri: item.image || item.albumCover}}
                             style={styles.resultImage}
                             contentFit="cover"
                         />
@@ -164,7 +164,7 @@ export default function SearchScreen() {
                         <View
                             style={[
                                 styles.resultIconContainer,
-                                { backgroundColor: colorMap[item.type] + "20" },
+                                {backgroundColor: colorMap[item.type] + "20"},
                             ]}
                         >
                             <Ionicons
@@ -180,7 +180,7 @@ export default function SearchScreen() {
                         {item.artist && <Text style={styles.resultSubtitle}>{item.artist}</Text>}
                     </View>
 
-                    <Ionicons name="chevron-forward" size={16} color="#666" />
+                    <Ionicons name="chevron-forward" size={16} color="#666"/>
                 </LinearGradient>
             </TouchableOpacity>
         );
@@ -193,22 +193,25 @@ export default function SearchScreen() {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
-            <StatusBar style="light" />
+            {Platform.OS !== "web" && <StatusBar style="light"/>}
+
 
             {/* HEADER */}
             <MotiView
-                from={{ opacity: 0, translateY: -20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "timing", duration: 600 }}
+                from={{opacity: 0, translateY: -20}}
+                animate={{opacity: 1, translateY: 0}}
+                transition={{type: "timing", duration: 600}}
                 style={[
                     styles.header,
-                    { paddingTop: Platform.OS === "ios" ? insets.top + 20 : insets.top + 10 },
+                    {
+                        paddingTop: Platform.OS === "web" ? 40 : insets.top + 30
+                    },
                 ]}
             >
                 <View style={styles.headerRow}>
                     <View style={styles.iconContainer}>
                         <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.iconGradient}>
-                            <Ionicons name="search" size={22} color="#000" />
+                            <Ionicons name="search" size={22} color="#000"/>
                         </LinearGradient>
                     </View>
                     <Text style={styles.headerTitle}>Cerca Musica</Text>
@@ -218,7 +221,7 @@ export default function SearchScreen() {
 
             {/* 🔎 Barra di ricerca */}
             <View style={styles.searchBarContainer}>
-                <Ionicons name="search-outline" size={18} color="#888" style={styles.searchIcon} />
+                <Ionicons name="search-outline" size={18} color="#888" style={styles.searchIcon}/>
                 <TextInput
                     placeholder="Cerca..."
                     placeholderTextColor="#666"
@@ -228,7 +231,7 @@ export default function SearchScreen() {
                 />
                 {query.length > 0 && (
                     <TouchableOpacity onPress={() => setQuery("")} style={styles.clearButton}>
-                        <Ionicons name="close-circle" size={18} color="#999" />
+                        <Ionicons name="close-circle" size={18} color="#999"/>
                     </TouchableOpacity>
                 )}
             </View>
@@ -253,15 +256,15 @@ export default function SearchScreen() {
             </View>
 
             {/* 📄 Risultati */}
-            <View style={[styles.resultsContainer, { paddingBottom: insets.bottom + 100 }]}>
+            <View style={[styles.resultsContainer, {paddingBottom: insets.bottom + 100}]}>
                 {query.length === 0 ? (
                     <View style={styles.placeholder}>
-                        <Ionicons name="search-outline" size={40} color="#1DB954" />
+                        <Ionicons name="search-outline" size={40} color="#1DB954"/>
                         <Text style={styles.placeholderText}>Inizia a cercare qualcosa...</Text>
                     </View>
                 ) : results.length === 0 ? (
                     <View style={styles.placeholder}>
-                        <Ionicons name="alert-circle-outline" size={40} color="#555" />
+                        <Ionicons name="alert-circle-outline" size={40} color="#555"/>
                         <Text style={styles.placeholderText}>Nessun risultato trovato</Text>
                     </View>
                 ) : (
@@ -270,7 +273,7 @@ export default function SearchScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderResultItem}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10 }}
+                        contentContainerStyle={{paddingHorizontal: 20, paddingTop: 10}}
                     />
                 )}
             </View>
@@ -279,27 +282,27 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#000" },
+    container: {flex: 1, backgroundColor: "#000"},
     header: {
         paddingHorizontal: 20,
         paddingBottom: 10,
         borderBottomWidth: 1,
         borderBottomColor: "rgba(255,255,255,0.05)",
     },
-    headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+    headerRow: {flexDirection: "row", alignItems: "center", marginBottom: 8},
     iconContainer: {
         marginRight: 12,
         borderRadius: 12,
         overflow: "hidden",
         shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: {width: 0, height: 2},
         shadowOpacity: 0.3,
         shadowRadius: 6,
         elevation: 4,
     },
-    iconGradient: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-    headerTitle: { color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5 },
-    headerSubtitle: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
+    iconGradient: {width: 40, height: 40, justifyContent: "center", alignItems: "center"},
+    headerTitle: {color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5},
+    headerSubtitle: {color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4},
     searchBarContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -312,9 +315,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-    searchIcon: { marginRight: 8 },
-    searchInput: { flex: 1, color: "#fff", fontSize: 15 },
-    clearButton: { padding: 4 },
+    searchIcon: {marginRight: 8},
+    searchInput: {flex: 1, color: "#fff", fontSize: 15},
+    clearButton: {padding: 4},
     filterRow: {
         flexDirection: "row",
         justifyContent: "center",
@@ -330,11 +333,11 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.1)",
         backgroundColor: "rgba(255,255,255,0.05)",
     },
-    filterButtonActive: { backgroundColor: "rgba(29,185,84,0.2)", borderColor: "#1DB954" },
-    filterText: { color: "#ccc", fontWeight: "600", fontSize: 13 },
-    filterTextActive: { color: "#1DB954", fontWeight: "700" },
-    resultsContainer: { flex: 1 },
-    resultItem: { marginBottom: 10, borderRadius: 14, overflow: "hidden" },
+    filterButtonActive: {backgroundColor: "rgba(29,185,84,0.2)", borderColor: "#1DB954"},
+    filterText: {color: "#ccc", fontWeight: "600", fontSize: 13},
+    filterTextActive: {color: "#1DB954", fontWeight: "700"},
+    resultsContainer: {flex: 1},
+    resultItem: {marginBottom: 10, borderRadius: 14, overflow: "hidden"},
     resultGradient: {
         flexDirection: "row",
         alignItems: "center",
@@ -357,9 +360,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginRight: 12,
     },
-    resultTextContainer: { flex: 1 },
-    resultName: { color: "#fff", fontSize: 15, fontWeight: "600" },
-    resultSubtitle: { color: "#888", fontSize: 13 },
-    placeholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-    placeholderText: { color: "#888", fontSize: 15 },
+    resultTextContainer: {flex: 1},
+    resultName: {color: "#fff", fontSize: 15, fontWeight: "600"},
+    resultSubtitle: {color: "#888", fontSize: 13},
+    placeholder: {flex: 1, alignItems: "center", justifyContent: "center", gap: 8},
+    placeholderText: {color: "#888", fontSize: 15},
 });

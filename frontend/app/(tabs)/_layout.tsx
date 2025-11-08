@@ -28,6 +28,8 @@ export default function TabsLayout() {
                     tabBarStyle: {
                         backgroundColor: "#0a0a0a",
                         borderTopWidth: 0,
+                        elevation: 0,
+                        shadowOpacity: 0,
                         height: 60,
                         paddingBottom: 8,
                         position: "absolute",
@@ -38,7 +40,6 @@ export default function TabsLayout() {
                     },
                 }}
             >
-                {/* --- MENU VISIBILI --- */}
                 <Tabs.Screen
                     name="index"
                     options={{
@@ -97,6 +98,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#000",
+        paddingTop: 0, // ✅ sicurezza per web
     },
     loading: {
         flex: 1,
@@ -110,5 +112,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 999,
+        pointerEvents: "box-none",
     },
 });

@@ -4,35 +4,34 @@ import React, { useEffect } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
 import { PlayerProvider } from "@/context/PlayerContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
 import { Stack } from "expo-router";
-import {useAlbums} from "@/hooks/useAlbums";
-import {useLoadAllSongsLazy} from "@/hooks/useLoadAllSongsLazy";
+import { useAlbums } from "@/hooks/useAlbums";
+import { useLoadAllSongsLazy } from "@/hooks/useLoadAllSongsLazy";
 
-// ✅ Inizializziamo il client React Query solo una volta
+// ✅ React Query client creato una sola volta
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            staleTime: 1000 * 60 * 5, // 5 minuti
+            staleTime: 1000 * 60 * 5,
             retry: 2,
             refetchOnWindowFocus: false,
             refetchOnReconnect: true,
         },
     },
 });
+
+// ---------------------------------------------------------------
+// ✅ AUTH GATE
+// ---------------------------------------------------------------
 function AuthGateLayout() {
     const { firebaseUser, loadingAuth } = useAuth();
-
-    // ✅ 1. Otteniamo gli album preview (una chiamata sola)
     const { data: albumPreviews } = useAlbums();
-
-    // ✅ 2. Quando albumPreviews è disponibile → carichiamo TUTTE le songs (lazy)
     useLoadAllSongsLazy(albumPreviews);
 
-    // ⏳ Splash mentre l'autenticazione sta caricando
     if (loadingAuth) {
         return (
             <View
@@ -48,34 +47,54 @@ function AuthGateLayout() {
         );
     }
 
-    // 🔓 Se l’utente è loggato → tabs + full player
     if (firebaseUser) {
         return (
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: {
+                        backgroundColor: "#000",
+                        paddingTop: 0,
+                        marginTop: 0
+                    }
+                }}
+            >
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
                     name="fullplayer"
-                    options={{ presentation: "fullScreenModal", headerShown: false }}
+                    options={{
+                        presentation: "fullScreenModal",
+                        headerShown: false
+                    }}
                 />
             </Stack>
         );
     }
 
-    // 🔒 Login/register
+    // Login/Register
     return (
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack
+            screenOptions={{
+                headerShown: false,
+                contentStyle: {
+                    backgroundColor: "#000",
+                    paddingTop: 0,
+                    marginTop: 0
+                }
+            }}
+        >
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
     );
 }
 
-
-// 🌍 RootLayout principale
+// ---------------------------------------------------------------
+// ✅ ROOT LAYOUT PRINCIPALE
+// ---------------------------------------------------------------
 export default function RootLayout() {
     const colorScheme = useColorScheme();
 
     useEffect(() => {
-        // Imposta modalità audio globale (necessaria per player)
         Audio.setAudioModeAsync({
             allowsRecordingIOS: false,
             staysActiveInBackground: true,
@@ -88,13 +107,23 @@ export default function RootLayout() {
     }, []);
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView
+            style={{
+                flex: 1,
+                paddingTop: 0, // ✅ importantissimo per Web
+                marginTop: 0
+            }}
+        >
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                     <AuthProvider>
                         <PlayerProvider>
+
                             <AuthGateLayout />
-                            <StatusBar style="light" />
+
+                            {/* ✅ StatusBar attivata SOLO su mobile per evitare padding Web */}
+                            {Platform.OS !== "web" && <StatusBar style="light" />}
+
                         </PlayerProvider>
                     </AuthProvider>
                 </ThemeProvider>
