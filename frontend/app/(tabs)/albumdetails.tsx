@@ -526,7 +526,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 100,
-        paddingTop: Platform.OS === "ios" ? 50 : 40,
     },
     headerBlur: {
         overflow: "hidden",
@@ -565,7 +564,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     scrollContent: {
-        paddingTop: Platform.OS === "ios" ? 120 : 110,
+        paddingTop: Platform.OS === "ios" ? 80 : 70,
         paddingHorizontal: 20,
     },
     heroSection: {
@@ -692,11 +691,9 @@ const styles = StyleSheet.create({
         borderRadius: 2,
     },
     songSeparator: {
-        height: 1,
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        marginVertical: 8,
+        height: 0,
+        marginVertical: 4,
     },
-    // Aggiungi alla fine degli styles
     loadingContainer: {
         flex: 1,
         justifyContent: "center",

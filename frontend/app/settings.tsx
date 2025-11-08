@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.1";
 const IBAN = "LT413250025268467321";
 
 export default function SettingsScreen() {
@@ -54,9 +54,9 @@ export default function SettingsScreen() {
 
     const patchNotes = [
         {
-            version: "1.1.0",
+            version: "1.1.1",
             date: "Novembre 2025",
-            title: "Prima release ufficiale",
+            title: "Bug fix",
             items: [
                 "TM2 (ALIENS) fuori ora!",
 

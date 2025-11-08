@@ -19,6 +19,8 @@ import {useSongs} from "@/hooks/useSongs";
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
 import SafeScrollView from "@/components/ui/SafeScrollView";
+import {usePlayer} from "@/context/PlayerContext";
+import {SongDTO} from "@/types/music";
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
@@ -32,6 +34,7 @@ export default function ArtistDetailsScreen() {
     const {data: albums} = useSongs();
 
     const [visibleCount, setVisibleCount] = useState(5);
+    const { playSong, currentSong, isPlaying, togglePlayPause } = usePlayer();
 
     useEffect(() => {
         setVisibleCount(5);
@@ -245,6 +248,22 @@ export default function ArtistDetailsScreen() {
         );
     }
 
+    const handlePlaySong =
+        (song: SongDTO, index: number) => {
+            if (index === -1) {
+                togglePlayPause();
+                return;
+            }
+
+        playSong(
+            song,
+            artistSongs,
+            index,
+            artist.id,
+            artist.name
+        );
+    };
+
     return (
         <SafeScrollView style={styles.container}>
             {/* HEADER */}
@@ -299,12 +318,11 @@ export default function ArtistDetailsScreen() {
                                     key={song.id}
                                     song={song}
                                     rank={index + 1}
-                                    queue={artistSongs}
-                                    allArtists={artistSongs.flatMap((s) => s.artists)}
+                                    allArtists={artistSongs.flatMap(s => s.artists)}
                                     albumId={album?.id ?? "unknown"}
                                     albumName={album?.name ?? "unknown"}
+                                    onPress={(s) => handlePlaySong(s, index)}
                                 />
-
                             );
                         })}
 

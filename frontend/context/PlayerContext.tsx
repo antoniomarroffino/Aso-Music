@@ -111,10 +111,41 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 album: currentAlbumNameRef.current || "",
                 artwork: currentSong.coverURL || "",
             });
+            updateWebMediaSession(currentSong);
         }
 
         MediaSession.setPlaybackState?.(isPlaying ? "playing" : "paused");
+        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+            try {
+                navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+            } catch (e) {
+                console.log("MediaSession web playbackState non supportata", e);
+            }
+        }
+
     }, [currentSong, isPlaying]);
+
+    const updateWebMediaSession = (song: SongDTO) => {
+        if (typeof navigator === "undefined") return;
+        if (!("mediaSession" in navigator)) return;
+
+        const artists = song.artists?.map(a => a.name).join(", ") || "Unknown artist";
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: song.title,
+            artist: artists,
+            album: currentAlbumNameRef.current || "",
+            artwork: [
+                { src: song.coverURL, sizes: "512x512", type: "image/png" }
+            ]
+        });
+
+        navigator.mediaSession.setActionHandler("play", togglePlayPause);
+        navigator.mediaSession.setActionHandler("pause", togglePlayPause);
+        navigator.mediaSession.setActionHandler("nexttrack", nextSongAction);
+        navigator.mediaSession.setActionHandler("previoustrack", prevSong);
+    };
+
 
     /** 🎵 Avvia riproduzione */
     const playSong = async (

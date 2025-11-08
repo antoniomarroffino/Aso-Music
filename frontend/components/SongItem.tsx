@@ -5,6 +5,7 @@ import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import {ArtistDTO, SongDTO} from "@/types/music";
 import { useRouter } from "expo-router";
+import AwardBadges from "@/components/ui/AwardBadges";
 
 
 interface SongItemProps {
@@ -110,6 +111,7 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
                                     >
                                         {song.title}
                                     </Text>
+                                    <AwardBadges streams={song.stream} />
 
                                 </View>
                                 <View style={styles.artistRow}>
@@ -153,45 +155,14 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
                                     {formatDuration(song.duration)}
                                 </Text>
                             </View>
-
-                            {/* Pulsante Play/Pausa */}
-                            <MotiView
-                                from={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{
-                                    type: "spring",
-                                    delay: 100 + index * 50,
-                                }}
-                                style={styles.playIconContainer}
-                            >
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        if (isActive) {
-                                            onPress?.(song, -1);
-                                        } else {
-                                            onPress?.(song, index);
-                                        }
-                                    }}
-                                    activeOpacity={0.8}
-                                >
+                            <View style={styles.streamContainer}>
+                                <Ionicons name="headset-outline" size={14} color="#666" />
+                                <Text style={styles.streamText}>
+                                    {song.stream?.toLocaleString("it-IT") ?? "0"}
+                                </Text>
+                            </View>
 
 
-                                <LinearGradient
-                                        colors={["#1DB954", "#1ed760"]}
-                                        style={styles.playIcon}
-                                    >
-                                        <Ionicons
-                                            name={
-                                                isActive && isPlaying
-                                                    ? "pause"
-                                                    : "play"
-                                            }
-                                            size={12}
-                                            color="#000"
-                                        />
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </MotiView>
                         </View>
                     </LinearGradient>
 
@@ -215,7 +186,7 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 8,
+        marginBottom: 4,
     },
     wrapper: {
         position: "relative",
@@ -262,6 +233,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         marginBottom: 4,
+        gap: 6,
+        flexShrink: 1,
     },
     title: {
         color: "#fff",
@@ -294,6 +267,22 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: "600",
     },
+    streamContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: "rgba(255,255,255,0.03)",
+        borderRadius: 8,
+        marginRight: 8,
+    },
+    streamText: {
+        color: "#bbb",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+
     playIconContainer: {
         borderRadius: 14,
         overflow: "hidden",

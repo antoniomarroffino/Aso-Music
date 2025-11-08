@@ -1,121 +1,81 @@
-import React, {useMemo} from "react";
-import {View, Text, StyleSheet, TouchableOpacity} from "react-native";
-import {LinearGradient} from "expo-linear-gradient";
-import {MotiView} from "moti";
-import {Ionicons} from "@expo/vector-icons";
-import {ArtistDTO, SongDTO} from "@/types/music";
-import {usePlayer} from "@/context/PlayerContext";
-import {useRouter} from "expo-router";
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView } from "moti";
+import { Ionicons } from "@expo/vector-icons";
+import { ArtistDTO, SongDTO } from "@/types/music";
+import { useRouter } from "expo-router";
+import AwardBadges from "@/components/ui/AwardBadges";
 
 interface SongItemArtistProps {
     song: SongDTO;
     rank: number;
-    queue?: SongDTO[];
     allArtists?: ArtistDTO[];
     albumId: string;
+    queue?: SongDTO[];
     albumName?: string;
-    onPress?: () => void;
+    onPress?: (song: SongDTO, index?: number) => void;
 }
-
 export default function SongItemArtist({
                                            song,
                                            rank,
-                                           queue,
                                            allArtists,
                                            albumId,
+                                           queue,
                                            albumName,
-                                           onPress,
+                                           onPress
                                        }: SongItemArtistProps) {
-    const {playSong, currentSong, isPlaying} = usePlayer();
+
     const router = useRouter();
 
-    const isCurrent = currentSong?.id === song.id;
-
     const formatDuration = (duration: string | number) => {
-        if (typeof duration === "string") {
-            if (duration.includes(":")) return duration;
-            const num = parseInt(duration, 10);
-            if (isNaN(num)) return "0:00";
-            const mins = Math.floor(num / 60);
-            const secs = num % 60;
-            return `${mins}:${secs.toString().padStart(2, "0")}`;
-        } else {
-            const mins = Math.floor(duration / 60);
-            const secs = duration % 60;
-            return `${mins}:${secs.toString().padStart(2, "0")}`;
-        }
+        if (typeof duration === "string" && duration.includes(":")) return duration;
+        const num = typeof duration === "string" ? parseInt(duration) : duration;
+        const mins = Math.floor(num / 60);
+        const secs = num % 60;
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
-    const handlePlay = async () => {
-        playSong(song, queue, rank - 1, albumId, albumName);
-    };
-
-    useMemo(() => {
-        if (!Array.isArray(song.artists) || !allArtists) {
-            return ["Artista sconosciuto"];
-        }
-
-        const names = song.artists
-            .map((artist) => {
-                if (artist && typeof artist === "object" && "name" in artist) {
-                    return artist.name;
-                }
-                return null;
-            })
-            .filter((n): n is string => Boolean(n));
-
-        return names.length > 0 ? names : ["Artista sconosciuto"];
-    }, [song.artists, allArtists]);
     return (
-        <TouchableOpacity
-            style={styles.container}
-            activeOpacity={0.85}
-            onPress={onPress ?? handlePlay}
-        >
+        <TouchableOpacity style={styles.container} activeOpacity={0.85} onPress={() => onPress?.(song)}>
             <MotiView
-                from={{opacity: 0, translateY: 15}}
-                animate={{opacity: 1, translateY: 0}}
-                transition={{
-                    type: "timing",
-                    duration: 300,
-                    delay: rank * 50,
-                }}
+                from={{ opacity: 0, translateY: 15 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: "timing", duration: 300, delay: rank * 50 }}
             >
                 <LinearGradient
-                    colors={["rgba(29, 185, 84, 0.08)", "rgba(255, 255, 255, 0.02)"]}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 0}}
+                    colors={["rgba(29,185,84,0.08)", "rgba(255,255,255,0.02)"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={styles.wrapper}
                 >
                     <View style={styles.inner}>
-                        {/* 🟢 Numero classifica */}
+                        {/* Numero ranking */}
                         <Text style={styles.rank}>{rank}.</Text>
 
-                        {/* Info canzone */}
+                        {/* Info */}
                         <View style={styles.info}>
-                            <Text
-                                style={[styles.title, isCurrent && {color: "#1DB954"}]}
-                                numberOfLines={1}
-                            >
-                                {song.title}
-                            </Text>
+
+                            <View style={styles.titleRow}>
+                                <Text style={styles.title} numberOfLines={1}>
+                                    {song.title}
+                                </Text>
+
+                                {/* Award */}
+                                <AwardBadges streams={song.stream} />
+                            </View>
 
                             <View style={styles.artistRow}>
-                                <Ionicons name="person-outline" size={12} color="#666"/>
+                                <Ionicons name="person-outline" size={12} color="#666" />
                                 {song.artists.map((artist, i) => (
                                     <TouchableOpacity
                                         key={artist.id}
                                         onPress={() =>
                                             router.push({
                                                 pathname: "/(tabs)/artistdetails",
-                                                params: {
-                                                    artistId: artist.id,
-                                                    from: "artistdetails",
-                                                    albumId,
-                                                },
+                                                params: { artistId: artist.id, from: "artistdetails", albumId },
                                             })
                                         }
-                                        activeOpacity={0.7}
                                     >
                                         <Text style={styles.artistLink}>
                                             {artist.name}
@@ -124,39 +84,39 @@ export default function SongItemArtist({
                                     </TouchableOpacity>
                                 ))}
                             </View>
-
-                            {/* 🔢 Numero ascolti */}
-                            <View style={styles.streamRow}>
-                                <Ionicons name="headset-outline" size={13} color="#777"/>
-                                <Text style={styles.streams}>
-                                    {song.stream.toLocaleString()} ascolti
-                                </Text>
-                            </View>
                         </View>
+
 
                         {/* Durata */}
                         <View style={styles.durationContainer}>
-                            <Ionicons name="time-outline" size={14} color="#666"/>
+                            <Ionicons name="time-outline" size={14} color="#666" />
                             <Text style={styles.duration}>
                                 {formatDuration(song.duration)}
                             </Text>
                         </View>
 
-                        {/* ▶️ Play */}
-                        <TouchableOpacity onPress={handlePlay} activeOpacity={0.8}>
-                            <LinearGradient
-                                colors={["#1DB954", "#1ed760"]}
-                                style={styles.playIcon}
-                            >
-                                <Ionicons
-                                    name={isCurrent && isPlaying ? "pause" : "play"}
-                                    size={14}
-                                    color="#000"
-                                />
-                            </LinearGradient>
-                        </TouchableOpacity>
+                        {/* Streams */}
+                        <View style={styles.streamContainer}>
+                            <Ionicons name="headset-outline" size={14} color="#666" />
+                            <Text style={styles.streamText}>
+                                {song.stream?.toLocaleString("it-IT") ?? "0"}
+                            </Text>
+                        </View>
                     </View>
                 </LinearGradient>
+
+                {/* Shine effect */}
+                <MotiView
+                    from={{ translateX: -200 }}
+                    animate={{ translateX: 400 }}
+                    transition={{
+                        type: "timing",
+                        duration: 3000,
+                        loop: true,
+                        delay: Math.random() * 2000,
+                    }}
+                    style={styles.shineEffect}
+                />
             </MotiView>
         </TouchableOpacity>
     );
@@ -164,7 +124,7 @@ export default function SongItemArtist({
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 10,
+        marginBottom: 6,
     },
     wrapper: {
         borderRadius: 14,
@@ -175,18 +135,26 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "#141414",
         paddingVertical: 10,
-        paddingHorizontal: 14,
+        paddingHorizontal: 12,
         borderRadius: 13,
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.03)",
+        borderColor: "rgba(255,255,255,0.03)",
     },
+
+    /* Rank */
     rank: {
         color: "#1DB954",
         fontSize: 16,
         fontWeight: "900",
-        width: 24,
+        width: 26,
         textAlign: "right",
-        marginRight: 10,
+        marginRight: 12,
+    },
+    titleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 1,
     },
     info: {
         flex: 1,
@@ -199,8 +167,9 @@ const styles = StyleSheet.create({
     artistRow: {
         flexDirection: "row",
         alignItems: "center",
-        flexWrap: "wrap",
+        gap: 4,
         marginTop: 2,
+        flexWrap: "wrap",
     },
     artistLink: {
         color: "#1DB954",
@@ -208,36 +177,47 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         textDecorationLine: "underline",
     },
-    streamRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 2,
-        gap: 5,
-    },
-    streams: {
-        color: "#aaa",
-        fontSize: 12,
-    },
+
+    /* Durata identica al SongItem */
     durationContainer: {
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        marginRight: 10,
+        backgroundColor: "rgba(255,255,255,0.03)",
         paddingHorizontal: 8,
         paddingVertical: 4,
-        backgroundColor: "rgba(255, 255, 255, 0.03)",
         borderRadius: 8,
+        marginRight: 8,
     },
     duration: {
         color: "#bbb",
         fontSize: 12,
         fontWeight: "600",
     },
-    playIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        justifyContent: "center",
+
+    /* Streams identici al SongItem */
+    streamContainer: {
+        flexDirection: "row",
         alignItems: "center",
+        gap: 4,
+        backgroundColor: "rgba(255,255,255,0.03)",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    streamText: {
+        color: "#bbb",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+
+    /* Shine */
+    shineEffect: {
+        position: "absolute",
+        top: 0,
+        width: 40,
+        height: "100%",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        transform: [{ skewX: "-20deg" }],
     },
 });

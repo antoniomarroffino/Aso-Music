@@ -145,29 +145,6 @@ export default function HomeScreen() {
         </View>
     );
 
-    const renderLibraryLoading = () => {
-        if (!albumPreviews) return null;
-
-        const total = albumPreviews.length;
-        let loaded = 0;
-
-        albumPreviews.forEach((a) => {
-            const s = qc.getQueryData(["songs", a.id]);
-            if (s) loaded++;
-        });
-
-        if (loaded === total) return null;
-
-        return (
-            <View style={{ marginBottom: 10, alignSelf: "center" }}>
-                <Text style={{ color: "#1DB954", fontWeight: "600" }}>
-                    Caricamento libreria… {loaded}/{total}
-                </Text>
-            </View>
-        );
-    };
-
-
     const renderSectionHeader = () => (
         <MotiView
             from={{ opacity: 0, translateX: -20 }}
@@ -359,7 +336,6 @@ export default function HomeScreen() {
 
             <View style={styles.content}>
                 {renderHeader()}
-                {renderLibraryLoading()}
                 {renderSectionHeader()}
 
                 {albumsLoading || !sortedAlbums ? (

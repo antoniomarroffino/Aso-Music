@@ -166,6 +166,9 @@ export default function FullPlayer() {
         return null;
     }
 
+    const [showMoreTooltip, setShowMoreTooltip] = useState(false);
+
+
     const timeLeft = duration - progress;
     const showNextSong = nextSong && timeLeft <= 15;
 
@@ -227,9 +230,14 @@ export default function FullPlayer() {
                                 </View>
                             </View>
 
-                            <TouchableOpacity style={styles.moreButton} activeOpacity={0.7}>
+                            <TouchableOpacity
+                                onPress={() => alert("Non ancora disponibile")}
+                                style={styles.moreButton}
+                                activeOpacity={0.7}
+                            >
                                 <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
                             </TouchableOpacity>
+
                         </LinearGradient>
                     </BlurView>
                 </MotiView>
@@ -388,18 +396,20 @@ export default function FullPlayer() {
                             <Ionicons name="heart-outline" size={24} color="#555" />
                         </TouchableOpacity>
 
-                        {/* Tooltip */}
                         {showTooltip && (
                             <MotiView
-                                from={{ opacity: 0, translateY: 10, scale: 0.9 }}
-                                animate={{ opacity: 1, translateY: 0, scale: 1 }}
-                                exit={{ opacity: 0, translateY: 10, scale: 0.9 }}
-                                transition={{ type: "spring", damping: 15 }}
+                                from={{ translateY: 12, scale: 0.96 }}
+                                animate={{ translateY: 0, scale: 1 }}
+                                exit={{ translateY: 12, scale: 0.96 }}
+                                transition={{ type: "spring", damping: 22 }}
                                 style={styles.tooltipContainer}
                             >
+                                {/* ✅ Background solido per evitare qualsiasi flash del Blur */}
+                                <View style={styles.tooltipSolidBackground} />
+
                                 <BlurView intensity={90} tint="dark" style={styles.tooltipBlur}>
                                     <LinearGradient
-                                        colors={["rgba(255, 165, 0, 0.2)", "rgba(255, 140, 0, 0.15)"]}
+                                        colors={["rgba(255, 165, 0, 0.22)", "rgba(255, 140, 0, 0.15)"]}
                                         style={styles.tooltipGradient}
                                     >
                                         <View style={styles.tooltipContent}>
@@ -410,12 +420,13 @@ export default function FullPlayer() {
                                         </View>
                                     </LinearGradient>
                                 </BlurView>
-                                {/* Freccia del tooltip */}
+
                                 <View style={styles.tooltipArrow}>
                                     <View style={styles.tooltipArrowInner} />
                                 </View>
                             </MotiView>
                         )}
+
                     </View>
                 </MotiView>
 
@@ -497,6 +508,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 4,
     },
+    tooltipSolidBackground: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(26, 26, 26, 0.95)",
+        borderRadius: 16,
+    },
+
     headerTitle: {
         color: "#fff",
         fontSize: 15,
