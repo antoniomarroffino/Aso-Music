@@ -22,6 +22,7 @@ import { useRouter } from "expo-router";
 import {useAlbums} from "@/hooks/useAlbums";
 import {usePrefetchAllSongs} from "@/hooks/usePrefetchAllSongs";
 import {useQueryClient} from "@tanstack/react-query";
+import {useNews} from "@/hooks/useNews";
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
@@ -37,6 +38,9 @@ export default function HomeScreen() {
     const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
     const [showSortMenu, setShowSortMenu] = useState(false);
     const qc = useQueryClient();
+    const [showNews, setShowNews] = useState(false);
+    const { data: newsList } = useNews();
+
     const albums: AlbumDTO[] | null = useMemo(() => {
         if (!albumPreviews) return null;
 
@@ -100,15 +104,60 @@ export default function HomeScreen() {
                     <Text style={styles.appName}>ASO Music</Text>
                 </MotiView>
 
-                <TouchableOpacity
-                    style={styles.settingsButton}
-                    onPress={() => router.push("/settings")}
-                >
-                    <BlurView intensity={80} tint="dark" style={styles.settingsBlur}>
-                        <Ionicons name="settings-outline" size={22} color="#1DB954" />
-                    </BlurView>
-                </TouchableOpacity>
+                <View style={styles.topRightButtons}>
+                    {/* 🔔 Campanella Notifiche */}
+                    <TouchableOpacity
+                        style={styles.notificationButton}
+                        onPress={() => setShowNews((prev) => !prev)}
+                    >
+                        <BlurView intensity={80} tint="dark" style={styles.iconBlur}>
+                            <Ionicons name="notifications-outline" size={22} color="#1DB954" />
+                            {newsList && newsList.length > 0 && (
+                                <View style={styles.notificationBadge}>
+                                    <Text style={styles.notificationBadgeText}>
+                                        {newsList.length}
+                                    </Text>
+                                </View>
+                            )}
+                        </BlurView>
+                    </TouchableOpacity>
+
+                    {/* ⚙️ Settings */}
+                    <TouchableOpacity
+                        style={styles.settingsButton}
+                        onPress={() => router.push("/settings")}
+                    >
+                        <BlurView intensity={80} tint="dark" style={styles.iconBlur}>
+                            <Ionicons name="settings-outline" size={22} color="#1DB954" />
+                        </BlurView>
+                    </TouchableOpacity>
+                </View>
             </View>
+            {showNews && (
+                <MotiView
+                    from={{ opacity: 0, translateY: -20 }}
+                    animate={{ opacity: 1, translateY: 0 }}
+                    exit={{ opacity: 0, translateY: -20 }}
+                    transition={{ type: "timing", duration: 250 }}
+                    style={styles.newsDropdownContainer}
+                >
+                    <BlurView intensity={90} tint="dark" style={styles.newsDropdownBlur}>
+                        {newsList && newsList.length > 0 ? (
+                            newsList.slice(0, 3).map((news) => (
+                                <View key={news.id} style={styles.newsItem}>
+                                    <Ionicons name="musical-notes" size={16} color="#1DB954" />
+                                    <Text numberOfLines={2} style={styles.newsText}>
+                                        {news.message}
+                                    </Text>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={styles.newsEmpty}>Nessuna notifica</Text>
+                        )}
+                    </BlurView>
+                </MotiView>
+            )}
+
 
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
@@ -545,4 +594,84 @@ const styles = StyleSheet.create({
         width: "80%",
         marginTop: 6,
     },
+    // Top right buttons
+    topRightButtons: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+
+    notificationButton: {
+        borderRadius: 12,
+        overflow: "hidden",
+        position: "relative",
+    },
+
+    iconBlur: {
+        padding: 10,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    notificationBadge: {
+        position: "absolute",
+        top: 4,
+        right: 4,
+        backgroundColor: "#ff3b30",
+        borderRadius: 8,
+        paddingHorizontal: 5,
+        paddingVertical: 1,
+        minWidth: 16,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    notificationBadgeText: {
+        color: "#fff",
+        fontSize: 10,
+        fontWeight: "700",
+    },
+
+// Dropdown news
+    newsDropdownContainer: {
+        position: "absolute",
+        top: 70,
+        right: 10,
+        zIndex: 1000,
+        width: 260,
+        borderRadius: 16,
+        overflow: "hidden",
+    },
+
+    newsDropdownBlur: {
+        borderRadius: 16,
+        overflow: "hidden",
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+    },
+
+    newsItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingVertical: 6,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255,255,255,0.05)",
+    },
+
+    newsText: {
+        flex: 1,
+        color: "#fff",
+        fontSize: 13,
+        lineHeight: 18,
+    },
+
+    newsEmpty: {
+        textAlign: "center",
+        color: "#999",
+        fontSize: 13,
+        paddingVertical: 10,
+    },
+
 });

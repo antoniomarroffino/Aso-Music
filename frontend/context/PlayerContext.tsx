@@ -67,6 +67,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const soundRef = useRef<Audio.Sound | null>(null);
     const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
+    const nextSoundRef = useRef<Audio.Sound | null>(null);
 
     // ✅ Calcola nextSong da ref invece che da state
     const nextSong =
@@ -282,16 +283,62 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             await sound.setProgressUpdateIntervalAsync(500);
 
             // ✅ Callback che usa sempre i valori aggiornati dai ref
-            sound.setOnPlaybackStatusUpdate((status) => {
+            sound.setOnPlaybackStatusUpdate(async (status) => {
                 if (!status.isLoaded) return;
+
                 setProgress(status.positionMillis / 1000);
                 setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
                 setIsPlaying(status.isPlaying ?? false);
 
+                // ✅ Preload se mancano meno di 5 secondi
+                if (
+                    status.isPlaying &&
+                    status.durationMillis &&
+                    status.positionMillis > status.durationMillis - 5000 &&
+                    !nextSoundRef.current &&
+                    nextSong
+                ) {
+                    try {
+                        console.log("🎧 Precarico prossima canzone:", nextSong.title);
+                        const { sound: nextSound } = await Audio.Sound.createAsync(
+                            { uri: nextSong.audioURL },
+                            { shouldPlay: false }
+                        );
+                        nextSoundRef.current = nextSound;
+                    } catch (e) {
+                        console.warn("⚠️ Errore nel preload:", e);
+                    }
+                }
+
+                // ✅ Quando il brano finisce
                 if (status.didJustFinish) {
-                    nextSongAction();
+                    console.log("✅ Brano terminato:", song.title);
+                    sound.setOnPlaybackStatusUpdate(null);
+                    await sound.unloadAsync();
+
+                    // Se la prossima è già precaricata, la usiamo subito
+                    if (nextSoundRef.current) {
+                        console.log("🚀 Avvio immediato brano precaricato:", nextSong?.title);
+                        soundRef.current = nextSoundRef.current;
+                        nextSoundRef.current = null;
+
+                        await soundRef.current.playAsync();
+                        setIsPlaying(true);
+                        currentIndexRef.current =
+                            (currentIndexRef.current + 1) % currentQueueRef.current.length;
+
+                        setCurrentSong(nextSong || null);
+                    } else {
+                        // fallback classico
+                        setTimeout(() => {
+                            nextSongAction().catch((e) =>
+                                console.error("⚠️ Errore nel passaggio alla prossima canzone:", e)
+                            );
+                        }, 300);
+                    }
                 }
             });
+
 
             // Stream increment
             if (albumId && song.id) {
