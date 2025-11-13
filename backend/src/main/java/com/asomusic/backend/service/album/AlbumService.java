@@ -49,6 +49,7 @@ public class AlbumService implements IAlbumService {
                 .releaseYear(album.getReleaseYear())
                 .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL()))
                 .available(album.isAvailable())
+                .availableAt(album.getAvailableAt())
                 .build();
     }
 }

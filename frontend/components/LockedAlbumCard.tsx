@@ -28,6 +28,22 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
 
     const qc = useQueryClient();
 
+    useEffect(() => {
+        console.log("📀 [LockedAlbumCard] Album ID:", album.id);
+        console.log("➡️ available:", album.available);
+        console.log("➡️ availableAt:", album.availableAt);
+        console.log("➡️ typeof availableAt:", typeof album.availableAt);
+
+        if (album.availableAt) {
+            const previewDate = new Date(album.availableAt);
+            console.log("➡️ new Date(availableAt):", previewDate);
+            console.log("➡️ Date.getTime():", previewDate.getTime());
+        } else {
+            console.log("⚠️ availableAt è null, undefined o falsy");
+        }
+    }, [album.availableAt, album.available]);
+
+
     const releaseText = album.availableAt
         ? new Date(album.availableAt).toLocaleDateString()
         : "Data non definita";

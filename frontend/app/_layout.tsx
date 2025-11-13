@@ -13,7 +13,7 @@ import { useAlbums } from "@/hooks/useAlbums";
 import { useLoadAllSongsLazy } from "@/hooks/useLoadAllSongsLazy";
 
 // 🟢 Maintenance ON/OFF
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 // React Query Client
 const queryClient = new QueryClient({
