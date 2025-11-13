@@ -35,7 +35,8 @@ function AuthGateLayout() {
     useLoadAllSongsLazy(albumPreviews);
 
     const isAdmin =
-        firebaseUser?.displayName?.toLowerCase() === "admin";
+        firebaseUser?.email?.toLowerCase() === "admin@prova.com";
+
 
     // 🚨 Maintenance Mode: logout FORZATO prima di tutto
     if (MAINTENANCE_MODE && firebaseUser && !isAdmin) {
