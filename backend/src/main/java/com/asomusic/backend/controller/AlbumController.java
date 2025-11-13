@@ -23,4 +23,11 @@ public class AlbumController {
         List<AlbumPreviewDTO> albums = albumService.fetchAllAlbumsPreview();
         return Response.ok(albums).build();
     }
+
+    @POST
+    @Path("/{albumId}/unlock")
+    public Response unlockAlbum(@PathParam("albumId") String albumId) {
+        AlbumPreviewDTO updated = albumService.unlockAlbum(albumId);
+        return Response.ok(updated).build();
+    }
 }

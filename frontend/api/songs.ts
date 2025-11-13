@@ -35,9 +35,23 @@ export async function fetchSongsByAlbum(albumId: string): Promise<SongDTO[]> {
  *    (mantiene la stessa shape che il resto dell’app si aspetta: album + songs[])
  */
 export async function buildAlbumFromPreview(preview: AlbumPreviewDTO): Promise<AlbumDTO> {
+    // 🔒 Album non disponibile → NON chiamare backend per le canzoni
+    if (!preview.available) {
+        return {
+            id: preview.id,
+            name: preview.name,
+            artist: preview.artist,
+            description: preview.description,
+            coverURL: preview.coverURL,
+            releaseYear: preview.releaseYear,
+            songs: [], // 🔥 niente fetch
+        };
+    }
+
+    // 🔓 Album disponibile → fetch normale
     const songs = await fetchSongsByAlbum(preview.id);
-    // Combiniamo il preview con le canzoni per ottenere l'AlbumDTO pieno
-    const full: AlbumDTO = {
+
+    return {
         id: preview.id,
         name: preview.name,
         artist: preview.artist,
@@ -46,8 +60,8 @@ export async function buildAlbumFromPreview(preview: AlbumPreviewDTO): Promise<A
         releaseYear: preview.releaseYear,
         songs,
     };
-    return full;
 }
+
 
 /**
  * 🔹 Incrementa il contatore di ascolti

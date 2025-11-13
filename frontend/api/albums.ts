@@ -16,3 +16,24 @@ export async function fetchAllAlbums(): Promise<AlbumPreviewDTO[]> {
         throw err;
     }
 }
+
+export async function unlockAlbum(albumId: string): Promise<AlbumPreviewDTO> {
+    try {
+        const res = await fetch(`${BASE_URL}/albums/${albumId}/unlock`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (!res.ok) {
+            throw new Error(`Errore unlockAlbum: ${res.status}`);
+        }
+
+        return await res.json();
+    } catch (err) {
+        console.error("❌ Errore unlockAlbum:", err);
+        throw err;
+    }
+}
+

@@ -23,6 +23,7 @@ import {useAlbums} from "@/hooks/useAlbums";
 import {usePrefetchAllSongs} from "@/hooks/usePrefetchAllSongs";
 import {useQueryClient} from "@tanstack/react-query";
 import {useNews} from "@/hooks/useNews";
+import LockedAlbumCard from "@/components/LockedAlbumCard";
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
@@ -40,6 +41,8 @@ export default function HomeScreen() {
     const qc = useQueryClient();
     const [showNews, setShowNews] = useState(false);
     const { data: newsList } = useNews();
+
+
 
     const albums: AlbumDTO[] | null = useMemo(() => {
         if (!albumPreviews) return null;
@@ -69,6 +72,9 @@ export default function HomeScreen() {
                 return sorted;
         }
     }, [albums, sortOrder]);
+
+    const lockedAlbums = sortedAlbums.filter((a) => !a.available);
+    const unlockedAlbums = sortedAlbums.filter((a) => a.available);
 
     const getSortLabel = (order: SortOrder) => {
         switch (order) {
@@ -385,6 +391,35 @@ export default function HomeScreen() {
 
             <View style={styles.content}>
                 {renderHeader()}
+
+                {/* 🔥 Sezione: Nuove Release */}
+                {lockedAlbums.length > 0 && (
+                    <View style={{ marginBottom: 20 }}>
+                        <Text style={{
+                            color: "#fff",
+                            fontSize: 18,
+                            fontWeight: "900",
+                            marginBottom: 12,
+                            marginLeft: 4,
+                        }}>
+                            Nuove Release
+                        </Text>
+
+                        <FlatList
+                            data={lockedAlbums}
+                            horizontal
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item, index }) => (
+                                <LockedAlbumCard album={item} index={index} isAdmin={appUser?.username === "admin"} />
+                            )}
+                            showsHorizontalScrollIndicator={false}
+                            ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                            contentContainerStyle={{ paddingLeft: 4, paddingRight: 16 }}
+                        />
+                    </View>
+                )}
+
+
                 {renderSectionHeader()}
 
                 {albumsLoading || !sortedAlbums ? (

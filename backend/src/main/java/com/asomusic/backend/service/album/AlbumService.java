@@ -30,6 +30,17 @@ public class AlbumService implements IAlbumService {
         }
     }
 
+    @Override
+    public AlbumPreviewDTO unlockAlbum(String albumId) {
+        try {
+            albumRepository.updateAlbumAvailability(albumId, true);
+            return albumRepository.fetchAlbumPreviewById(albumId);
+        } catch (Exception e) {
+            throw new RuntimeException("❌ Errore durante lo sblocco dell'album " + albumId, e);
+        }
+    }
+
+
     private AlbumPreviewDTO convertUrls(AlbumPreviewDTO album) {
         return AlbumPreviewDTO.builder()
                 .id(album.getId())
@@ -37,6 +48,7 @@ public class AlbumService implements IAlbumService {
                 .artist(album.getArtist())
                 .releaseYear(album.getReleaseYear())
                 .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL()))
+                .available(album.isAvailable())
                 .build();
     }
 }

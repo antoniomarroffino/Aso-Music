@@ -12,4 +12,6 @@ public class AlbumPreviewDTO {
     private String artist;
     private String coverURL;
     private int releaseYear;
+    private boolean available;
+    private Long availableAt;
 }

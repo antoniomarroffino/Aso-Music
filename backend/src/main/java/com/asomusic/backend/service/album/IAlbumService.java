@@ -5,4 +5,5 @@ import java.util.List;
 
 public interface IAlbumService {
     List<AlbumPreviewDTO> fetchAllAlbumsPreview();
+    AlbumPreviewDTO unlockAlbum(String albumId);
 }
