@@ -6,7 +6,7 @@ import {
     StyleSheet,
     RefreshControl,
     Dimensions,
-    TouchableOpacity,
+    TouchableOpacity, ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -389,10 +389,17 @@ export default function HomeScreen() {
             <StatusBar style="light" />
             {renderParticles()}
 
-            <View style={styles.content}>
+            <ScrollView
+                style={styles.content}
+                contentContainerStyle={{
+                    paddingBottom: insets.bottom + 120,
+                    paddingTop: 50,
+                    paddingHorizontal: 16,
+                }}
+                showsVerticalScrollIndicator={false}
+            >
                 {renderHeader()}
 
-                {/* 🔥 Sezione: Nuove Release */}
                 {lockedAlbums.length > 0 && (
                     <View style={{ marginBottom: 20 }}>
                         <Text style={{
@@ -410,7 +417,11 @@ export default function HomeScreen() {
                             horizontal
                             keyExtractor={(item) => item.id}
                             renderItem={({ item, index }) => (
-                                <LockedAlbumCard album={item} index={index} isAdmin={appUser?.username === "admin"} />
+                                <LockedAlbumCard
+                                    album={item}
+                                    index={index}
+                                    isAdmin={appUser?.username === "admin"}
+                                />
                             )}
                             showsHorizontalScrollIndicator={false}
                             ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
@@ -419,26 +430,23 @@ export default function HomeScreen() {
                     </View>
                 )}
 
-
                 {renderSectionHeader()}
 
-                {albumsLoading || !sortedAlbums ? (
-                    renderSkeletons()
-                ) : (
-                    <FlatList
-                        data={sortedAlbums}
-                        keyExtractor={(item) => item.id}
-                        numColumns={2}
-                        columnWrapperStyle={styles.row}
-                        renderItem={renderAlbumCard}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={[
-                            styles.listContent,
-                            { paddingBottom: insets.bottom + 120 },
-                        ]}
-                    />
-                )}
-            </View>
+                {/* 🎵 Libreria Album */}
+                <View>
+                    {albumsLoading || !sortedAlbums ? (
+                        renderSkeletons()
+                    ) : (
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+                            {sortedAlbums.map((album, index) => (
+                                <AlbumCard key={album.id} album={album} index={index} />
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+            </ScrollView>
+
         </View>
     );
 }

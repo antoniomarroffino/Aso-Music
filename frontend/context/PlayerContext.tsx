@@ -311,32 +311,51 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 }
 
                 // ✅ Quando il brano finisce
-                if (status.didJustFinish) {
-                    console.log("✅ Brano terminato:", song.title);
-                    sound.setOnPlaybackStatusUpdate(null);
-                    await sound.unloadAsync();
+                if (status.didJustFinish && !status.isLooping) {
+                    console.log("🎵 Brano terminato:", song.title);
 
-                    // Se la prossima è già precaricata, la usiamo subito
-                    if (nextSoundRef.current) {
-                        console.log("🚀 Avvio immediato brano precaricato:", nextSong?.title);
-                        soundRef.current = nextSoundRef.current;
-                        nextSoundRef.current = null;
+                    // Aspetta che Expo completi lo stato prima di scaricare
+                    setTimeout(async () => {
+                        // 1) Pulizia safe
+                        sound.setOnPlaybackStatusUpdate(null);
 
-                        await soundRef.current.playAsync();
-                        setIsPlaying(true);
-                        currentIndexRef.current =
-                            (currentIndexRef.current + 1) % currentQueueRef.current.length;
+                        try {
+                            await sound.unloadAsync();
+                        } catch (e) {
+                            console.log("⚠️ errore unload:", e);
+                        }
 
-                        setCurrentSong(nextSong || null);
-                    } else {
-                        // fallback classico
-                        setTimeout(() => {
-                            nextSongAction().catch((e) =>
-                                console.error("⚠️ Errore nel passaggio alla prossima canzone:", e)
-                            );
-                        }, 300);
-                    }
+                        // 2️⃣ Se c’è una nextSound precaricata → usala
+                        const realNextSong =
+                            currentQueueRef.current[
+                            (currentIndexRef.current + 1) % currentQueueRef.current.length
+                                ];
+
+                        if (nextSoundRef.current && realNextSong) {
+                            console.log("🚀 Avvio brano precaricato:", realNextSong.title);
+
+                            const nextSound = nextSoundRef.current;
+                            nextSoundRef.current = null;
+
+                            soundRef.current = nextSound;
+                            setCurrentSong(realNextSong);
+                            currentIndexRef.current =
+                                (currentIndexRef.current + 1) % currentQueueRef.current.length;
+
+                            await nextSound.playAsync();
+                            setIsPlaying(true);
+                            return;
+                        }
+
+                        // 3️⃣ Fallback → nextSongAction()
+                        console.log("➡️ Uso fallback nextSongAction()");
+
+                        nextSongAction().catch((e) =>
+                            console.error("⚠️ errore nextSongAction:", e)
+                        );
+                    }, 200);
                 }
+
             });
 
 
