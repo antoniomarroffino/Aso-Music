@@ -37,23 +37,37 @@ function AuthGateLayout() {
     const isAdmin =
         firebaseUser?.displayName?.toLowerCase() === "admin";
 
-    // 🔄 Logout automatico se l'app è in manutenzione e NON sei admin
-    useEffect(() => {
-        if (MAINTENANCE_MODE && firebaseUser && !isAdmin) {
-            logout(); // impedisce accessi successivi
-        }
-    }, [firebaseUser, isAdmin]);
-
-    if (loadingAuth) {
+    // 🚨 Maintenance Mode: logout FORZATO prima di tutto
+    if (MAINTENANCE_MODE && firebaseUser && !isAdmin) {
+        logout();      // chiude la sessione
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" }}>
+            <View style={{
+                flex: 1,
+                backgroundColor: "#000",
+                justifyContent: "center",
+                alignItems: "center",
+            }}>
                 <ActivityIndicator size="large" color="#1DB954" />
             </View>
         );
     }
 
-    // 🚧 Maintenance Mode: solo admin può entrare
-    if (MAINTENANCE_MODE && !isAdmin) {
+    // 🔄 Loading iniziale auth
+    if (loadingAuth) {
+        return (
+            <View style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#000",
+            }}>
+                <ActivityIndicator size="large" color="#1DB954" />
+            </View>
+        );
+    }
+
+    // 🚧 Maintenance Mode: utente NON autenticato
+    if (MAINTENANCE_MODE && !firebaseUser && !isAdmin) {
         return (
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="maintenance" />
@@ -61,15 +75,12 @@ function AuthGateLayout() {
         );
     }
 
-    // ▶️ Utente autenticato (e non in manutenzione)
+    // ▶️ Utente autenticato (admin o fine manutenzione)
     if (firebaseUser) {
         return (
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                    name="fullplayer"
-                    options={{ presentation: "fullScreenModal" }}
-                />
+                <Stack.Screen name="fullplayer" options={{ presentation: "fullScreenModal" }} />
             </Stack>
         );
     }
@@ -81,6 +92,7 @@ function AuthGateLayout() {
         </Stack>
     );
 }
+
 
 
 // ---------------------------------------------------------------
