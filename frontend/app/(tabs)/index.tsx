@@ -394,7 +394,6 @@ export default function HomeScreen() {
                 contentContainerStyle={{
                     paddingBottom: insets.bottom + 120,
                     paddingTop: 50,
-                    paddingHorizontal: 16,
                 }}
                 showsVerticalScrollIndicator={false}
             >
@@ -437,7 +436,12 @@ export default function HomeScreen() {
                     {albumsLoading || !sortedAlbums ? (
                         renderSkeletons()
                     ) : (
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
+                        <View style={{
+                            paddingHorizontal: 16,
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            justifyContent: "space-between"
+                        }}>
                             {sortedAlbums.map((album, index) => (
                                 <AlbumCard key={album.id} album={album} index={index} />
                             ))}
@@ -453,7 +457,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 16, paddingTop: 50 },
+    content: { flex: 1, paddingHorizontal: 16 },
 
     // Top Bar
     topBar: {

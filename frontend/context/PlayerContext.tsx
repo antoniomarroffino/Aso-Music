@@ -68,6 +68,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
     const nextSoundRef = useRef<Audio.Sound | null>(null);
+    const killSwitch = useRef(0);
+
 
     // ✅ Calcola nextSong da ref invece che da state
     const nextSong =
@@ -230,46 +232,43 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         albumId?: string,
         albumName?: string
     ) => {
-        // Stop e cleanup precedente
+        killSwitch.current++; // 🧨 invalida ogni vecchio callback
+        const session = killSwitch.current;
+
+        // 🔥 CANCELLA QUALSIASI PRELOAD VECCHIO
+        if (nextSoundRef.current) {
+            try { await nextSoundRef.current.unloadAsync(); } catch {}
+            nextSoundRef.current = null;
+        }
+
+        // 🔥 STOP & UNLOAD sicuro
         if (soundRef.current) {
-            soundRef.current.setOnPlaybackStatusUpdate(null);
-            await soundRef.current.unloadAsync();
+            try {
+                soundRef.current.setOnPlaybackStatusUpdate(null);
+                await soundRef.current.stopAsync();
+                await soundRef.current.unloadAsync();
+            } catch {}
             soundRef.current = null;
         }
 
-        // ✅ Aggiorna i ref
+        // Aggiorna ref
         if (albumId) currentAlbumIdRef.current = albumId;
         if (albumName) currentAlbumNameRef.current = albumName;
 
-        // ✅ Aggiorna queue e indice nei ref
-        if (queue && queue.length > 0) {
+        if (queue?.length) {
             currentQueueRef.current = queue;
-            const index =
+            currentIndexRef.current =
                 typeof startIndex === "number"
                     ? startIndex
                     : queue.findIndex((s) => s.id === song.id);
-            currentIndexRef.current = index !== -1 ? index : 0;
+            if (currentIndexRef.current < 0) currentIndexRef.current = 0;
         }
 
         setCurrentSong(song);
 
-        // ✅ AGGIORNA METADATI SUBITO (PRIMA DI CREARE L'AUDIO)
-        updateWebMediaSessionImmediately(song, albumName || currentAlbumNameRef.current);
+        // MediaSession update
+        updateWebMediaSessionImmediately(song, albumName);
         registerMediaSessionHandlers();
-
-        // ✅ AGGIORNA ANCHE EXPO MEDIA SESSION SE DISPONIBILE
-        if (MediaSession?.setMetadata) {
-            const artistNames =
-                song.artists?.map((a) => a.name).join(", ") || "Artista sconosciuto";
-
-            MediaSession.setMetadata({
-                title: song.title || "Brano",
-                artist: artistNames,
-                album: albumName || currentAlbumNameRef.current || "",
-                artwork: song.coverURL || "",
-            });
-            MediaSession.setPlaybackState("playing");
-        }
 
         try {
             const { sound } = await Audio.Sound.createAsync(
@@ -277,104 +276,79 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 { shouldPlay: true }
             );
 
+            if (session !== killSwitch.current) {
+                await sound.unloadAsync();
+                return;
+            }
+
             soundRef.current = sound;
             setIsPlaying(true);
 
             await sound.setProgressUpdateIntervalAsync(500);
 
-            // ✅ Callback che usa sempre i valori aggiornati dai ref
             sound.setOnPlaybackStatusUpdate(async (status) => {
+                // ⛔ IGNORA callback se non siamo più nella sessione attuale
+                if (session !== killSwitch.current) return;
+
                 if (!status.isLoaded) return;
 
                 setProgress(status.positionMillis / 1000);
                 setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
                 setIsPlaying(status.isPlaying ?? false);
 
-                // ✅ Preload se mancano meno di 5 secondi
+                // Preload
                 if (
                     status.isPlaying &&
                     status.durationMillis &&
                     status.positionMillis > status.durationMillis - 5000 &&
-                    !nextSoundRef.current &&
-                    nextSong
+                    !nextSoundRef.current
                 ) {
-                    try {
-                        console.log("🎧 Precarico prossima canzone:", nextSong.title);
+                    const next = currentQueueRef.current[
+                    (currentIndexRef.current + 1) % currentQueueRef.current.length
+                        ];
+                    if (next) {
                         const { sound: nextSound } = await Audio.Sound.createAsync(
-                            { uri: nextSong.audioURL },
+                            { uri: next.audioURL },
                             { shouldPlay: false }
                         );
                         nextSoundRef.current = nextSound;
-                    } catch (e) {
-                        console.warn("⚠️ Errore nel preload:", e);
                     }
                 }
 
-                // ✅ Quando il brano finisce
-                if (status.didJustFinish && !status.isLooping) {
-                    console.log("🎵 Brano terminato:", song.title);
+                // AUTO NEXT
+                if (status.didJustFinish && session === killSwitch.current) {
+                    const nextIndex =
+                        (currentIndexRef.current + 1) % currentQueueRef.current.length;
+                    const next = currentQueueRef.current[nextIndex];
 
-                    // Aspetta che Expo completi lo stato prima di scaricare
-                    setTimeout(async () => {
-                        // 1) Pulizia safe
-                        sound.setOnPlaybackStatusUpdate(null);
+                    if (!next) return;
 
-                        try {
-                            await sound.unloadAsync();
-                        } catch (e) {
-                            console.log("⚠️ errore unload:", e);
-                        }
+                    // Usa preload?
+                    if (nextSoundRef.current) {
+                        const ns = nextSoundRef.current;
+                        nextSoundRef.current = null;
 
-                        // 2️⃣ Se c’è una nextSound precaricata → usala
-                        const realNextSong =
-                            currentQueueRef.current[
-                            (currentIndexRef.current + 1) % currentQueueRef.current.length
-                                ];
+                        soundRef.current = ns;
+                        setCurrentSong(next);
+                        currentIndexRef.current = nextIndex;
 
-                        if (nextSoundRef.current && realNextSong) {
-                            console.log("🚀 Avvio brano precaricato:", realNextSong.title);
+                        await ns.playAsync();
+                        setIsPlaying(true);
+                        return;
+                    }
 
-                            const nextSound = nextSoundRef.current;
-                            nextSoundRef.current = null;
-
-                            soundRef.current = nextSound;
-                            setCurrentSong(realNextSong);
-                            currentIndexRef.current =
-                                (currentIndexRef.current + 1) % currentQueueRef.current.length;
-
-                            await nextSound.playAsync();
-                            setIsPlaying(true);
-                            return;
-                        }
-
-                        // 3️⃣ Fallback → nextSongAction()
-                        console.log("➡️ Uso fallback nextSongAction()");
-
-                        nextSongAction().catch((e) =>
-                            console.error("⚠️ errore nextSongAction:", e)
-                        );
-                    }, 200);
+                    // fallback
+                    playSong(next, currentQueueRef.current, nextIndex, albumId, albumName);
                 }
-
             });
 
-
-            // Stream increment
-            if (albumId && song.id) {
-                if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
-                streamTimeoutRef.current = setTimeout(() => {
-                    if (lastStreamedSongId.current !== song.id) {
-                        lastStreamedSongId.current = song.id;
-                        incrementStreamCount(albumId, song.id)
-                            .catch((e) => console.error("❌ Errore stream:", e));
-                    }
-                }, 20000);
-            }
-        } catch (error) {
-            console.error("❌ Errore nella riproduzione:", error);
+        } catch (e) {
+            console.log("❌ Errore durante playSong:", e);
             setIsPlaying(false);
         }
-    }, [updateWebMediaSessionImmediately, registerMediaSessionHandlers, nextSongAction]);
+
+    }, []);
+
 
     /** ⏹ Stop */
     const stopSong = useCallback(async () => {
