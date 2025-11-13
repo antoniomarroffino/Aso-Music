@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
 import {
     TouchableOpacity,
     Text,
@@ -57,6 +57,36 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
         );
     };
 
+
+    // Calcolo countdown
+    const [countdown, setCountdown] = useState<string>("");
+
+    useEffect(() => {
+        if (!album.availableAt) return;
+
+        const target = new Date(album.availableAt).getTime();
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                setCountdown("0d 0h 0m");
+                clearInterval(interval);
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const mins = Math.floor((diff / (1000 * 60)) % 60);
+
+            setCountdown(`${days}d ${hours}h ${mins}m`);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [album.availableAt]);
+
+
     return (
         <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.8}>
             <MotiView
@@ -78,6 +108,12 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
                                     contentFit="cover"
                                     transition={200}
                                 />
+                                {album.availableAt && (
+                                    <View style={styles.countdownBadge}>
+                                        <Ionicons name="time-outline" size={12} color="#fff" />
+                                        <Text style={styles.countdownText}>{countdown}</Text>
+                                    </View>
+                                )}
 
                                 {/* Overlay scuro */}
                                 <View style={styles.lockOverlay} />
@@ -179,4 +215,22 @@ const styles = StyleSheet.create({
     name: { color: "#fff", fontSize: 14, fontWeight: "800" },
     artist: { color: "#888", fontSize: 12, marginTop: 2 },
     date: { color: "#bbb", fontSize: 11, marginTop: 6 },
+    countdownBadge: {
+        position: "absolute",
+        top: 10,
+        left: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "rgba(0,0,0,0.6)",
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        borderRadius: 6,
+        gap: 4,
+    },
+    countdownText: {
+        color: "#fff",
+        fontSize: 10,
+        fontWeight: "600",
+    },
+
 });
