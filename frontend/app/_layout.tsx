@@ -12,14 +12,16 @@ import { Stack } from "expo-router";
 import { useAlbums } from "@/hooks/useAlbums";
 import { useLoadAllSongsLazy } from "@/hooks/useLoadAllSongsLazy";
 
-// ✅ React Query client creato una sola volta
+// 🟢 Maintenance ON/OFF
+const MAINTENANCE_MODE = true;
+
+// React Query Client
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             staleTime: 1000 * 60 * 5,
             retry: 2,
             refetchOnWindowFocus: false,
-            refetchOnReconnect: true,
         },
     },
 });
@@ -28,45 +30,38 @@ const queryClient = new QueryClient({
 // ✅ AUTH GATE
 // ---------------------------------------------------------------
 function AuthGateLayout() {
-    const { firebaseUser, loadingAuth } = useAuth();
+    const { firebaseUser, loadingAuth, logout } = useAuth();
     const { data: albumPreviews } = useAlbums();
     useLoadAllSongsLazy(albumPreviews);
 
-    const MAINTENANCE_MODE = true;
+    const isAdmin =
+        firebaseUser?.displayName?.toLowerCase() === "admin";
+
+    // 🔄 Logout automatico se l'app è in manutenzione e NON sei admin
+    useEffect(() => {
+        if (MAINTENANCE_MODE && firebaseUser && !isAdmin) {
+            logout(); // impedisce accessi successivi
+        }
+    }, [firebaseUser, isAdmin]);
 
     if (loadingAuth) {
         return (
-            <View
-                style={{
-                    flex: 1,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: "#000",
-                }}
-            >
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" }}>
                 <ActivityIndicator size="large" color="#1DB954" />
             </View>
         );
     }
 
-    // 🚨 SE in manutenzione E l’utente NON è admin → schermata Maintenance
-    if (
-        MAINTENANCE_MODE &&
-        (!firebaseUser || firebaseUser.email !== "admin@gmail.com")
-    ) {
+    // 🚧 Maintenance Mode: solo admin può entrare
+    if (MAINTENANCE_MODE && !isAdmin) {
         return (
-            <Stack
-                screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: "#000" },
-                }}
-            >
+            <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="maintenance" />
             </Stack>
         );
     }
 
-    // 🎯 Admin o app funzionante: flusso normale
+    // ▶️ Utente autenticato (e non in manutenzione)
     if (firebaseUser) {
         return (
             <Stack screenOptions={{ headerShown: false }}>
@@ -79,7 +74,7 @@ function AuthGateLayout() {
         );
     }
 
-    // Login/Register
+    // 🔐 Non autenticato → Login/Register
     return (
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
@@ -89,7 +84,7 @@ function AuthGateLayout() {
 
 
 // ---------------------------------------------------------------
-// ✅ ROOT LAYOUT PRINCIPALE
+// ✅ ROOT LAYOUT
 // ---------------------------------------------------------------
 export default function RootLayout() {
     const colorScheme = useColorScheme();
@@ -107,13 +102,7 @@ export default function RootLayout() {
     }, []);
 
     return (
-        <GestureHandlerRootView
-            style={{
-                flex: 1,
-                paddingTop: 0, // ✅ importantissimo per Web
-                marginTop: 0
-            }}
-        >
+        <GestureHandlerRootView style={{ flex: 1 }}>
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                     <AuthProvider>
@@ -121,7 +110,6 @@ export default function RootLayout() {
 
                             <AuthGateLayout />
 
-                            {/* ✅ StatusBar attivata SOLO su mobile per evitare padding Web */}
                             {Platform.OS !== "web" && <StatusBar style="light" />}
 
                         </PlayerProvider>
