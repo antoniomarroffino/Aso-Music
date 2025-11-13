@@ -166,9 +166,6 @@ export default function FullPlayer() {
         return null;
     }
 
-    const [showMoreTooltip, setShowMoreTooltip] = useState(false);
-
-
     const timeLeft = duration - progress;
     const showNextSong = nextSong && timeLeft <= 15;
 
@@ -321,10 +318,59 @@ export default function FullPlayer() {
                                 <View style={styles.timeContainer}>
                                     <Text style={styles.timeText}>{formatTime(progress)}</Text>
                                 </View>
-                                <View style={styles.timeContainer}>
-                                    <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                                    <View style={styles.timeContainer}>
+                                        <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                                    </View>
+
+                                    {/* ❤️ Like piccolissimo qui */}
+                                    <View style={{ position: "relative" }}>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setShowTooltip(true);
+                                                setTimeout(() => setShowTooltip(false), 2500);
+                                            }}
+                                            style={styles.smallLikeButton}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons name="heart-outline" size={16} color="#999" />
+                                        </TouchableOpacity>
+
+                                        {showTooltip && (
+                                            <MotiView
+                                                from={{ translateY: 10, scale: 0.95, opacity: 0 }}
+                                                animate={{ translateY: -4, scale: 1, opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                transition={{ type: "spring", damping: 20 }}
+                                                style={styles.smallTooltipContainer}
+                                            >
+                                                <View style={styles.tooltipSolidBackgroundSm} />
+
+                                                <BlurView intensity={80} tint="dark" style={styles.smallTooltipBlur}>
+                                                    <LinearGradient
+                                                        colors={["rgba(255,165,0,0.25)", "rgba(255,165,0,0.12)"]}
+                                                        style={styles.smallTooltipGradient}
+                                                    >
+                                                        <View style={styles.smallTooltipContent}>
+                                                            <Ionicons name="construct-outline" size={14} color="#FFA500" />
+                                                            <Text style={styles.smallTooltipText}>
+                                                                In fase di sviluppo!
+                                                            </Text>
+                                                        </View>
+                                                    </LinearGradient>
+                                                </BlurView>
+
+                                                <View style={styles.smallArrow}>
+                                                    <View style={styles.smallArrowInner} />
+                                                </View>
+                                            </MotiView>
+                                        )}
+                                    </View>
+
                                 </View>
                             </View>
+
                         </View>
                     </GestureDetector>
                 </MotiView>
@@ -383,51 +429,6 @@ export default function FullPlayer() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Extra controls */}
-                    <View style={styles.extraControls}>
-                        <TouchableOpacity
-                            style={styles.extraButton}
-                            activeOpacity={0.7}
-                            onPress={() => {
-                                setShowTooltip(true);
-                                setTimeout(() => setShowTooltip(false), 2500);
-                            }}
-                        >
-                            <Ionicons name="heart-outline" size={24} color="#555" />
-                        </TouchableOpacity>
-
-                        {showTooltip && (
-                            <MotiView
-                                from={{ translateY: 12, scale: 0.96 }}
-                                animate={{ translateY: 0, scale: 1 }}
-                                exit={{ translateY: 12, scale: 0.96 }}
-                                transition={{ type: "spring", damping: 22 }}
-                                style={styles.tooltipContainer}
-                            >
-                                {/* ✅ Background solido per evitare qualsiasi flash del Blur */}
-                                <View style={styles.tooltipSolidBackground} />
-
-                                <BlurView intensity={90} tint="dark" style={styles.tooltipBlur}>
-                                    <LinearGradient
-                                        colors={["rgba(255, 165, 0, 0.22)", "rgba(255, 140, 0, 0.15)"]}
-                                        style={styles.tooltipGradient}
-                                    >
-                                        <View style={styles.tooltipContent}>
-                                            <Ionicons name="construct-outline" size={16} color="#FFA500" />
-                                            <Text style={styles.tooltipText}>
-                                                In fase di sviluppo, sarà presto disponibile!
-                                            </Text>
-                                        </View>
-                                    </LinearGradient>
-                                </BlurView>
-
-                                <View style={styles.tooltipArrow}>
-                                    <View style={styles.tooltipArrowInner} />
-                                </View>
-                            </MotiView>
-                        )}
-
-                    </View>
                 </MotiView>
 
                 {/* 🔜 Next Song Preview */}
@@ -481,6 +482,76 @@ const styles = StyleSheet.create({
         right: 0,
         zIndex: 100,
     },
+    smallLikeButton: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
+    },
+
+    smallTooltipContainer: {
+        position: "absolute",
+        bottom: 32,
+        right: -20,
+        minWidth: 140,
+    },
+
+    smallTooltipBlur: {
+        borderRadius: 12,
+        overflow: "hidden",
+    },
+
+    smallTooltipGradient: {
+        padding: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(255,165,0,0.35)",
+    },
+
+    smallTooltipContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+
+    smallTooltipText: {
+        color: "#fff",
+        fontSize: 12,
+        fontWeight: "600",
+    },
+
+    tooltipSolidBackgroundSm: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(26,26,26,0.9)",
+        borderRadius: 12,
+    },
+
+    smallArrow: {
+        position: "absolute",
+        bottom: -8,
+        right: 22,
+        width: 14,
+        height: 14,
+        overflow: "hidden",
+    },
+
+    smallArrowInner: {
+        width: 10,
+        height: 10,
+        backgroundColor: "rgba(26,26,26,0.9)",
+        transform: [{ rotate: "45deg" }],
+        position: "absolute",
+        bottom: 6,
+        left: 2,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: "rgba(255,165,0,0.35)",
+    },
+
 
     headerBlur: {
         overflow: "hidden",
