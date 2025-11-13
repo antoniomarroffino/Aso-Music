@@ -6,7 +6,7 @@ import {
     StyleSheet,
     RefreshControl,
     Dimensions,
-    TouchableOpacity, ScrollView,
+    TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,10 +19,10 @@ import { BlurView } from "expo-blur";
 import { useAuth } from "@/context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import {useAlbums} from "@/hooks/useAlbums";
-import {usePrefetchAllSongs} from "@/hooks/usePrefetchAllSongs";
-import {useQueryClient} from "@tanstack/react-query";
-import {useNews} from "@/hooks/useNews";
+import { useAlbums } from "@/hooks/useAlbums";
+import { usePrefetchAllSongs } from "@/hooks/usePrefetchAllSongs";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNews } from "@/hooks/useNews";
 import LockedAlbumCard from "@/components/LockedAlbumCard";
 
 const { width, height } = Dimensions.get("window");
@@ -41,12 +41,10 @@ export default function HomeScreen() {
     const qc = useQueryClient();
     const [showNews, setShowNews] = useState(false);
     const { data: newsList } = useNews();
-
-
+    const isAdmin = appUser?.email === "admin@prova.com";
 
     const albums: AlbumDTO[] | null = useMemo(() => {
         if (!albumPreviews) return null;
-
         return albumPreviews.map((preview) => {
             const songs = qc.getQueryData(["songs", preview.id]) ?? [];
             return {
@@ -55,12 +53,10 @@ export default function HomeScreen() {
             } as AlbumDTO;
         });
     }, [albumPreviews, qc]);
-    // 🎯 Ordinamento album
+
     const sortedAlbums = useMemo(() => {
         if (!albums || albums.length === 0) return [];
-
         const sorted = [...albums];
-
         switch (sortOrder) {
             case "newest":
                 return sorted.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
@@ -73,8 +69,27 @@ export default function HomeScreen() {
         }
     }, [albums, sortOrder]);
 
-    const lockedAlbums = sortedAlbums.filter((a) => !a.available);
-    const unlockedAlbums = sortedAlbums.filter((a) => a.available);
+    // ----------------------
+//  UPCOMING ALBUM LOGIC
+// ----------------------
+    const upcomingAlbum = useMemo(() => {
+        if (!sortedAlbums) return null;
+        return sortedAlbums.find((a) => a.available === false);
+    }, [sortedAlbums]);
+
+
+    const albumsWithoutUpcoming = useMemo(() => {
+        if (!sortedAlbums) return [];
+        if (!upcomingAlbum) return sortedAlbums;
+        return sortedAlbums.filter((a) => a.id !== upcomingAlbum.id);
+    }, [sortedAlbums, upcomingAlbum]);
+
+// La lista finale che mostri nella FlatList
+    const finalAlbumList = useMemo(() => {
+        if (!upcomingAlbum) return albumsWithoutUpcoming;
+        return [upcomingAlbum, ...albumsWithoutUpcoming];
+    }, [upcomingAlbum, albumsWithoutUpcoming]);
+
 
     const getSortLabel = (order: SortOrder) => {
         switch (order) {
@@ -111,7 +126,6 @@ export default function HomeScreen() {
                 </MotiView>
 
                 <View style={styles.topRightButtons}>
-                    {/* 🔔 Campanella Notifiche */}
                     <TouchableOpacity
                         style={styles.notificationButton}
                         onPress={() => setShowNews((prev) => !prev)}
@@ -128,7 +142,6 @@ export default function HomeScreen() {
                         </BlurView>
                     </TouchableOpacity>
 
-                    {/* ⚙️ Settings */}
                     <TouchableOpacity
                         style={styles.settingsButton}
                         onPress={() => router.push("/settings")}
@@ -139,6 +152,7 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
             {showNews && (
                 <MotiView
                     from={{ opacity: 0, translateY: -20 }}
@@ -151,7 +165,11 @@ export default function HomeScreen() {
                         {newsList && newsList.length > 0 ? (
                             newsList.slice(0, 3).map((news) => (
                                 <View key={news.id} style={styles.newsItem}>
-                                    <Ionicons name="musical-notes" size={16} color="#1DB954" />
+                                    <Ionicons
+                                        name="musical-notes"
+                                        size={16}
+                                        color="#1DB954"
+                                    />
                                     <Text numberOfLines={2} style={styles.newsText}>
                                         {news.message}
                                     </Text>
@@ -163,7 +181,6 @@ export default function HomeScreen() {
                     </BlurView>
                 </MotiView>
             )}
-
 
             <MotiView
                 from={{ opacity: 0, translateY: -30 }}
@@ -227,7 +244,7 @@ export default function HomeScreen() {
                     <BlurView intensity={80} tint="dark" style={styles.sortButtonBlur}>
                         <Ionicons
                             name={getSortIcon(sortOrder)}
-                            size={16} // ✅ RIDOTTO: da 18 a 16
+                            size={16}
                             color="#1DB954"
                         />
                         <Text style={styles.sortButtonText}>
@@ -235,7 +252,7 @@ export default function HomeScreen() {
                         </Text>
                         <Ionicons
                             name={showSortMenu ? "chevron-up" : "chevron-down"}
-                            size={14} // ✅ RIDOTTO: da 16 a 14
+                            size={14}
                             color="#888"
                         />
                     </BlurView>
@@ -252,49 +269,49 @@ export default function HomeScreen() {
                 >
                     <BlurView intensity={90} tint="dark" style={styles.sortMenu}>
                         <LinearGradient
-                            colors={["rgba(26, 26, 26, 0.95)", "rgba(18, 18, 18, 0.95)"]}
+                            colors={[
+                                "rgba(26, 26, 26, 0.95)",
+                                "rgba(18, 18, 18, 0.95)",
+                            ]}
                             style={styles.sortMenuGradient}
                         >
-                            {(["newest", "oldest", "alphabetical"] as SortOrder[]).map(
-                                (order) => (
-                                    <TouchableOpacity
-                                        key={order}
+                            {(
+                                ["newest", "oldest", "alphabetical"] as SortOrder[]
+                            ).map((order) => (
+                                <TouchableOpacity
+                                    key={order}
+                                    style={[
+                                        styles.sortMenuItem,
+                                        sortOrder === order && styles.sortMenuItemActive,
+                                    ]}
+                                    onPress={() => {
+                                        setSortOrder(order);
+                                        setShowSortMenu(false);
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={getSortIcon(order)}
+                                        size={20}
+                                        color={sortOrder === order ? "#1DB954" : "#888"}
+                                    />
+                                    <Text
                                         style={[
-                                            styles.sortMenuItem,
+                                            styles.sortMenuItemText,
                                             sortOrder === order &&
-                                            styles.sortMenuItemActive,
+                                            styles.sortMenuItemTextActive,
                                         ]}
-                                        onPress={() => {
-                                            setSortOrder(order);
-                                            setShowSortMenu(false);
-                                        }}
                                     >
+                                        {getSortLabel(order)}
+                                    </Text>
+                                    {sortOrder === order && (
                                         <Ionicons
-                                            name={getSortIcon(order)}
+                                            name="checkmark-circle"
                                             size={20}
-                                            color={
-                                                sortOrder === order ? "#1DB954" : "#888"
-                                            }
+                                            color="#1DB954"
                                         />
-                                        <Text
-                                            style={[
-                                                styles.sortMenuItemText,
-                                                sortOrder === order &&
-                                                styles.sortMenuItemTextActive,
-                                            ]}
-                                        >
-                                            {getSortLabel(order)}
-                                        </Text>
-                                        {sortOrder === order && (
-                                            <Ionicons
-                                                name="checkmark-circle"
-                                                size={20}
-                                                color="#1DB954"
-                                            />
-                                        )}
-                                    </TouchableOpacity>
-                                )
-                            )}
+                                    )}
+                                </TouchableOpacity>
+                            ))}
                         </LinearGradient>
                     </BlurView>
                 </MotiView>
@@ -311,9 +328,12 @@ export default function HomeScreen() {
         </MotiView>
     );
 
-    const renderAlbumCard = ({ item, index }: { item: AlbumDTO; index: number }) => (
-        <AlbumCard album={item} index={index} />
-    );
+    const renderAlbumCard = ({ item, index }: { item: AlbumDTO; index: number }) => {
+        if (index === 0 && upcomingAlbum && item.id === upcomingAlbum.id) {
+            return <LockedAlbumCard album={item} index={index} isAdmin={isAdmin} />;
+        }
+        return <AlbumCard album={item} index={index} />;
+    };
 
     const renderParticles = () => (
         <View style={styles.particlesContainer}>
@@ -386,86 +406,39 @@ export default function HomeScreen() {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
+
             <StatusBar style="light" />
+
             {renderParticles()}
 
-            <ScrollView
-                style={styles.content}
-                contentContainerStyle={{
-                    paddingBottom: insets.bottom + 120,
-                    paddingTop: 50,
-                }}
-                showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.content}>
                 {renderHeader()}
-
-                {lockedAlbums.length > 0 && (
-                    <View style={{ marginBottom: 20 }}>
-                        <Text style={{
-                            color: "#fff",
-                            fontSize: 18,
-                            fontWeight: "900",
-                            marginBottom: 12,
-                            marginLeft: 4,
-                        }}>
-                            Nuove Release
-                        </Text>
-
-                        <FlatList
-                            data={lockedAlbums}
-                            horizontal
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item, index }) => (
-                                <LockedAlbumCard
-                                    album={item}
-                                    index={index}
-                                    isAdmin={appUser?.username === "admin"}
-                                />
-                            )}
-                            showsHorizontalScrollIndicator={false}
-                            ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
-                            contentContainerStyle={{ paddingLeft: 4, paddingRight: 16 }}
-                        />
-                    </View>
-                )}
-
                 {renderSectionHeader()}
 
-                {/* 🎵 Libreria Album */}
-                <View>
-                    {albumsLoading || !sortedAlbums ? (
-                        renderSkeletons()
-                    ) : (
-                        <FlatList
-                            data={sortedAlbums}
-                            keyExtractor={(item) => item.id}
-                            numColumns={2}
-                            renderItem={({ item, index }) => (
-                                <AlbumCard album={item} index={index} />
-                            )}
-                            columnWrapperStyle={{
-                                justifyContent: "space-between",
-                                marginBottom: 16,
-                                paddingHorizontal: 16,
-                            }}
-                            scrollEnabled={false}
-                        />
-
-
-                    )}
-                </View>
-
-            </ScrollView>
-
+                {albumsLoading || !sortedAlbums ? (
+                    renderSkeletons()
+                ) : (
+                    <FlatList
+                        data={finalAlbumList}
+                        keyExtractor={(item) => item.id}
+                        numColumns={2}
+                        columnWrapperStyle={styles.row}
+                        renderItem={renderAlbumCard}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={[
+                            styles.listContent,
+                            { paddingBottom: insets.bottom + 120 },
+                        ]}
+                    />
+                )}
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 16 },
-
-    // Top Bar
+    content: { flex: 1, paddingHorizontal: 16, paddingTop: 50 },
     topBar: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -473,30 +446,22 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         paddingHorizontal: 4,
     },
-    appLogoContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
+    appLogoContainer: { flexDirection: "row", alignItems: "center" },
     appName: {
         color: "#1DB954",
         fontSize: 20,
         fontWeight: "900",
         letterSpacing: 0.5,
     },
-    settingsButton: {
-        borderRadius: 12,
+    settingsButton: { borderRadius: 12, overflow: "hidden" },
+    settingsBlur: { padding: 10, borderRadius: 12 },
+
+    particlesContainer: {
+        ...StyleSheet.absoluteFillObject,
         overflow: "hidden",
     },
-    settingsBlur: {
-        padding: 10,
-        borderRadius: 12,
-    },
-
-    // Particles
-    particlesContainer: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
     particle: { position: "absolute", backgroundColor: "#1DB954", borderRadius: 50 },
 
-    // Header
     headerContainer: { marginBottom: 24 },
     heroBlur: { borderRadius: 24, overflow: "hidden" },
     heroGradient: { padding: 24 },
@@ -506,7 +471,12 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
     },
     greetingSection: { flex: 1, paddingRight: 16 },
-    greeting: { color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4 },
+    greeting: {
+        color: "#b3b3b3",
+        fontSize: 14,
+        fontWeight: "500",
+        marginBottom: 4,
+    },
     username: {
         color: "#fff",
         fontSize: 32,
@@ -516,24 +486,23 @@ const styles = StyleSheet.create({
     },
     subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
 
-    // Section Header - MODIFICATO
     sectionHeaderContainer: { marginBottom: 20, zIndex: 100 },
     sectionTitleRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: 12,
-        gap: 8, // ✅ AGGIUNTO: Spazio tra sinistra e destra
+        gap: 8,
     },
     sectionLeft: {
         flexDirection: "row",
         alignItems: "center",
         flex: 1,
-        minWidth: 0, // ✅ AGGIUNTO: Permette il text truncation se necessario
+        minWidth: 0,
     },
     sectionIconContainer: {
-        marginRight: 10, // ✅ RIDOTTO: da 12 a 10
-        borderRadius: 10, // ✅ RIDOTTO: da 12 a 10
+        marginRight: 10,
+        borderRadius: 10,
         overflow: "hidden",
         shadowColor: "#1DB954",
         shadowOffset: { width: 0, height: 2 },
@@ -542,38 +511,29 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     sectionIconGradient: {
-        width: 34, // ✅ RIDOTTO: da 40 a 34
-        height: 34, // ✅ RIDOTTO: da 40 a 34
+        width: 34,
+        height: 34,
         justifyContent: "center",
         alignItems: "center",
     },
     sectionTitle: {
         color: "#fff",
-        fontSize: 20, // ✅ RIDOTTO: da 24 a 20
+        fontSize: 20,
         fontWeight: "900",
-        letterSpacing: -0.3, // ✅ RIDOTTO: da -0.5 a -0.3
-        flexShrink: 1, // ✅ AGGIUNTO: Permette al testo di ridursi se necessario
+        letterSpacing: -0.3,
+        flexShrink: 1,
     },
 
-// Sort Button - MODIFICATO
-    sortButton: {
-        borderRadius: 10, // ✅ RIDOTTO: da 12 a 10
-        overflow: "hidden",
-        flexShrink: 0, // ✅ AGGIUNTO: Impedisce al pulsante di comprimersi
-    },
+    sortButton: { borderRadius: 10, overflow: "hidden", flexShrink: 0 },
     sortButtonBlur: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 10, // ✅ RIDOTTO: da 14 a 10
-        paddingVertical: 8, // ✅ RIDOTTO: da 10 a 8
-        gap: 6, // ✅ RIDOTTO: da 8 a 6
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        gap: 6,
     },
-    sortButtonText: {
-        color: "#fff",
-        fontSize: 12, // ✅ RIDOTTO: da 13 a 12
-        fontWeight: "600",
-    },
-    // Sort Menu
+    sortButtonText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+
     sortMenuContainer: {
         position: "absolute",
         top: 52,
@@ -583,13 +543,8 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: "hidden",
     },
-    sortMenu: {
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-    sortMenuGradient: {
-        padding: 8,
-    },
+    sortMenu: { borderRadius: 16, overflow: "hidden" },
+    sortMenuGradient: { padding: 8 },
     sortMenuItem: {
         flexDirection: "row",
         alignItems: "center",
@@ -598,33 +553,17 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginBottom: 4,
     },
-    sortMenuItemActive: {
-        backgroundColor: "rgba(29, 185, 84, 0.15)",
-    },
-    sortMenuItemText: {
-        flex: 1,
-        color: "#888",
-        fontSize: 15,
-        fontWeight: "600",
-    },
-    sortMenuItemTextActive: {
-        color: "#fff",
-    },
+    sortMenuItemActive: { backgroundColor: "rgba(29, 185, 84, 0.15)" },
+    sortMenuItemText: { flex: 1, color: "#888", fontSize: 15, fontWeight: "600" },
+    sortMenuItemTextActive: { color: "#fff" },
 
-    // Divider
     sectionDividerContainer: { width: "100%" },
     sectionDivider: { height: 3, width: "30%", borderRadius: 2 },
 
-    // List
     row: { justifyContent: "space-between", marginBottom: 16 },
     listContent: { paddingBottom: 100 },
 
-    // Skeleton
-    skeletonGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
-    },
+    skeletonGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
     skeletonCard: {
         width: CARD_WIDTH,
         height: CARD_WIDTH + 60,
@@ -647,26 +586,15 @@ const styles = StyleSheet.create({
         width: "80%",
         marginTop: 6,
     },
-    // Top right buttons
-    topRightButtons: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-    },
 
-    notificationButton: {
-        borderRadius: 12,
-        overflow: "hidden",
-        position: "relative",
-    },
-
+    topRightButtons: { flexDirection: "row", alignItems: "center", gap: 12 },
+    notificationButton: { borderRadius: 12, overflow: "hidden", position: "relative" },
     iconBlur: {
         padding: 10,
         borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
     },
-
     notificationBadge: {
         position: "absolute",
         top: 4,
@@ -679,14 +607,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
+    notificationBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
 
-    notificationBadgeText: {
-        color: "#fff",
-        fontSize: 10,
-        fontWeight: "700",
-    },
-
-// Dropdown news
     newsDropdownContainer: {
         position: "absolute",
         top: 70,
@@ -696,14 +618,12 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: "hidden",
     },
-
     newsDropdownBlur: {
         borderRadius: 16,
         overflow: "hidden",
         paddingVertical: 8,
         paddingHorizontal: 10,
     },
-
     newsItem: {
         flexDirection: "row",
         alignItems: "center",
@@ -712,19 +632,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: "rgba(255,255,255,0.05)",
     },
-
-    newsText: {
-        flex: 1,
-        color: "#fff",
-        fontSize: 13,
-        lineHeight: 18,
-    },
-
-    newsEmpty: {
-        textAlign: "center",
-        color: "#999",
-        fontSize: 13,
-        paddingVertical: 10,
-    },
-
+    newsText: { flex: 1, color: "#fff", fontSize: 13, lineHeight: 18 },
+    newsEmpty: { textAlign: "center", color: "#999", fontSize: 13, paddingVertical: 10 },
 });

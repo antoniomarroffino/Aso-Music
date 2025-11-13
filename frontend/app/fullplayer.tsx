@@ -269,6 +269,72 @@ export default function FullPlayer() {
                     <Text style={styles.title} numberOfLines={2}>
                         {currentSong.title}
                     </Text>
+
+                    {/* ❤️ Like qui — posizione giusta, zero bug */}
+                    <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 12,
+                        marginBottom: 10,
+                    }}>
+                        <View style={styles.artistRow}>
+                            <Ionicons name="person" size={16} color="#888" />
+                            <Text style={styles.artist} numberOfLines={1}>
+                                {Array.isArray(currentSong.artists)
+                                    ? currentSong.artists.map((a) => a?.name).join(", ")
+                                    : "Artista sconosciuto"}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                setShowTooltip(true);
+                                setTimeout(() => setShowTooltip(false), 2500);
+                            }}
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                justifyContent: "center",
+                                alignItems: "center",
+                                backgroundColor: "rgba(255,255,255,0.05)",
+                                borderWidth: 1,
+                                borderColor: "rgba(255,255,255,0.1)",
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="heart-outline" size={18} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Tooltip (riutilizzi il tuo) */}
+                    {showTooltip && (
+                        <MotiView
+                            from={{ translateY: 10, scale: 0.95, opacity: 0 }}
+                            animate={{ translateY: -4, scale: 1, opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ type: "spring", damping: 20 }}
+                            style={styles.smallTooltipContainer}
+                        >
+                            <View style={styles.tooltipSolidBackgroundSm} />
+                            <BlurView intensity={80} tint="dark" style={styles.smallTooltipBlur}>
+                                <LinearGradient
+                                    colors={["rgba(255,165,0,0.25)", "rgba(255,165,0,0.12)"]}
+                                    style={styles.smallTooltipGradient}
+                                >
+                                    <View style={styles.smallTooltipContent}>
+                                        <Ionicons name="construct-outline" size={14} color="#FFA500" />
+                                        <Text style={styles.smallTooltipText}>In fase di sviluppo!</Text>
+                                    </View>
+                                </LinearGradient>
+                            </BlurView>
+                            <View style={styles.smallArrow}>
+                                <View style={styles.smallArrowInner} />
+                            </View>
+                        </MotiView>
+                    )}
+
                     <View style={styles.artistRow}>
                         <Ionicons name="person" size={16} color="#888" />
                         <Text style={styles.artist} numberOfLines={1}>
@@ -323,51 +389,6 @@ export default function FullPlayer() {
                                     <View style={styles.timeContainer}>
                                         <Text style={styles.timeText}>{formatTime(duration)}</Text>
                                     </View>
-
-                                    {/* ❤️ Like piccolissimo qui */}
-                                    <View style={{ position: "relative" }}>
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                setShowTooltip(true);
-                                                setTimeout(() => setShowTooltip(false), 2500);
-                                            }}
-                                            style={styles.smallLikeButton}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Ionicons name="heart-outline" size={16} color="#999" />
-                                        </TouchableOpacity>
-
-                                        {showTooltip && (
-                                            <MotiView
-                                                from={{ translateY: 10, scale: 0.95, opacity: 0 }}
-                                                animate={{ translateY: -4, scale: 1, opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                transition={{ type: "spring", damping: 20 }}
-                                                style={styles.smallTooltipContainer}
-                                            >
-                                                <View style={styles.tooltipSolidBackgroundSm} />
-
-                                                <BlurView intensity={80} tint="dark" style={styles.smallTooltipBlur}>
-                                                    <LinearGradient
-                                                        colors={["rgba(255,165,0,0.25)", "rgba(255,165,0,0.12)"]}
-                                                        style={styles.smallTooltipGradient}
-                                                    >
-                                                        <View style={styles.smallTooltipContent}>
-                                                            <Ionicons name="construct-outline" size={14} color="#FFA500" />
-                                                            <Text style={styles.smallTooltipText}>
-                                                                In fase di sviluppo!
-                                                            </Text>
-                                                        </View>
-                                                    </LinearGradient>
-                                                </BlurView>
-
-                                                <View style={styles.smallArrow}>
-                                                    <View style={styles.smallArrowInner} />
-                                                </View>
-                                            </MotiView>
-                                        )}
-                                    </View>
-
                                 </View>
                             </View>
 
