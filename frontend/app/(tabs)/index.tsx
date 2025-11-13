@@ -436,16 +436,22 @@ export default function HomeScreen() {
                     {albumsLoading || !sortedAlbums ? (
                         renderSkeletons()
                     ) : (
-                        <View style={{
-                            paddingHorizontal: 16,
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            justifyContent: "space-between"
-                        }}>
-                            {sortedAlbums.map((album, index) => (
-                                <AlbumCard key={album.id} album={album} index={index} />
-                            ))}
-                        </View>
+                        <FlatList
+                            data={sortedAlbums}
+                            keyExtractor={(item) => item.id}
+                            numColumns={2}
+                            renderItem={({ item, index }) => (
+                                <AlbumCard album={item} index={index} />
+                            )}
+                            columnWrapperStyle={{
+                                justifyContent: "space-between",
+                                marginBottom: 16,
+                                paddingHorizontal: 16,
+                            }}
+                            scrollEnabled={false}
+                        />
+
+
                     )}
                 </View>
 
