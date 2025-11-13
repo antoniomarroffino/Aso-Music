@@ -32,6 +32,8 @@ function AuthGateLayout() {
     const { data: albumPreviews } = useAlbums();
     useLoadAllSongsLazy(albumPreviews);
 
+    const MAINTENANCE_MODE = true;
+
     if (loadingAuth) {
         return (
             <View
@@ -47,25 +49,31 @@ function AuthGateLayout() {
         );
     }
 
-    if (firebaseUser) {
+    // 🚨 SE in manutenzione E l’utente NON è admin → schermata Maintenance
+    if (
+        MAINTENANCE_MODE &&
+        (!firebaseUser || firebaseUser.email !== "admin@gmail.com")
+    ) {
         return (
             <Stack
                 screenOptions={{
                     headerShown: false,
-                    contentStyle: {
-                        backgroundColor: "#000",
-                        paddingTop: 0,
-                        marginTop: 0
-                    }
+                    contentStyle: { backgroundColor: "#000" },
                 }}
             >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="maintenance" />
+            </Stack>
+        );
+    }
+
+    // 🎯 Admin o app funzionante: flusso normale
+    if (firebaseUser) {
+        return (
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
                 <Stack.Screen
                     name="fullplayer"
-                    options={{
-                        presentation: "fullScreenModal",
-                        headerShown: false
-                    }}
+                    options={{ presentation: "fullScreenModal" }}
                 />
             </Stack>
         );
@@ -73,20 +81,12 @@ function AuthGateLayout() {
 
     // Login/Register
     return (
-        <Stack
-            screenOptions={{
-                headerShown: false,
-                contentStyle: {
-                    backgroundColor: "#000",
-                    paddingTop: 0,
-                    marginTop: 0
-                }
-            }}
-        >
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
         </Stack>
     );
 }
+
 
 // ---------------------------------------------------------------
 // ✅ ROOT LAYOUT PRINCIPALE
