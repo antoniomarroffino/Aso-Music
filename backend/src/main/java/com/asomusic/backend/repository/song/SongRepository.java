@@ -36,6 +36,7 @@ public class SongRepository implements ISongRepository {
             for (QueryDocumentSnapshot songDoc : songsFuture.get().getDocuments()) {
                 List<ArtistDTO> artistDTOs = resolveArtists(songDoc);
 
+                // ✅ Ora aggiungiamo anche albumId e albumName dentro il SongDTO
                 SongDTO song = SongDTO.builder()
                         .id(songDoc.getId())
                         .title(songDoc.getString("title"))
@@ -45,6 +46,8 @@ public class SongRepository implements ISongRepository {
                         .stream(asInt(songDoc.get("stream")))
                         .tracklistPosition(asInt(songDoc.get("tracklistPosition")))
                         .artists(artistDTOs)
+                        .albumId(albumId)
+                        .albumName(albumDoc.getString("name"))
                         .build();
 
                 songDTOs.add(song);
@@ -78,7 +81,7 @@ public class SongRepository implements ISongRepository {
 
         DocumentSnapshot snapshot = songRef.get().get();
         if (!snapshot.exists()) {
-            System.err.println("❌ Song not found: " + songId);
+            System.err.println("❌ Song not found: " + songId + " (albumId=" + albumId + ")");
             throw new IllegalArgumentException("Song not found: " + songId);
         }
 
@@ -90,11 +93,13 @@ public class SongRepository implements ISongRepository {
         checkAndCreateCertificationNews(snapshot, newCount, albumId);
     }
 
-
     @Override
     public List<SongDTO> fetchSongsByAlbum(String albumId) throws ExecutionException, InterruptedException {
 
         List<SongDTO> songs = new ArrayList<>();
+
+        DocumentSnapshot albumSnap = db.collection("album").document(albumId).get().get();
+        String albumName = albumSnap.exists() ? albumSnap.getString("name") : "Sconosciuto";
 
         ApiFuture<QuerySnapshot> songsFuture = db.collection("album")
                 .document(albumId)
@@ -103,7 +108,6 @@ public class SongRepository implements ISongRepository {
                 .get();
 
         for (QueryDocumentSnapshot songDoc : songsFuture.get().getDocuments()) {
-
             List<ArtistDTO> artistDTOs = resolveArtists(songDoc);
 
             SongDTO song = SongDTO.builder()
@@ -115,6 +119,8 @@ public class SongRepository implements ISongRepository {
                     .stream(asInt(songDoc.get("stream")))
                     .tracklistPosition(asInt(songDoc.get("tracklistPosition")))
                     .artists(artistDTOs)
+                    .albumId(albumId)       // ✅ aggiunto anche qui
+                    .albumName(albumName)
                     .build();
 
             songs.add(song);
@@ -123,6 +129,7 @@ public class SongRepository implements ISongRepository {
         return songs;
     }
 
+    // =================== SUPPORT =================== //
 
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {
         List<ArtistDTO> artistDTOs = new ArrayList<>();
@@ -138,9 +145,7 @@ public class SongRepository implements ISongRepository {
 
                 if (refObj instanceof DocumentReference ref) {
                     artistDoc = ref.get().get();
-                }
-
-                else if (refObj instanceof String artistId && !artistId.isBlank()) {
+                } else if (refObj instanceof String artistId && !artistId.isBlank()) {
                     artistDoc = db.collection("artists").document(artistId).get().get();
                 }
 
@@ -170,7 +175,7 @@ public class SongRepository implements ISongRepository {
 
     private void checkAndCreateCertificationNews(DocumentSnapshot songSnapshot, Long newCount, String albumId) {
         try {
-            if (newCount < 40) return; // Nessuna certificazione prima di 40 ascolti
+            if (newCount < 40) return;
 
             String songName = songSnapshot.getString("title");
             String artistName = resolveArtistName(songSnapshot);
@@ -204,7 +209,6 @@ public class SongRepository implements ISongRepository {
             return "Artista sconosciuto";
         }
 
-        // Prendiamo il primo riferimento (se ne hai più di uno puoi concatenare)
         Object refObj = artistRefs.get(0);
         if (!(refObj instanceof DocumentReference artistRef)) {
             return "Artista sconosciuto";
@@ -215,8 +219,7 @@ public class SongRepository implements ISongRepository {
             return "Artista sconosciuto";
         }
 
-        String name = artistSnap.getString("name");
-        return name != null ? name : "Artista sconosciuto";
+        return artistSnap.getString("name") != null ? artistSnap.getString("name") : "Artista sconosciuto";
     }
 
     private String getPlatinoLabel(int multiplier) {
@@ -229,11 +232,8 @@ public class SongRepository implements ISongRepository {
         };
     }
 
-
     private void addNewsToFirestore(String message) throws ExecutionException, InterruptedException {
-        Firestore db = FirestoreClient.getFirestore();
         CollectionReference newsCollection = db.collection("news");
-
         String createdAt = java.time.Instant.now().toString();
 
         newsCollection.add(new java.util.HashMap<String, Object>() {{
@@ -241,6 +241,4 @@ public class SongRepository implements ISongRepository {
             put("createdAt", createdAt);
         }}).get();
     }
-
-
 }

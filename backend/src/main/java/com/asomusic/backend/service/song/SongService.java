@@ -4,7 +4,6 @@ import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.SongDTO;
 import com.asomusic.backend.repository.song.ISongRepository;
 import com.asomusic.backend.service.storage.FirebaseStorageService;
-import com.google.cloud.firestore.DocumentSnapshot;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -49,14 +48,16 @@ public class SongService implements ISongService {
         try {
             return songRepository.fetchSongsByAlbum(albumId)
                     .stream()
-                    .map(this::convertSongStorageUrlsSafe)
+                    .map(song -> convertSongStorageUrlsSafe(song, albumId, null)) // 👈 nuovo overload
                     .collect(Collectors.toList());
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException("❌ Errore durante il recupero delle canzoni dell'album", e);
         }
     }
 
-
+    /**
+     * Converte un intero album e le sue canzoni, aggiungendo i riferimenti albumId / albumName in ogni SongDTO
+     */
     private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
         return AlbumDTO.builder()
                 .id(album.getId())
@@ -67,13 +68,16 @@ public class SongService implements ISongService {
                 .releaseYear(album.getReleaseYear())
                 .songs(album.getSongs() == null ? List.of() :
                         album.getSongs().stream()
-                                .map(this::convertSongStorageUrlsSafe)
+                                .map(song -> convertSongStorageUrlsSafe(song, album.getId(), album.getName())) // ✅ passiamo album info
                                 .collect(Collectors.toList()))
                 .build();
     }
 
-    private SongDTO convertSongStorageUrlsSafe(SongDTO song) {
-        SongDTO processed = SongDTO.builder()
+    /**
+     * Converte una singola song e aggiunge i riferimenti all'album padre.
+     */
+    private SongDTO convertSongStorageUrlsSafe(SongDTO song, String albumId, String albumName) {
+        return SongDTO.builder()
                 .id(song.getId())
                 .title(song.getTitle())
                 .duration(song.getDuration())
@@ -82,8 +86,8 @@ public class SongService implements ISongService {
                 .stream(song.getStream())
                 .tracklistPosition(song.getTracklistPosition())
                 .artists(song.getArtists())
+                .albumId(albumId)   // ✅ finalmente disponibile
+                .albumName(albumName)
                 .build();
-
-        return processed;
     }
 }

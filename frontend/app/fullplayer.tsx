@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef} from "react";
 import {
     View,
     Text,
@@ -22,7 +22,7 @@ import Animated, {
     useDerivedValue,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { MotiView, MotiText } from "moti";
+import { MotiView} from "moti";
 import { StatusBar } from "expo-status-bar";
 
 const { height, width } = Dimensions.get("window");
@@ -130,7 +130,6 @@ export default function FullPlayer() {
         [duration, seekTo]
     );
 
-    const [showTooltip, setShowTooltip] = useState(false);
 
     const composedGesture = useMemo(
         () => Gesture.Race(tapProgress, panProgress),
@@ -270,14 +269,15 @@ export default function FullPlayer() {
                         {currentSong.title}
                     </Text>
 
-                    {/* ❤️ Like qui — posizione giusta, zero bug */}
-                    <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 12,
-                        marginBottom: 10,
-                    }}>
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 12,
+                            marginBottom: 10,
+                        }}
+                    >
                         <View style={styles.artistRow}>
                             <Ionicons name="person" size={16} color="#888" />
                             <Text style={styles.artist} numberOfLines={1}>
@@ -287,11 +287,9 @@ export default function FullPlayer() {
                             </Text>
                         </View>
 
+                        {/* ❤️ Like Button semplificato */}
                         <TouchableOpacity
-                            onPress={() => {
-                                setShowTooltip(true);
-                                setTimeout(() => setShowTooltip(false), 2500);
-                            }}
+                            onPress={() => alert("Funzionalità in sviluppo!")}
                             style={{
                                 width: 34,
                                 height: 34,
@@ -306,42 +304,6 @@ export default function FullPlayer() {
                         >
                             <Ionicons name="heart-outline" size={18} color="#fff" />
                         </TouchableOpacity>
-                    </View>
-
-                    {/* Tooltip (riutilizzi il tuo) */}
-                    {showTooltip && (
-                        <MotiView
-                            from={{ translateY: 10, scale: 0.95, opacity: 0 }}
-                            animate={{ translateY: -4, scale: 1, opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ type: "spring", damping: 20 }}
-                            style={styles.smallTooltipContainer}
-                        >
-                            <View style={styles.tooltipSolidBackgroundSm} />
-                            <BlurView intensity={80} tint="dark" style={styles.smallTooltipBlur}>
-                                <LinearGradient
-                                    colors={["rgba(255,165,0,0.25)", "rgba(255,165,0,0.12)"]}
-                                    style={styles.smallTooltipGradient}
-                                >
-                                    <View style={styles.smallTooltipContent}>
-                                        <Ionicons name="construct-outline" size={14} color="#FFA500" />
-                                        <Text style={styles.smallTooltipText}>In fase di sviluppo!</Text>
-                                    </View>
-                                </LinearGradient>
-                            </BlurView>
-                            <View style={styles.smallArrow}>
-                                <View style={styles.smallArrowInner} />
-                            </View>
-                        </MotiView>
-                    )}
-
-                    <View style={styles.artistRow}>
-                        <Ionicons name="person" size={16} color="#888" />
-                        <Text style={styles.artist} numberOfLines={1}>
-                            {Array.isArray(currentSong.artists)
-                                ? currentSong.artists.map((a) => a?.name).join(", ")
-                                : "Artista sconosciuto"}
-                        </Text>
                     </View>
                 </MotiView>
 
@@ -513,67 +475,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-
-    smallTooltipContainer: {
-        position: "absolute",
-        bottom: 32,
-        right: -20,
-        minWidth: 140,
-    },
-
-    smallTooltipBlur: {
-        borderRadius: 12,
-        overflow: "hidden",
-    },
-
-    smallTooltipGradient: {
-        padding: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "rgba(255,165,0,0.35)",
-    },
-
-    smallTooltipContent: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-    },
-
-    smallTooltipText: {
-        color: "#fff",
-        fontSize: 12,
-        fontWeight: "600",
-    },
-
-    tooltipSolidBackgroundSm: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(26,26,26,0.9)",
-        borderRadius: 12,
-    },
-
-    smallArrow: {
-        position: "absolute",
-        bottom: -8,
-        right: 22,
-        width: 14,
-        height: 14,
-        overflow: "hidden",
-    },
-
-    smallArrowInner: {
-        width: 10,
-        height: 10,
-        backgroundColor: "rgba(26,26,26,0.9)",
-        transform: [{ rotate: "45deg" }],
-        position: "absolute",
-        bottom: 6,
-        left: 2,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: "rgba(255,165,0,0.35)",
-    },
-
-
     headerBlur: {
         overflow: "hidden",
         borderBottomLeftRadius: 24,

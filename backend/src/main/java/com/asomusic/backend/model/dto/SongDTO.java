@@ -37,4 +37,11 @@ public class SongDTO {
 
     @Schema(description = "Lista degli artisti che hanno partecipato al brano")
     private List<ArtistDTO> artists;
+
+    @Schema(description = "ID dell'album di appartenenza", examples = "ab12cd34ef56")
+    private String albumId;
+
+    @Schema(description = "Nome dell'album di appartenenza", examples = "ASO MIXTAPE")
+    private String albumName;
+
 }
