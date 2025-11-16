@@ -248,21 +248,16 @@ export default function ArtistDetailsScreen() {
         );
     }
 
-    const handlePlaySong =
-        (song: SongDTO, index: number) => {
-            if (index === -1) {
-                togglePlayPause();
-                return;
-            }
+    const handlePlaySong = (song: SongDTO, index: number) => {
+        if (index === -1) {
+            togglePlayPause();
+            return;
+        }
 
-        playSong(
-            song,
-            artistSongs,
-            index,
-            artist.id,
-            artist.name
-        );
+        playSong(song, artistSongs, index);
     };
+
+
 
     return (
         <SafeScrollView style={styles.container}>
@@ -308,23 +303,18 @@ export default function ArtistDetailsScreen() {
 
                 {artistSongs.length > 0 ? (
                     <>
-                        {artistSongs.slice(0, visibleCount).map((song, index) => {
-                            const album = albums?.find((alb) =>
-                                alb.songs.some((s) => s.id === song.id)
-                            );
+                        {artistSongs.slice(0, visibleCount).map((song, index) => (
+                            <SongItemArtist
+                                key={song.id}
+                                song={song}
+                                rank={index + 1}
+                                allArtists={artistSongs.flatMap(s => s.artists)}
+                                albumId={song.albumId ?? "unknown"}
+                                albumName={song.albumName ?? "unknown"}
+                                onPress={() => handlePlaySong(song, index)}
+                            />
+                        ))}
 
-                            return (
-                                <SongItemArtist
-                                    key={song.id}
-                                    song={song}
-                                    rank={index + 1}
-                                    allArtists={artistSongs.flatMap(s => s.artists)}
-                                    albumId={album?.id ?? "unknown"}
-                                    albumName={album?.name ?? "unknown"}
-                                    onPress={(s) => handlePlaySong(s, index)}
-                                />
-                            );
-                        })}
 
                         {artistSongs.length > 5 && (
                             <View style={styles.showMoreContainer}>

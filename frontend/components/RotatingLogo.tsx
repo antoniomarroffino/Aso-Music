@@ -14,7 +14,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSongs } from "@/hooks/useSongs";
 import { usePlayer } from "@/context/PlayerContext";
-import { SongDTO, AlbumDTO } from "@/types/music";
+import { SongDTO} from "@/types/music";
 
 const { width } = Dimensions.get("window");
 
@@ -28,26 +28,20 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
     const { data: albums } = useSongs();
     const { playSong } = usePlayer();
 
-    // ✨ Quando clicchi, scegli una canzone casuale dall'elenco completo
     const handlePress = () => {
         if (!albums || albums.length === 0) return;
 
-        // Prendi un album casuale
         const randomAlbum = albums[Math.floor(Math.random() * albums.length)];
-        // Prendi una canzone casuale da quell'album
         const randomSong =
             randomAlbum.songs[Math.floor(Math.random() * randomAlbum.songs.length)];
 
-        // Salva la canzone scelta (serve per mostrarla nel modal)
         setSuggestedSong({ ...randomSong });
         setShowMessage(true);
     };
 
-    // ▶️ Quando clicchi il titolo del brano nel popup, parte la canzone
     const handlePlay = async () => {
         if (!suggestedSong || !albums) return;
 
-        // Trova l'album che contiene la canzone
         const album = albums.find((a) =>
             a.songs.some((s) => s.id === suggestedSong.id)
         );
@@ -57,7 +51,7 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
         const queue = album.songs;
         const startIndex = queue.findIndex((s) => s.id === suggestedSong.id);
 
-        await playSong(suggestedSong, queue, startIndex, album.id, album.name);
+        await playSong(suggestedSong, queue, startIndex);
         setShowMessage(false);
     };
 

@@ -10,6 +10,7 @@ import React, {
 import { Audio } from "expo-av";
 import { SongDTO } from "@/types/music";
 import { incrementStreamCount } from "@/api/songs";
+import {useQueryClient} from "@tanstack/react-query";
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
@@ -18,9 +19,7 @@ type PlayerContextType = {
     playSong: (
         song: SongDTO,
         queue?: SongDTO[],
-        startIndex?: number,
-        albumId?: string,
-        albumName?: string
+        startIndex?: number
     ) => Promise<void>;
     togglePlayPause: () => Promise<void>;
     stopSong: () => Promise<void>;
@@ -71,7 +70,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
-
+    const queryClient = useQueryClient();
     // ✅ nextSong derivata dalla queue + index
     const nextSong: SongDTO | null =
         currentQueueRef.current.length > 0
@@ -80,23 +79,40 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 ]
             : null;
 
-    // 🔁 Helper per stream counter
-    const scheduleStreamIncrement = (
-        albumId?: string | null,
-        songId?: string | null
-    ) => {
+    const scheduleStreamIncrement = (albumId?: string | null, songId?: string | null) => {
         if (!albumId || !songId) return;
 
         if (streamTimeoutRef.current) {
             clearTimeout(streamTimeoutRef.current);
         }
 
-        streamTimeoutRef.current = setTimeout(() => {
+        streamTimeoutRef.current = setTimeout(async () => {
             if (lastStreamedSongId.current === songId) return;
             lastStreamedSongId.current = songId;
-            incrementStreamCount(albumId, songId).catch((e) =>
-                console.error("❌ Errore stream:", e)
-            );
+
+            try {
+                // ✅ Aggiorna ottimisticamente la cache di React Query
+                queryClient.setQueryData(["songs"], (oldData: any) => {
+                    if (!oldData) return oldData;
+
+                    return oldData.map((album: any) => {
+                        if (album.id !== albumId) return album;
+                        return {
+                            ...album,
+                            songs: album.songs.map((s: any) =>
+                                s.id === songId
+                                    ? { ...s, stream: (s.stream ?? 0) + 1 }
+                                    : s
+                            ),
+                        };
+                    });
+                });
+
+                // ✅ Poi chiama il backend in background
+                await incrementStreamCount(albumId, songId);
+            } catch (e) {
+                console.error("❌ Errore stream:", e);
+            }
         }, 20000);
     };
 
@@ -228,13 +244,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     /** 🎵 Avvia riproduzione (entry point UNICO) */
     const playSong = useCallback(
-        async (
-            song: SongDTO,
-            queue?: SongDTO[],
-            startIndex?: number,
-            albumId?: string,
-            albumName?: string
-        ) => {
+        async (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
             // Ogni volta che avvii manualmente un brano, invalidi tutti i callback vecchi
             killSwitch.current += 1;
             const session = killSwitch.current;
@@ -257,11 +267,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 soundRef.current = null;
             }
 
-            // Aggiorna ref album
-            if (albumId) currentAlbumIdRef.current = albumId;
-            if (albumName) currentAlbumNameRef.current = albumName;
+            // ✅ Aggiorna i riferimenti dell’album direttamente dal SongDTO
+            currentAlbumIdRef.current = song.albumId ?? null;
+            currentAlbumNameRef.current = song.albumName ?? null;
 
-            // Aggiorna queue & index
+            // ✅ Aggiorna la queue e l’indice corrente
             if (queue?.length) {
                 currentQueueRef.current = queue;
                 const idx =
@@ -275,31 +285,27 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             setProgress(0);
             setDuration(0);
 
-            const effectiveAlbumName =
-                albumName ?? currentAlbumNameRef.current ?? null;
-            const effectiveAlbumId = currentAlbumIdRef.current ?? albumId ?? null;
+            const effectiveAlbumId = song.albumId ?? currentAlbumIdRef.current;
+            const effectiveAlbumName = song.albumName ?? currentAlbumNameRef.current;
 
-            // Aggiorna subito metadati per il brano corrente
+            // ✅ Aggiorna subito i metadati per il brano corrente
             updateMediaSessionsForSong(song, effectiveAlbumName, true);
             registerMediaSessionHandlers();
 
-            // Schedula incremento stream per questo brano
+            // ✅ Schedula l’incremento dello stream per questo brano
             scheduleStreamIncrement(effectiveAlbumId, song.id);
 
-            // Handler unico per TUTTE le tracce di questa sessione
+            // 🎚️ Handler di stato per traccia
             const attachStatusHandler = (sound: Audio.Sound) => {
                 sound.setOnPlaybackStatusUpdate(async (status) => {
-                    // Se nel frattempo è partita un'altra sessione, ignoro
                     if (session !== killSwitch.current) return;
                     if (!status.isLoaded) return;
 
                     setProgress(status.positionMillis / 1000);
-                    setDuration(
-                        status.durationMillis ? status.durationMillis / 1000 : 0
-                    );
+                    setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
                     setIsPlaying(status.isPlaying ?? false);
 
-                    // 🎧 Preload prossima traccia negli ultimi 5 secondi
+                    // 🎧 Precarica la prossima traccia negli ultimi 5 secondi
                     if (
                         status.isPlaying &&
                         status.durationMillis &&
@@ -336,17 +342,11 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                         const nextTrack = queueLocal[nextIndex];
                         if (!nextTrack) return;
 
-                        const albumIdForNext =
-                            currentAlbumIdRef.current ?? effectiveAlbumId;
-                        const albumNameForNext =
-                            currentAlbumNameRef.current ?? effectiveAlbumName;
-
                         // 🥇 Se abbiamo precaricato la prossima traccia → usiamo quella
                         if (nextSoundRef.current) {
                             const ns = nextSoundRef.current;
                             nextSoundRef.current = null;
 
-                            // Detach handler e scarica il sound vecchio (se esiste e diverso da ns)
                             if (soundRef.current && soundRef.current !== ns) {
                                 try {
                                     soundRef.current.setOnPlaybackStatusUpdate(null);
@@ -361,14 +361,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                             setProgress(0);
                             setDuration(0);
 
-                            // Aggiorna metadati anche per la traccia successiva
-                            updateMediaSessionsForSong(nextTrack, albumNameForNext, true);
+                            // Aggiorna metadati per la traccia successiva
+                            updateMediaSessionsForSong(
+                                nextTrack,
+                                nextTrack.albumName ?? null,
+                                true
+                            );
                             registerMediaSessionHandlers();
 
                             // Nuovo stream counter
-                            scheduleStreamIncrement(albumIdForNext, nextTrack.id);
+                            scheduleStreamIncrement(nextTrack.albumId, nextTrack.id);
 
-                            // Aggancia NUOVO status handler allo stesso session
                             attachStatusHandler(ns);
 
                             try {
@@ -384,13 +387,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
                         // 🥈 Fallback → richiama playSong (nuova sessione)
                         console.log("➡️ Auto-next fallback → playSong()");
-                        playSong(
-                            nextTrack,
-                            queueLocal,
-                            nextIndex,
-                            albumIdForNext ?? undefined,
-                            albumNameForNext ?? undefined
-                        );
+                        playSong(nextTrack, queueLocal, nextIndex);
                     }
                 });
             };
@@ -402,7 +399,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 );
 
                 if (session !== killSwitch.current) {
-                    // Nel frattempo è partita un'altra sessione → scarico questo sound e stop
                     try {
                         await sound.unloadAsync();
                     } catch {}
@@ -422,6 +418,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         [updateMediaSessionsForSong]
     );
 
+
     /** ⏭ Next song (usata da controlli UI + lockscreen) */
     const nextSongAction = useCallback(async () => {
         const queue = currentQueueRef.current;
@@ -435,13 +432,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         const nextIndex = (currentIndex + 1) % queue.length;
         const next = queue[nextIndex];
 
-        await playSong(
-            next,
-            queue,
-            nextIndex,
-            currentAlbumIdRef.current || undefined,
-            currentAlbumNameRef.current || undefined
-        );
+        // ✅ Ora playSong riceve solo song + queue + index
+        await playSong(next, queue, nextIndex);
     }, [playSong]);
 
     /** ⏮ Previous song */
@@ -454,14 +446,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
         const prev = queue[prevIndex];
 
-        await playSong(
-            prev,
-            queue,
-            prevIndex,
-            currentAlbumIdRef.current || undefined,
-            currentAlbumNameRef.current || undefined
-        );
+        // ✅ Anche qui niente più albumId / albumName
+        await playSong(prev, queue, prevIndex);
     }, [playSong]);
+
 
     /** ⏹ Stop completo */
     const stopSong = useCallback(async () => {
@@ -523,7 +511,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     /** 🧠 Attiva MediaSession native (expo-media-session) una sola volta */
     useEffect(() => {
         if (MediaSession?.activate) {
+            // 🔈 Attiva la media session (importante per background)
             MediaSession.activate();
+            MediaSession.setActive(true);
+
+            // ✅ Forza lo stato "playing" per mantenere viva la sessione audio
+            MediaSession.setPlaybackState("playing");
+
+            // 🔁 Registra gli eventi di sistema (notifiche / lockscreen)
             const sub = MediaSession.addListener?.(
                 "event",
                 (event: MediaSessionEvent) => {
@@ -544,9 +539,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     }
                 }
             );
-            return () => sub?.remove?.();
+
+            console.log("✅ MediaSession attiva per background playback");
+
+            return () => {
+                sub?.remove?.();
+                MediaSession.setActive(false);
+            };
         }
     }, [togglePlayPause, nextSongAction, prevSong, stopSong]);
+
+
 
     /** 🎵 Sincronizza solo lo stato di playback (playing/paused) con MediaSession */
     useEffect(() => {

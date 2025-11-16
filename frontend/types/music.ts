@@ -14,6 +14,8 @@ export type SongDTO = {
     stream: number;
     tracklistPosition: number;
     artists: ArtistDTO[];
+    albumId: string;
+    albumName: string;
 };
 
 export type AlbumDTO = {

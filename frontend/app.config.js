@@ -50,7 +50,27 @@ export default {
                 startUrl: ".",
                 scope: ".",
                 display: "standalone",
-                orientation: "portrait"
+                orientation: "portrait",
+                icons: [
+                    {
+                        src: "./assets/images/icon-192x192.png",
+                        sizes: "192x192",
+                        type: "image/png",
+                        purpose: "any"
+                    },
+                    {
+                        src: "./assets/images/icon-512x512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "any"
+                    },
+                    {
+                        src: "./assets/images/maskable-icon-512x512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "maskable"
+                    }
+                ]
             },
             meta: {
                 apple: {

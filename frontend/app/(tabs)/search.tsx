@@ -106,29 +106,23 @@ export default function SearchScreen() {
         if (item.type === "artist") {
             router.push({
                 pathname: "/(tabs)/artistdetails",
-                params: {artistId: item.id, from: "search"},
+                params: { artistId: item.id, from: "search" },
             });
         } else if (item.type === "album") {
             router.push({
                 pathname: "/(tabs)/albumdetails",
-                params: {id: item.id, from: "search"},
+                params: { id: item.id, from: "search" },
             });
         } else if (item.type === "song") {
             const queue = item.queue ?? [];
             const songIndex = queue.findIndex((s: any) => s.id === item.id);
 
             if (songIndex !== -1) {
-                playSong(
-                    queue[songIndex],
-                    queue,
-                    songIndex,
-                    item.albumId,
-                    item.albumName ?? ""
-                );
+                playSong(queue[songIndex], queue, songIndex);
             }
         }
-
     };
+
 
     // 🔸 UI elemento risultato
     const renderResultItem = ({item}: any) => {

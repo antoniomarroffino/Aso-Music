@@ -23,19 +23,27 @@ export async function fetchSongsByAlbum(albumId: string): Promise<SongDTO[]> {
             const body = await res.text().catch(() => "");
             throw new Error(`Errore fetchSongsByAlbum(${albumId}): ${res.status} ${body}`);
         }
-        return (await res.json()) as SongDTO[];
+
+        const songs = (await res.json()) as SongDTO[];
+
+        // 🧩 Fix di sicurezza: se il backend non restituisce albumId/albumName
+        return songs.map((song) => ({
+            ...song,
+            albumId: song.albumId ?? albumId,
+            albumName: song.albumName ?? "", // può essere riempito da AlbumDTO
+        }));
     } catch (err) {
         console.error("❌ Errore fetchSongsByAlbum:", err);
         throw err;
     }
 }
 
+
 /**
  * 🔹 Helper: costruisce un AlbumDTO completo partendo dal preview
  *    (mantiene la stessa shape che il resto dell’app si aspetta: album + songs[])
  */
 export async function buildAlbumFromPreview(preview: AlbumPreviewDTO): Promise<AlbumDTO> {
-    // 🔒 Album non disponibile → NON chiamare backend per le canzoni
     if (!preview.available) {
         return {
             id: preview.id,
@@ -44,11 +52,12 @@ export async function buildAlbumFromPreview(preview: AlbumPreviewDTO): Promise<A
             description: preview.description,
             coverURL: preview.coverURL,
             releaseYear: preview.releaseYear,
-            songs: [], // 🔥 niente fetch
+            songs: [],
+            available: preview.available,
+            availableAt: preview.availableAt ?? null,
         };
     }
 
-    // 🔓 Album disponibile → fetch normale
     const songs = await fetchSongsByAlbum(preview.id);
 
     return {
@@ -59,6 +68,8 @@ export async function buildAlbumFromPreview(preview: AlbumPreviewDTO): Promise<A
         coverURL: preview.coverURL,
         releaseYear: preview.releaseYear,
         songs,
+        available: preview.available,
+        availableAt: preview.availableAt ?? null,
     };
 }
 
