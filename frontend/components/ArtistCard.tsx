@@ -13,21 +13,19 @@ const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2;
 
 type ArtistCardProps = ArtistDTO & {
     index?: number;
-    onPress?: () => void; // ✅ opzionale per compatibilità futura
+    onPress?: () => void;
 };
 
 export function ArtistCard({ id, name, profileURL, index = 0, onPress }: ArtistCardProps) {
     const router = useRouter();
 
     const imageSource =
-        profileURL && profileURL.trim().length > 0
+        profileURL?.trim()
             ? { uri: profileURL }
             : require("@/assets/images/placeholder-profile.png");
 
     const handlePress = () => {
         if (onPress) return onPress();
-
-        // ✅ nuova logica: passa solo l'id dell'artista
         router.push({
             pathname: "/artistdetails",
             params: { artistId: id },
@@ -37,61 +35,52 @@ export function ArtistCard({ id, name, profileURL, index = 0, onPress }: ArtistC
     return (
         <TouchableOpacity style={styles.container} activeOpacity={0.85} onPress={handlePress}>
             <MotiView
-                from={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                from={{ scale: 0.85, opacity: 0, translateY: 20 }}
+                animate={{ scale: 1, opacity: 1, translateY: 0 }}
                 transition={{
                     type: "spring",
-                    damping: 15,
-                    delay: index * 40,
+                    damping: 16,
+                    delay: index * 45,
                 }}
             >
                 <View style={styles.card}>
                     <LinearGradient
-                        colors={["rgba(29, 185, 84, 0.3)", "rgba(138, 43, 226, 0.2)"]}
+                        colors={[
+                            "rgba(255,255,255,0.05)",
+                            "rgba(255,255,255,0.02)"
+                        ]}
                         style={styles.gradientBorder}
                     >
                         <View style={styles.cardInner}>
-                            {/* Immagine artista */}
+
+                            {/* FOTO ARTISTA — pulita */}
                             <View style={styles.imageWrapper}>
                                 <Image
                                     source={imageSource}
                                     style={styles.image}
                                     contentFit="cover"
-                                    transition={200}
+                                    transition={250}
                                 />
-                                <LinearGradient
-                                    colors={["transparent", "rgba(0, 0, 0, 0.4)"]}
-                                    style={styles.imageOverlay}
+
+                                {/* Shine Effect soft */}
+                                <MotiView
+                                    from={{ translateX: -CARD_WIDTH }}
+                                    animate={{ translateX: CARD_WIDTH * 2 }}
+                                    transition={{
+                                        type: "timing",
+                                        duration: 3500,
+                                        loop: true,
+                                        delay: Math.random() * 2000,
+                                    }}
+                                    style={styles.shineEffect}
                                 />
                             </View>
 
-                            {/* Bottone Play */}
-                            <MotiView
-                                from={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{
-                                    type: "spring",
-                                    delay: 200 + index * 40,
-                                }}
-                                style={styles.playButton}
-                            >
-                                <LinearGradient
-                                    colors={["#1DB954", "#1ed760"]}
-                                    style={styles.playGradient}
-                                >
-                                    <Ionicons name="play" size={14} color="#000" />
-                                </LinearGradient>
-                            </MotiView>
-
-                            {/* Nome artista */}
+                            {/* NOME ARTISTA */}
                             <View style={styles.nameContainer}>
                                 <Text numberOfLines={1} style={styles.name}>
                                     {name}
                                 </Text>
-                                <View style={styles.badge}>
-                                    <Ionicons name="mic" size={8} color="#888" />
-                                    <Text style={styles.badgeText}>Artista</Text>
-                                </View>
                             </View>
                         </View>
                     </LinearGradient>
@@ -105,78 +94,79 @@ const styles = StyleSheet.create({
     container: {
         width: CARD_WIDTH,
     },
+
     card: {
-        borderRadius: 16,
+        borderRadius: 18,
         overflow: "hidden",
     },
+
     gradientBorder: {
-        padding: 1,
-        borderRadius: 16,
+        padding: 2,
+        borderRadius: 18,
     },
+
     cardInner: {
-        backgroundColor: "#141414",
-        borderRadius: 15,
+        backgroundColor: "#0f0f0f",
+        borderRadius: 16,
         overflow: "hidden",
-        position: "relative",
     },
+
     imageWrapper: {
         width: "100%",
         aspectRatio: 1,
-        position: "relative",
-        backgroundColor: "#1a1a1a",
+        borderRadius: 16,
         overflow: "hidden",
+        backgroundColor: "#111",
+        position: "relative",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 14,
+        elevation: 6,
     },
+
     image: {
         width: "100%",
         height: "100%",
     },
-    imageOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    playButton: {
+
+    shineEffect: {
         position: "absolute",
-        bottom: 54,
-        right: 10,
-        borderRadius: 16,
-        overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
-        elevation: 4,
+        top: 0,
+        width: 40,
+        height: "100%",
+        backgroundColor: "rgba(255,255,255,0.07)",
+        transform: [{ skewX: "-20deg" }],
     },
-    playGradient: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: "center",
-        alignItems: "center",
-    },
+
     nameContainer: {
         padding: 12,
         paddingTop: 10,
         alignItems: "center",
+        gap: 6,
     },
+
     name: {
         color: "#fff",
-        fontWeight: "700",
-        fontSize: 13,
-        textAlign: "center",
-        marginBottom: 4,
+        fontWeight: "800",
+        fontSize: 14,
+        letterSpacing: -0.3,
     },
+
     badge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 3,
+        gap: 4,
         paddingHorizontal: 6,
-        paddingVertical: 2,
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        borderRadius: 6,
+        paddingVertical: 3,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderRadius: 8,
     },
+
     badgeText: {
-        color: "#888",
+        color: "#999",
         fontSize: 9,
-        fontWeight: "600",
+        fontWeight: "700",
         textTransform: "uppercase",
     },
 });

@@ -26,7 +26,8 @@ import { MotiView} from "moti";
 import { StatusBar } from "expo-status-bar";
 
 const { height, width } = Dimensions.get("window");
-const COVER_SIZE = width * 0.75;
+// 🔹 Copertina leggermente più piccola per ridurre altezza generale
+const COVER_SIZE = width * 0.68;
 
 export default function FullPlayer() {
     const {
@@ -188,7 +189,7 @@ export default function FullPlayer() {
 
                 {/* 🔝 Custom Header con Blur */}
                 <MotiView
-                    from={{ opacity: 0, translateY: -50 }}
+                    from={{ opacity: 0, translateY: -40 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ type: "spring", damping: 15 }}
                     style={styles.customHeader}
@@ -240,7 +241,7 @@ export default function FullPlayer() {
 
                 {/* 🎨 Cover Hero Section */}
                 <MotiView
-                    from={{ scale: 0.85, opacity: 0 }}
+                    from={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", damping: 15, delay: 100 }}
                     style={styles.heroSection}
@@ -260,9 +261,9 @@ export default function FullPlayer() {
 
                 {/* 📝 Song Info */}
                 <MotiView
-                    from={{ opacity: 0, translateY: 20 }}
+                    from={{ opacity: 0, translateY: 16 }}
                     animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: "spring", delay: 300 }}
+                    transition={{ type: "spring", delay: 260 }}
                     style={styles.infoSection}
                 >
                     <Text style={styles.title} numberOfLines={2}>
@@ -275,7 +276,7 @@ export default function FullPlayer() {
                             alignItems: "center",
                             justifyContent: "center",
                             gap: 12,
-                            marginBottom: 10,
+                            marginBottom: 8,
                         }}
                     >
                         <View style={styles.artistRow}>
@@ -290,16 +291,7 @@ export default function FullPlayer() {
                         {/* ❤️ Like Button semplificato */}
                         <TouchableOpacity
                             onPress={() => alert("Funzionalità in sviluppo!")}
-                            style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: 17,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                backgroundColor: "rgba(255,255,255,0.05)",
-                                borderWidth: 1,
-                                borderColor: "rgba(255,255,255,0.1)",
-                            }}
+                            style={styles.smallLikeButton}
                             activeOpacity={0.7}
                         >
                             <Ionicons name="heart-outline" size={18} color="#fff" />
@@ -309,9 +301,9 @@ export default function FullPlayer() {
 
                 {/* 🎚️ Progress Bar Premium */}
                 <MotiView
-                    from={{ opacity: 0, scale: 0.9 }}
+                    from={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", delay: 400 }}
+                    transition={{ type: "spring", delay: 340 }}
                     style={styles.progressSection}
                 >
                     <GestureDetector gesture={composedGesture}>
@@ -360,9 +352,9 @@ export default function FullPlayer() {
 
                 {/* 🎮 Controls Premium */}
                 <MotiView
-                    from={{ opacity: 0, translateY: 30 }}
+                    from={{ opacity: 0, translateY: 24 }}
                     animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ type: "spring", delay: 500 }}
+                    transition={{ type: "spring", delay: 420 }}
                     style={styles.controlsSection}
                 >
                     <View style={styles.controls}>
@@ -372,7 +364,7 @@ export default function FullPlayer() {
                                 colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
                                 style={styles.controlButton}
                             >
-                                <Ionicons name="play-skip-back" size={28} color="#fff" />
+                                <Ionicons name="play-skip-back" size={26} color="#fff" />
                             </LinearGradient>
                         </TouchableOpacity>
 
@@ -393,7 +385,7 @@ export default function FullPlayer() {
                                 >
                                     <Ionicons
                                         name={isPlaying ? "pause" : "play"}
-                                        size={42}
+                                        size={40}
                                         color="#000"
                                         style={{ marginLeft: isPlaying ? 0 : 3 }}
                                     />
@@ -407,7 +399,7 @@ export default function FullPlayer() {
                                 colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
                                 style={styles.controlButton}
                             >
-                                <Ionicons name="play-skip-forward" size={28} color="#fff" />
+                                <Ionicons name="play-skip-forward" size={26} color="#fff" />
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -417,21 +409,20 @@ export default function FullPlayer() {
                 {/* 🔜 Next Song Preview */}
                 {showNextSong && nextSong && (
                     <MotiView
-                        from={{ opacity: 0, translateY: 20, scale: 0.9 }}
-                        animate={{ opacity: 1, translateY: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ type: "spring", damping: 15 }}
+                        // 🔹 SOLO FADE-IN, niente rimbalzo / scala
+                        from={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ type: "timing", duration: 260 }}
                         style={styles.nextSongContainer}
                     >
-                        <BlurView intensity={40} tint="dark" style={styles.nextSongBlur}>
+                        <BlurView intensity={30} tint="dark" style={styles.nextSongBlur}>
                             <LinearGradient
-                                colors={["rgba(29, 185, 84, 0.15)", "rgba(29, 185, 84, 0.05)"]}
+                                colors={["rgba(29, 185, 84, 0.12)", "rgba(29, 185, 84, 0.04)"]}
                                 style={styles.nextSongGradient}
                             >
                                 <View style={styles.nextSongContent}>
-                                    <View style={styles.nextSongIcon}>
-                                        <Ionicons name="play-skip-forward" size={16} color="#1DB954" />
-                                    </View>
+                                    {/* 🔹 RIMOSSA ICONA PLAY – solo testo */}
                                     <View style={styles.nextSongInfo}>
                                         <Text style={styles.nextUpLabel}>Prossima traccia</Text>
                                         <Text style={styles.nextUpTitle} numberOfLines={1}>
@@ -456,7 +447,8 @@ export default function FullPlayer() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: Platform.OS === "ios" ? 50 : 40,
+        // 🔹 leggermente meno padding per alzare tutto
+        paddingTop: Platform.OS === "ios" ? 44 : 36,
     },
     customHeader: {
         position: "absolute",
@@ -466,9 +458,9 @@ const styles = StyleSheet.create({
         zIndex: 100,
     },
     smallLikeButton: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(255,255,255,0.05)",
@@ -483,15 +475,15 @@ const styles = StyleSheet.create({
     headerGradient: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        paddingHorizontal: 18,
+        paddingVertical: 10, // 🔹 un po' più compatto
         borderBottomWidth: 1,
         borderBottomColor: "rgba(255, 255, 255, 0.08)",
     },
     backButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: "rgba(255, 255, 255, 0.1)",
         justifyContent: "center",
         alignItems: "center",
@@ -531,9 +523,9 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     moreButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: "rgba(255, 255, 255, 0.1)",
         justifyContent: "center",
         alignItems: "center",
@@ -541,8 +533,9 @@ const styles = StyleSheet.create({
     // ✅ STILI SEMPLIFICATI PER LA COVER
     heroSection: {
         alignItems: "center",
-        marginTop: Platform.OS === "ios" ? 100 : 90,
-        marginBottom: 28,
+        // 🔹 alziamo un po’ verso l'alto
+        marginTop: Platform.OS === "ios" ? 88 : 80,
+        marginBottom: 24,
     },
     coverContainer: {
         alignItems: "center",
@@ -567,11 +560,12 @@ const styles = StyleSheet.create({
     infoSection: {
         alignItems: "center",
         paddingHorizontal: 32,
-        marginBottom: 32,
+        // 🔹 meno spazio sotto
+        marginBottom: 24,
     },
     title: {
         color: "#fff",
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: "900",
         textAlign: "center",
         marginBottom: 8,
@@ -581,25 +575,26 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
-        paddingHorizontal: 16,
+        paddingHorizontal: 14,
         paddingVertical: 6,
         backgroundColor: "rgba(255, 255, 255, 0.05)",
         borderRadius: 16,
     },
     artist: {
         color: "#aaa",
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: "600",
     },
     progressSection: {
-        paddingHorizontal: 28,
-        marginBottom: 36,
+        paddingHorizontal: 24,
+        // 🔹 meno spazio sotto
+        marginBottom: 26,
     },
     progressWrapper: {
         width: "100%",
     },
     progressContainer: {
-        height: 32,
+        height: 30,
         justifyContent: "center",
         position: "relative",
     },
@@ -627,7 +622,7 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         marginLeft: -10,
-        top: 6,
+        top: 5,
     },
     handleGradient: {
         width: "100%",
@@ -653,7 +648,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     timeContainer: {
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         paddingVertical: 4,
         backgroundColor: "rgba(255, 255, 255, 0.05)",
         borderRadius: 8,
@@ -665,20 +660,21 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     controlsSection: {
-        paddingHorizontal: 32,
-        marginBottom: 24,
+        paddingHorizontal: 28,
+        // 🔹 ridotto per fare spazio al banner
+        marginBottom: 16,
     },
     controls: {
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        gap: 32,
-        marginBottom: 24,
+        gap: 28,
+        marginBottom: 16,
     },
     controlButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 52,
+        height: 52,
+        borderRadius: 26,
         justifyContent: "center",
         alignItems: "center",
         borderWidth: 1,
@@ -690,9 +686,9 @@ const styles = StyleSheet.create({
         elevation: 6,
     },
     playButton: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 76,
+        height: 76,
+        borderRadius: 38,
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#1DB954",
@@ -704,7 +700,7 @@ const styles = StyleSheet.create({
     extraControls: {
         flexDirection: "row",
         justifyContent: "center",
-        position: "relative", // ✅ AGGIUNTO per posizionare il tooltip
+        position: "relative",
     },
     extraButton: {
         width: 44,
@@ -713,9 +709,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(255, 255, 255, 0.05)",
-        opacity: 0.6, // ✅ AGGIUNTO per rendere visivamente inattivo
+        opacity: 0.6,
     },
-// ✅ NUOVI STILI PER IL TOOLTIP
+    // ✅ NUOVI STILI PER IL TOOLTIP
     tooltipContainer: {
         position: "absolute",
         bottom: 60,
@@ -772,56 +768,47 @@ const styles = StyleSheet.create({
     },
     nextSongContainer: {
         position: "absolute",
-        bottom: 40,
+        // 🔹 un po’ più su per non pestare i controlli
+        bottom: 22,
         left: 20,
         right: 20,
     },
     nextSongBlur: {
-        borderRadius: 20,
+        borderRadius: 18,
         overflow: "hidden",
     },
     nextSongGradient: {
         padding: 1,
-        borderRadius: 20,
+        borderRadius: 18,
     },
     nextSongContent: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-        padding: 16,
-        borderRadius: 19,
-        gap: 12,
-    },
-    nextSongIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "rgba(29, 185, 84, 0.2)",
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "rgba(29, 185, 84, 0.3)",
+        backgroundColor: "rgba(0, 0, 0, 0.65)",
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 17,
     },
     nextSongInfo: {
         flex: 1,
     },
     nextUpLabel: {
         color: "#1DB954",
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: "700",
         textTransform: "uppercase",
-        letterSpacing: 0.5,
-        marginBottom: 4,
+        letterSpacing: 0.6,
+        marginBottom: 2,
     },
     nextUpTitle: {
         color: "#fff",
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: "800",
-        marginBottom: 2,
+        marginBottom: 1,
     },
     nextUpArtist: {
         color: "#aaa",
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: "600",
     },
 });

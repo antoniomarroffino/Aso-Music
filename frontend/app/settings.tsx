@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 const IBAN = "LT413250025268467321";
 
 export default function SettingsScreen() {
@@ -54,7 +54,7 @@ export default function SettingsScreen() {
 
     const patchNotes = [
         {
-            version: "1.3.1",
+            version: "1.3.2",
             date: "Novembre 2025",
             title: "Aso Mixtape 3 sta arrivando!",
             items: [
