@@ -7,6 +7,8 @@ import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -56,22 +58,32 @@ public class AlbumRepository implements IAlbumRepository {
     }
 
 
-    // 🔄 Mapper condiviso (evita ripetizione codice)
     private AlbumPreviewDTO mapToPreview(DocumentSnapshot doc) {
         Boolean available = doc.getBoolean("available");
-        Timestamp ts = doc.getTimestamp("availableAt");
+
+        Timestamp availableTs = doc.getTimestamp("availableAt");
+        Timestamp releaseTs = doc.getTimestamp("releaseYear");
+
         return AlbumPreviewDTO.builder()
                 .id(doc.getId())
                 .name(doc.getString("name"))
                 .artist(doc.getString("artist"))
                 .coverURL(doc.getString("coverURL"))
-                .releaseYear(doc.getLong("releaseYear") != null
-                        ? doc.getLong("releaseYear").intValue()
-                        : null)
-                .available(doc.getBoolean("available") != null
-                        ? doc.getBoolean("available")
-                        : false)   // default album locked se non presente
-                .availableAt(ts != null ? ts.toDate().getTime() : null)
+                .releaseDate(toOffsetDateTime(releaseTs))
+                .available(available != null ? available : false)
+                .availableAt(availableTs != null ? availableTs.toDate().getTime() : null)
+
                 .build();
     }
+
+    private OffsetDateTime toOffsetDateTime(Timestamp ts) {
+        return ts != null
+                ? ts.toDate()
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toOffsetDateTime()
+                : null;
+    }
+
+
 }

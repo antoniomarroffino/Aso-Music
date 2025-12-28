@@ -55,9 +55,6 @@ public class SongService implements ISongService {
         }
     }
 
-    /**
-     * Converte un intero album e le sue canzoni, aggiungendo i riferimenti albumId / albumName in ogni SongDTO
-     */
     private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
         return AlbumDTO.builder()
                 .id(album.getId())
@@ -65,17 +62,20 @@ public class SongService implements ISongService {
                 .artist(album.getArtist())
                 .description(album.getDescription())
                 .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL()))
-                .releaseYear(album.getReleaseYear())
+                .releaseDate(album.getReleaseDate())
                 .songs(album.getSongs() == null ? List.of() :
                         album.getSongs().stream()
-                                .map(song -> convertSongStorageUrlsSafe(song, album.getId(), album.getName())) // ✅ passiamo album info
+                                .map(song ->
+                                        convertSongStorageUrlsSafe(
+                                                song,
+                                                album.getId(),
+                                                album.getName()
+                                        )
+                                )
                                 .collect(Collectors.toList()))
                 .build();
     }
 
-    /**
-     * Converte una singola song e aggiunge i riferimenti all'album padre.
-     */
     private SongDTO convertSongStorageUrlsSafe(SongDTO song, String albumId, String albumName) {
         return SongDTO.builder()
                 .id(song.getId())
@@ -86,7 +86,7 @@ public class SongService implements ISongService {
                 .stream(song.getStream())
                 .tracklistPosition(song.getTracklistPosition())
                 .artists(song.getArtists())
-                .albumId(albumId)   // ✅ finalmente disponibile
+                .albumId(albumId)
                 .albumName(albumName)
                 .build();
     }

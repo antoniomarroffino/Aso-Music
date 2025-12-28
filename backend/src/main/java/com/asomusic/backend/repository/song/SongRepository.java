@@ -4,10 +4,13 @@ import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.ArtistDTO;
 import com.asomusic.backend.model.dto.SongDTO;
 import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -53,22 +56,32 @@ public class SongRepository implements ISongRepository {
                 songDTOs.add(song);
             }
 
+            Timestamp releaseTs = albumDoc.getTimestamp("releaseYear");
+
             AlbumDTO albumDTO = AlbumDTO.builder()
                     .id(albumId)
                     .name(albumDoc.getString("name"))
                     .artist(albumDoc.getString("artist"))
                     .description(albumDoc.getString("description"))
                     .coverURL(albumDoc.getString("coverURL"))
-                    .releaseYear(albumDoc.getLong("releaseYear") != null
-                            ? albumDoc.getLong("releaseYear").intValue() : null)
+                    .releaseDate(toOffsetDateTime(releaseTs))
                     .songs(songDTOs)
                     .build();
-
             albums.add(albumDTO);
         }
 
         return albums;
     }
+
+    private OffsetDateTime toOffsetDateTime(Timestamp ts) {
+        return ts != null
+                ? ts.toDate()
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toOffsetDateTime()
+                : null;
+    }
+
 
     @Override
     public void incrementListenCount(String albumId, String songId) throws ExecutionException, InterruptedException {

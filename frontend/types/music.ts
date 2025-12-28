@@ -24,7 +24,7 @@ export type AlbumDTO = {
     artist: string;
     description: string;
     coverURL: string;
-    releaseYear: number;
+    releaseDate: string;
     songs: SongDTO[];
     available: boolean;
     availableAt: number | null;
@@ -36,7 +36,7 @@ export type AlbumPreviewDTO = {
     artist: string;
     description: string;
     coverURL: string;
-    releaseYear: number;
+    releaseDate: string;
     available: boolean;
     availableAt?: number | null;
 };

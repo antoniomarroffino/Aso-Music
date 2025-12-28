@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    FlatList,
     Dimensions,
     TouchableOpacity,
     Platform,
@@ -20,10 +19,18 @@ import {StatusBar} from "expo-status-bar";
 import {useSongs} from "@/hooks/useSongs";
 import {usePlayer} from "@/context/PlayerContext";
 import {useArtists} from "@/hooks/useArtists";
-import SafeScrollView from "@/components/ui/SafeScrollView"; // ✅ usa SafeScrollView
+import SafeScrollView from "@/components/ui/SafeScrollView";
 
 const {width, height} = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
+
+const formatReleaseDate = (isoDate: string): string =>
+    new Date(isoDate).toLocaleDateString("it-IT", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+
 
 export default function AlbumDetails() {
     const {id} = useLocalSearchParams<{ id: string }>();
@@ -52,7 +59,7 @@ export default function AlbumDetails() {
             playSong(song, sortedSongs, index);
 
         },
-        [playSong, sortedSongs, togglePlayPause, parsedAlbum]
+        [playSong, sortedSongs, togglePlayPause]
     );
 
 
@@ -89,7 +96,7 @@ export default function AlbumDetails() {
         return {
             trackCount: sortedSongs.length,
             duration: formattedDuration,
-            year: parsedAlbum.releaseYear,
+            date: formatReleaseDate(parsedAlbum.releaseDate),
         };
     }, [sortedSongs, parsedAlbum]);
 
@@ -419,8 +426,8 @@ export default function AlbumDetails() {
                             style={styles.statGradient}
                         >
                             <Ionicons name="calendar" size={20} color="#FF453A"/>
-                            <Text style={styles.statValue}>{stats.year}</Text>
-                            <Text style={styles.statLabel}>Anno</Text>
+                            <Text style={styles.statValue}>{stats.date}</Text>
+                            <Text style={styles.statLabel}>Uscita</Text>
                         </LinearGradient>
                     </MotiView>
                 </View>

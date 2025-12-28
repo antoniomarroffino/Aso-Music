@@ -4,6 +4,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.*;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -29,8 +30,12 @@ public class AlbumDTO {
     @Schema(description = "URL della copertina", examples = "gs://...")
     private String coverURL;
 
-    @Schema(description = "Anno di uscita", examples = "2023")
-    private int releaseYear;
+    @Schema(
+            description = "Data di uscita dell'album",
+            examples = "2023-09-04T00:00:00+02:00",
+            format = "date-time"
+    )
+    private OffsetDateTime releaseDate;
 
     @Schema(description = "Lista dei brani dell'album")
     private List<SongDTO> songs;

@@ -4,7 +4,6 @@ import {
     Text,
     FlatList,
     StyleSheet,
-    RefreshControl,
     Dimensions,
     TouchableOpacity,
 } from "react-native";
@@ -59,9 +58,17 @@ export default function HomeScreen() {
         const sorted = [...albums];
         switch (sortOrder) {
             case "newest":
-                return sorted.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
+                return sorted.sort(
+                    (a, b) =>
+                        new Date(b.releaseDate).getTime() -
+                        new Date(a.releaseDate).getTime()
+                );
             case "oldest":
-                return sorted.sort((a, b) => (a.releaseYear || 0) - (b.releaseYear || 0));
+                return sorted.sort(
+                    (a, b) =>
+                        new Date(a.releaseDate).getTime() -
+                        new Date(b.releaseDate).getTime()
+                );
             case "alphabetical":
                 return sorted.sort((a, b) => a.name.localeCompare(b.name));
             default:

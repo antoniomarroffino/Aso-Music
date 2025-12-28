@@ -34,7 +34,7 @@ export default function ArtistDetailsScreen() {
     const {data: albums} = useSongs();
 
     const [visibleCount, setVisibleCount] = useState(5);
-    const { playSong, currentSong, isPlaying, togglePlayPause } = usePlayer();
+    const { playSong, togglePlayPause } = usePlayer();
 
     useEffect(() => {
         setVisibleCount(5);
@@ -366,8 +366,11 @@ export default function ArtistDetailsScreen() {
                 {artistAlbums.length > 0 ? (
                     (() => {
                         const sorted = [...artistAlbums].sort(
-                            (a, b) => b.releaseYear - a.releaseYear
+                            (a, b) =>
+                                new Date(b.releaseDate).getTime() -
+                                new Date(a.releaseDate).getTime()
                         );
+
                         const latest = sorted[0];
                         const others = sorted.slice(1);
 
