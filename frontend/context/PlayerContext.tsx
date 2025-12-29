@@ -6,11 +6,13 @@ import React, {
     ReactNode,
     useRef,
     useCallback,
+    useMemo,
 } from "react";
 import { Audio } from "expo-av";
 import { SongDTO } from "@/types/music";
 import { incrementStreamCount } from "@/api/songs";
 import { useQueryClient } from "@tanstack/react-query";
+import { ProgressContext, ProgressContextType, useProgress } from "./ProgressContext";
 
 type PlayerContextType = {
     currentSong: SongDTO | null;
@@ -26,17 +28,15 @@ type PlayerContextType = {
     nextSongAction: () => Promise<void>;
     prevSong: () => Promise<void>;
     seekTo: (seconds: number) => Promise<void>;
-    progress: number; // in secondi
-    duration: number; // in secondi
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
-// ✅ Safe dynamic import di expo-media-session
 let MediaSession: any = null;
 try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     MediaSession = require("expo-media-session");
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 } catch (e) {
     console.log("⚠️ MediaSession non disponibile (probabilmente Expo Go / web puro)");
 }
@@ -52,41 +52,50 @@ type MediaSessionEvent =
     | "seekTo";
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
+
     const [currentSong, setCurrentSong] = useState<SongDTO | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [queueVersion, setQueueVersion] = useState(0);
+
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
 
-    // stato "globale" non legato ai re-render
     const currentQueueRef = useRef<SongDTO[]>([]);
     const currentIndexRef = useRef<number>(0);
     const currentAlbumIdRef = useRef<string | null>(null);
     const currentAlbumNameRef = useRef<string | null>(null);
-
     const soundRef = useRef<Audio.Sound | null>(null);
-
-    const killSwitch = useRef(0); // invalida le vecchie sessioni di riproduzione
-
+    const killSwitch = useRef(0);
     const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastStreamedSongId = useRef<string | null>(null);
 
+    const isPlayingRef = useRef(false);
+    const currentSongRef = useRef<SongDTO | null>(null);
+
     const queryClient = useQueryClient();
 
-    // nextSong derivata (best effort)
-    const nextSong: SongDTO | null =
-        currentQueueRef.current.length > 0
-            ? currentQueueRef.current[
-            (currentIndexRef.current + 1) % currentQueueRef.current.length
-                ]
-            : null;
+    useEffect(() => {
+        isPlayingRef.current = isPlaying;
+    }, [isPlaying]);
 
-    // ✅ schedula incremento stream dopo 20s
+    useEffect(() => {
+        currentSongRef.current = currentSong;
+    }, [currentSong]);
+
+    const nextSong = useMemo((): SongDTO | null => {
+        const queue = currentQueueRef.current;
+        if (queue.length === 0) return null;
+        const nextIndex = (currentIndexRef.current + 1) % queue.length;
+        return queue[nextIndex] ?? null;
+    }, [queueVersion]);
+
     const scheduleStreamIncrement = useCallback(
-        (albumId?: string | null, songId?: string | null) => {
+        (albumId: string | null, songId: string | null) => {
             if (!albumId || !songId) return;
 
             if (streamTimeoutRef.current) {
                 clearTimeout(streamTimeoutRef.current);
+                streamTimeoutRef.current = null;
             }
 
             streamTimeoutRef.current = setTimeout(async () => {
@@ -94,10 +103,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 lastStreamedSongId.current = songId;
 
                 try {
-                    // aggiorna ottimisticamente cache React Query
                     queryClient.setQueryData(["songs"], (oldData: any) => {
                         if (!oldData) return oldData;
-
                         return oldData.map((album: any) => {
                             if (album.id !== albumId) return album;
                             return {
@@ -110,8 +117,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                             };
                         });
                     });
-
-                    // chiama backend
                     await incrementStreamCount(albumId, songId);
                 } catch (e) {
                     console.error("❌ Errore stream:", e);
@@ -121,25 +126,22 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         [queryClient]
     );
 
-    /** ✅ Aggiorna metadati e playback state su NATIVE (expo-media-session) + WEB */
     const updateMediaSessionsForSong = useCallback(
-        (song: SongDTO, albumName?: string | null, playing: boolean = true) => {
+        (song: SongDTO, albumName: string | null, playing: boolean) => {
             const artistNames =
                 song.artists?.map((a) => a?.name).join(", ") || "Artista sconosciuto";
 
             // 🔊 Native (expo-media-session)
             try {
-                if (MediaSession?.setMetadata) {
-                    MediaSession.setMetadata({
-                        title: song.title || "Brano",
-                        artist: artistNames,
-                        album: albumName || "",
-                        artwork: song.coverURL || "",
-                    });
-                    MediaSession.setPlaybackState?.(playing ? "playing" : "paused");
-                }
-            } catch (e) {
-                console.log("⚠️ Native MediaSession error:", e);
+                MediaSession?.setMetadata?.({
+                    title: song.title || "Brano",
+                    artist: artistNames,
+                    album: albumName || "",
+                    artwork: song.coverURL || "",
+                });
+                MediaSession?.setPlaybackState?.(playing ? "playing" : "paused");
+            } catch {
+                // ignore
             }
 
             // 🌐 Web MediaSession
@@ -150,92 +152,200 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                         title: song.title || "Brano",
                         artist: artistNames,
                         album: albumName || "",
-                        artwork: [
-                            {
-                                src: song.coverURL || "",
-                                sizes: "512x512",
-                                type: "image/png",
-                            },
-                        ],
+                        artwork: [{ src: song.coverURL || "", sizes: "512x512", type: "image/png" }],
                     });
-
                     // @ts-ignore
-                    navigator.mediaSession.playbackState = playing
-                        ? "playing"
-                        : "paused";
-
-                    console.log("✅ MediaSession metadata updated:", {
-                        title: song.title,
-                        artist: artistNames,
-                        artwork: song.coverURL,
-                    });
-                } catch (e) {
-                    console.log("⚠️ Web MediaSession setup error:", e);
+                    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+                } catch {
+                    // ignore
                 }
             }
         },
         []
     );
 
-    /** ⏯ Toggle play/pause */
-    const togglePlayPause = useCallback(async () => {
+    const cleanupSound = useCallback(async () => {
         const sound = soundRef.current;
-        if (!sound) return;
-
-        const status: any = await sound.getStatusAsync();
-        if (!status || !status.isLoaded) return;
-
-        if (status.isPlaying) {
-            await sound.pauseAsync();
-            setIsPlaying(false);
-            MediaSession?.setPlaybackState?.("paused");
-
-            if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-                try {
-                    // @ts-ignore
-                    navigator.mediaSession.playbackState = "paused";
-                } catch {
-                    // ignore
-                }
-            }
-
-            if (streamTimeoutRef.current) {
-                clearTimeout(streamTimeoutRef.current);
-            }
-        } else {
-            await sound.playAsync();
-            setIsPlaying(true);
-            MediaSession?.setPlaybackState?.("playing");
-
-            if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-                try {
-                    // @ts-ignore
-                    navigator.mediaSession.playbackState = "playing";
-                } catch {
-                    // ignore
-                }
-            }
-
-            if (currentAlbumIdRef.current && currentSong?.id) {
-                scheduleStreamIncrement(currentAlbumIdRef.current, currentSong.id);
-            }
-        }
-    }, [currentSong, scheduleStreamIncrement]);
-
-    /** ⏹ Stop completo */
-    const stopSong = useCallback(async () => {
-        // invalida ulteriori callback di questa "sessione"
-        killSwitch.current += 1;
-
-        if (soundRef.current) {
+        if (sound) {
             try {
-                soundRef.current.setOnPlaybackStatusUpdate(null);
-                await soundRef.current.stopAsync();
-                await soundRef.current.unloadAsync();
+                sound.setOnPlaybackStatusUpdate(null);
+                await sound.stopAsync();
+                await sound.unloadAsync();
             } catch {
                 // ignore
             }
             soundRef.current = null;
+        }
+    }, []);
+
+    const playSongInternalRef = useRef<
+        (song: SongDTO, queue?: SongDTO[], startIndex?: number) => Promise<void>
+    >(async () => {});
+
+    playSongInternalRef.current = async (
+        song: SongDTO,
+        queue?: SongDTO[],
+        startIndex?: number
+    ): Promise<void> => {
+        const session = ++killSwitch.current;
+
+        await cleanupSound();
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
+        }
+
+        if (queue && queue.length > 0) {
+            currentQueueRef.current = queue;
+            const idx = typeof startIndex === "number"
+                ? startIndex
+                : queue.findIndex((s) => s.id === song.id);
+            currentIndexRef.current = idx >= 0 ? idx : 0;
+            setQueueVersion((v) => v + 1);
+        }
+
+        currentAlbumIdRef.current = song.albumId ?? null;
+        currentAlbumNameRef.current = song.albumName ?? null;
+
+        setCurrentSong(song);
+        setProgress(0);
+        setDuration(0);
+
+        const effectiveAlbumName = song.albumName ?? currentAlbumNameRef.current;
+        updateMediaSessionsForSong(song, effectiveAlbumName, true);
+        scheduleStreamIncrement(song.albumId ?? null, song.id);
+
+        try {
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: song.audioURL },
+                { shouldPlay: true }
+            );
+
+            if (session !== killSwitch.current) {
+                console.log("⚠️ Sessione invalidata, scarico il sound");
+                try {
+                    await sound.unloadAsync();
+                } catch {
+                    // ignore
+                }
+                return;
+            }
+
+            soundRef.current = sound;
+            setIsPlaying(true);
+
+            await sound.setProgressUpdateIntervalAsync(500);
+
+            // ✅ Handler per progress e auto-next
+            sound.setOnPlaybackStatusUpdate((status: any) => {
+                if (session !== killSwitch.current) return;
+                if (!status?.isLoaded) return;
+
+                // ✅ Aggiorna progress (solo ProgressContext viene ri-renderizzato)
+                setProgress(status.positionMillis / 1000);
+                setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
+
+                // ✅ isPlaying viene aggiornato solo se cambia realmente
+                setIsPlaying((prev) => {
+                    if (prev !== !!status.isPlaying) {
+                        return !!status.isPlaying;
+                    }
+                    return prev;
+                });
+
+                // Auto-next
+                if (status.didJustFinish && !status.isLooping) {
+                    console.log("🎵 Canzone terminata, passo alla successiva");
+
+                    const currentQueue = currentQueueRef.current;
+                    if (currentQueue.length === 0) {
+                        console.log("⚠️ Queue vuota, non proseguo");
+                        return;
+                    }
+
+                    const nextIndex = (currentIndexRef.current + 1) % currentQueue.length;
+                    const nextTrack = currentQueue[nextIndex];
+
+                    if (nextTrack) {
+                        console.log(`▶️ Prossima: ${nextTrack.title} (index: ${nextIndex})`);
+                        playSongInternalRef.current(nextTrack, currentQueue, nextIndex);
+                    }
+                }
+            });
+
+        } catch (e) {
+            console.log("❌ Errore durante playSong:", e);
+            setIsPlaying(false);
+        }
+    };
+
+    const playSong = useCallback(
+        async (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
+            await playSongInternalRef.current(song, queue, startIndex);
+        },
+        []
+    );
+
+    const togglePlayPause = useCallback(async () => {
+        const sound = soundRef.current;
+        if (!sound) return;
+
+        try {
+            const status: any = await sound.getStatusAsync();
+            if (!status?.isLoaded) return;
+
+            if (status.isPlaying) {
+                await sound.pauseAsync();
+                setIsPlaying(false);
+                MediaSession?.setPlaybackState?.("paused");
+
+                if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+                    try {
+                        // @ts-ignore
+                        navigator.mediaSession.playbackState = "paused";
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                if (streamTimeoutRef.current) {
+                    clearTimeout(streamTimeoutRef.current);
+                    streamTimeoutRef.current = null;
+                }
+            } else {
+                await sound.playAsync();
+                setIsPlaying(true);
+                MediaSession?.setPlaybackState?.("playing");
+
+                if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+                    try {
+                        // @ts-ignore
+                        navigator.mediaSession.playbackState = "playing";
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                const albumId = currentAlbumIdRef.current;
+                const songId = currentSongRef.current?.id;
+                if (albumId && songId) {
+                    scheduleStreamIncrement(albumId, songId);
+                }
+            }
+        } catch (e) {
+            console.log("❌ Errore togglePlayPause:", e);
+        }
+    }, [scheduleStreamIncrement]);
+
+    const stopSong = useCallback(async () => {
+        killSwitch.current += 1;
+
+        await cleanupSound();
+
+        if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+            streamTimeoutRef.current = null;
         }
 
         setIsPlaying(false);
@@ -247,6 +357,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         currentIndexRef.current = 0;
         currentAlbumIdRef.current = null;
         currentAlbumNameRef.current = null;
+
+        setQueueVersion((v) => v + 1);
 
         MediaSession?.setPlaybackState?.("none");
 
@@ -260,299 +372,194 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 // ignore
             }
         }
+    }, [cleanupSound]);
 
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-        }
-    }, []);
-
-    /** ⏩ Seek */
     const seekTo = useCallback(async (seconds: number) => {
         const sound = soundRef.current;
         if (!sound) return;
-        const status: any = await sound.getStatusAsync();
-        if (status?.isLoaded) {
-            await sound.setPositionAsync(seconds * 1000);
+
+        try {
+            const status: any = await sound.getStatusAsync();
+            if (status?.isLoaded) {
+                await sound.setPositionAsync(seconds * 1000);
+            }
+        } catch (e) {
+            console.log("❌ Errore seekTo:", e);
         }
     }, []);
 
-    /** ⏭ Next song (UI + lockscreen) */
     const nextSongAction = useCallback(async () => {
         const queue = currentQueueRef.current;
-        const currentIndex = currentIndexRef.current;
-
-        if (!queue.length) {
+        if (queue.length === 0) {
             console.warn("⚠️ Queue vuota!");
             return;
         }
 
-        const nextIndex = (currentIndex + 1) % queue.length;
+        const nextIndex = (currentIndexRef.current + 1) % queue.length;
         const next = queue[nextIndex];
 
-        await playSongInternal(next, queue, nextIndex);
+        if (next) {
+            await playSongInternalRef.current(next, queue, nextIndex);
+        }
     }, []);
 
-    /** ⏮ Previous song */
     const prevSong = useCallback(async () => {
         const queue = currentQueueRef.current;
-        const currentIndex = currentIndexRef.current;
+        if (queue.length === 0) return;
 
-        if (!queue.length) return;
-
-        const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
+        const prevIndex = (currentIndexRef.current - 1 + queue.length) % queue.length;
         const prev = queue[prevIndex];
 
-        await playSongInternal(prev, queue, prevIndex);
+        if (prev) {
+            await playSongInternalRef.current(prev, queue, prevIndex);
+        }
     }, []);
 
-    /** ✅ Registra handler per controlli di sistema (lockscreen / notifiche Web) */
-    const registerMediaSessionHandlers = useCallback(() => {
-        if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {
-            return;
-        }
+    const togglePlayPauseRef = useRef(togglePlayPause);
+    const nextSongActionRef = useRef(nextSongAction);
+    const prevSongRef = useRef(prevSong);
+    const stopSongRef = useRef(stopSong);
 
-        try {
-            // @ts-ignore
-            navigator.mediaSession.setActionHandler("play", () => {
-                void togglePlayPause();
-            });
-            // @ts-ignore
-            navigator.mediaSession.setActionHandler("pause", () => {
-                void togglePlayPause();
-            });
-            // @ts-ignore
-            navigator.mediaSession.setActionHandler("nexttrack", () => {
-                void nextSongAction();
-            });
-            // @ts-ignore
-            navigator.mediaSession.setActionHandler("previoustrack", () => {
-                void prevSong();
-            });
-        } catch (e) {
-            console.log("⚠️ Error registering MediaSession handlers:", e);
-        }
-    }, [togglePlayPause, nextSongAction, prevSong]);
-
-    /** 🧠 Attiva MediaSession native (expo-media-session) una sola volta */
     useEffect(() => {
+        togglePlayPauseRef.current = togglePlayPause;
+        nextSongActionRef.current = nextSongAction;
+        prevSongRef.current = prevSong;
+        stopSongRef.current = stopSong;
+    }, [togglePlayPause, nextSongAction, prevSong, stopSong]);
+
+    useEffect(() => {
+        // Web MediaSession handlers
+        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+            try {
+                // @ts-ignore
+                navigator.mediaSession.setActionHandler("play", () => {
+                    togglePlayPauseRef.current();
+                });
+                // @ts-ignore
+                navigator.mediaSession.setActionHandler("pause", () => {
+                    togglePlayPauseRef.current();
+                });
+                // @ts-ignore
+                navigator.mediaSession.setActionHandler("nexttrack", () => {
+                    nextSongActionRef.current();
+                });
+                // @ts-ignore
+                navigator.mediaSession.setActionHandler("previoustrack", () => {
+                    prevSongRef.current();
+                });
+            } catch (e) {
+                console.log("⚠️ Error registering Web MediaSession handlers:", e);
+            }
+        }
+        let subscription: any = null;
         if (MediaSession?.activate) {
             MediaSession.activate();
             MediaSession.setActive(true);
-            MediaSession.setPlaybackState("playing");
 
-            const sub = MediaSession.addListener?.(
+            subscription = MediaSession.addListener?.(
                 "event",
                 (event: MediaSessionEvent) => {
                     switch (event) {
                         case "pause":
                         case "play":
-                            void togglePlayPause();
+                            togglePlayPauseRef.current();
                             break;
                         case "next":
-                            void nextSongAction();
+                            nextSongActionRef.current();
                             break;
                         case "previous":
-                            void prevSong();
+                            prevSongRef.current();
                             break;
                         case "stop":
-                            void stopSong();
+                            stopSongRef.current();
                             break;
                     }
                 }
             );
 
             console.log("✅ MediaSession attiva per background playback");
-
-            return () => {
-                sub?.remove?.();
-                MediaSession.setActive(false);
-            };
         }
-    }, [togglePlayPause, nextSongAction, prevSong, stopSong]);
 
-    /** 🎵 Sincronizza solo playing/paused con MediaSession */
+        return () => {
+            subscription?.remove?.();
+            MediaSession?.setActive?.(false);
+        };
+    }, []);
+
     useEffect(() => {
-        if (!MediaSession) return;
-
-        MediaSession.setPlaybackState?.(isPlaying ? "playing" : "paused");
+        MediaSession?.setPlaybackState?.(isPlaying ? "playing" : "paused");
 
         if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
             try {
                 // @ts-ignore
-                navigator.mediaSession.playbackState = isPlaying
-                    ? "playing"
-                    : "paused";
-            } catch (e) {
-                console.log("⚠️ MediaSession web playbackState error:", e);
+                navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+            } catch {
+
             }
         }
     }, [isPlaying]);
 
-    /** 🧹 Cleanup on unmount */
     useEffect(() => {
         return () => {
             killSwitch.current += 1;
 
             if (soundRef.current) {
                 soundRef.current.setOnPlaybackStatusUpdate(null);
-                soundRef.current.unloadAsync();
+                soundRef.current.unloadAsync().catch(() => {});
             }
+
             if (streamTimeoutRef.current) {
                 clearTimeout(streamTimeoutRef.current);
-            }
-            MediaSession?.setPlaybackState?.("none");
-
-            if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-                try {
-                    // @ts-ignore
-                    navigator.mediaSession.metadata = null;
-                    // @ts-ignore
-                    navigator.mediaSession.playbackState = "none";
-                } catch {
-                    // ignore
-                }
             }
         };
     }, []);
 
-    /**
-     * 🎵 Implementazione interna di playSong
-     *  - usa killSwitch per invalidare callback vecchi
-     *  - aggiorna MediaSession e scheduleStreamIncrement
-     *  - auto-next quando il brano termina
-     */
-    async function playSongInternal(
-        song: SongDTO,
-        queue?: SongDTO[],
-        startIndex?: number
-    ): Promise<void> {
-        const session = ++killSwitch.current;
+    const playerContextValue = useMemo<PlayerContextType>(() => ({
+        currentSong,
+        nextSong,
+        isPlaying,
+        playSong,
+        togglePlayPause,
+        stopSong,
+        nextSongAction,
+        prevSong,
+        seekTo,
+    }), [
+        currentSong,
+        nextSong,
+        isPlaying,
+        playSong,
+        togglePlayPause,
+        stopSong,
+        nextSongAction,
+        prevSong,
+        seekTo,
+    ]);
 
-        // stop & unload traccia corrente
-        if (soundRef.current) {
-            try {
-                soundRef.current.setOnPlaybackStatusUpdate(null);
-                await soundRef.current.stopAsync();
-                await soundRef.current.unloadAsync();
-            } catch {
-                // ignore
-            }
-            soundRef.current = null;
-        }
-
-        // aggiorna queue e indice
-        if (queue?.length) {
-            currentQueueRef.current = queue;
-            const idx =
-                typeof startIndex === "number"
-                    ? startIndex
-                    : queue.findIndex((s) => s.id === song.id);
-            currentIndexRef.current = idx >= 0 ? idx : 0;
-        }
-
-        // aggiorna info album
-        currentAlbumIdRef.current = song.albumId ?? null;
-        currentAlbumNameRef.current = song.albumName ?? null;
-
-        setCurrentSong(song);
-        setProgress(0);
-        setDuration(0);
-
-        const effectiveAlbumName = song.albumName ?? currentAlbumNameRef.current;
-
-        // aggiorna MediaSession
-        updateMediaSessionsForSong(song, effectiveAlbumName, true);
-        registerMediaSessionHandlers();
-
-        // schedula stream
-        scheduleStreamIncrement(song.albumId ?? null, song.id);
-
-        // handler di stato
-        const attachStatusHandler = (sound: Audio.Sound) => {
-            sound.setOnPlaybackStatusUpdate((status: any) => {
-                if (session !== killSwitch.current) return;
-                if (!status || !status.isLoaded) return;
-
-                setProgress(status.positionMillis / 1000);
-                setDuration(
-                    status.durationMillis ? status.durationMillis / 1000 : 0
-                );
-                setIsPlaying(!!status.isPlaying);
-
-                if (status.didJustFinish && !status.isLooping) {
-                    const queueLocal = currentQueueRef.current;
-                    if (!queueLocal.length) return;
-
-                    const nextIndex =
-                        (currentIndexRef.current + 1) % queueLocal.length;
-                    const nextTrack = queueLocal[nextIndex];
-                    if (!nextTrack) return;
-
-                    // auto-next → nuova sessione
-                    void playSongInternal(nextTrack, queueLocal, nextIndex);
-                }
-            });
-        };
-
-        try {
-            const { sound } = await Audio.Sound.createAsync(
-                { uri: song.audioURL },
-                { shouldPlay: true }
-            );
-
-            // se nel frattempo è partita un’altra sessione → butta via questo sound
-            if (session !== killSwitch.current) {
-                try {
-                    await sound.unloadAsync();
-                } catch {
-                    // ignore
-                }
-                return;
-            }
-
-            soundRef.current = sound;
-            setIsPlaying(true);
-
-            await sound.setProgressUpdateIntervalAsync(500);
-            attachStatusHandler(sound);
-        } catch (e) {
-            console.log("❌ Errore durante playSong:", e);
-            setIsPlaying(false);
-        }
-    }
-
-    /** API pubblica: wrappa playSongInternal così lo puoi usare nei componenti */
-    const playSong = useCallback(
-        async (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
-            await playSongInternal(song, queue, startIndex);
-        },
-        []
-    );
+    const progressContextValue = useMemo<ProgressContextType>(() => ({
+        progress,
+        duration,
+    }), [progress, duration]);
 
     return (
-        <PlayerContext.Provider
-            value={{
-                currentSong,
-                nextSong,
-                isPlaying,
-                playSong,
-                togglePlayPause,
-                stopSong,
-                nextSongAction,
-                prevSong,
-                seekTo,
-                progress,
-                duration,
-            }}
-        >
-            {children}
+        <PlayerContext.Provider value={playerContextValue}>
+            <ProgressContext.Provider value={progressContextValue}>
+                {children}
+            </ProgressContext.Provider>
         </PlayerContext.Provider>
     );
 };
 
 export const usePlayer = () => {
     const ctx = useContext(PlayerContext);
-    if (!ctx)
+    if (!ctx) {
         throw new Error("usePlayer deve essere usato dentro <PlayerProvider>");
+    }
     return ctx;
+};
+
+export const usePlayerWithProgress = () => {
+    const player = usePlayer();
+    const progress = useProgress();
+    return { ...player, ...progress };
 };

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
@@ -7,41 +7,160 @@ import { ArtistDTO, SongDTO } from "@/types/music";
 import { useRouter } from "expo-router";
 import AwardBadges from "@/components/ui/AwardBadges";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔧 UTILS (fuori dal componente)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const formatDuration = (duration: string | number): string => {
+    if (typeof duration === "string" && duration.includes(":")) return duration;
+    const num = typeof duration === "string" ? parseInt(duration, 10) : duration;
+    const mins = Math.floor(num / 60);
+    const secs = num % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+// Genera un delay deterministico basato sull'id della canzone
+const getShineDelay = (songId: string): number => {
+    let hash = 0;
+    for (let i = 0; i < songId.length; i++) {
+        hash = (hash << 5) - hash + songId.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash % 2000);
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎤 ARTIST LINK (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ArtistLinkProps = {
+    artist: ArtistDTO;
+    isLast: boolean;
+    albumId: string;
+};
+
+const ArtistLink = memo(function ArtistLink({ artist, isLast, albumId }: ArtistLinkProps) {
+    const router = useRouter();
+
+    const handlePress = useCallback(() => {
+        router.push({
+            pathname: "/(tabs)/artistdetails",
+            params: { artistId: artist.id, from: "artistdetails", albumId },
+        });
+    }, [router, artist.id, albumId]);
+
+    return (
+        <TouchableOpacity onPress={handlePress}>
+            <Text style={styles.artistLink}>
+                {artist.name}
+                {!isLast ? ", " : ""}
+            </Text>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⏱️ DURATION BADGE
+// ═══════════════════════════════════════════════════════════════════════════
+
+type DurationBadgeProps = {
+    duration: string | number;
+};
+
+const DurationBadge = memo(function DurationBadge({ duration }: DurationBadgeProps) {
+    const formatted = useMemo(() => formatDuration(duration), [duration]);
+
+    return (
+        <View style={styles.durationContainer}>
+            <Ionicons name="time-outline" size={14} color="#666" />
+            <Text style={styles.duration}>{formatted}</Text>
+        </View>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎧 STREAM BADGE
+// ═══════════════════════════════════════════════════════════════════════════
+
+type StreamBadgeProps = {
+    streams: number;
+};
+
+const StreamBadge = memo(function StreamBadge({ streams }: StreamBadgeProps) {
+    const formatted = useMemo(
+        () => streams?.toLocaleString("it-IT") ?? "0",
+        [streams]
+    );
+
+    return (
+        <View style={styles.streamContainer}>
+            <Ionicons name="headset-outline" size={14} color="#666" />
+            <Text style={styles.streamText}>{formatted}</Text>
+        </View>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ✨ SHINE EFFECT
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ShineEffectProps = {
+    delay: number;
+};
+
+const ShineEffect = memo(function ShineEffect({ delay }: ShineEffectProps) {
+    return (
+        <MotiView
+            from={{ translateX: -200 }}
+            animate={{ translateX: 400 }}
+            transition={{
+                type: "timing",
+                duration: 3000,
+                loop: true,
+                delay,
+            }}
+            style={styles.shineEffect}
+        />
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎵 SONG ITEM ARTIST
+// ═══════════════════════════════════════════════════════════════════════════
+
 interface SongItemArtistProps {
     song: SongDTO;
     rank: number;
-    allArtists?: ArtistDTO[];
+    index: number;
     albumId: string;
-    queue?: SongDTO[];
-    albumName?: string;
-    onPress?: (song: SongDTO, index?: number) => void;
+    onPress: (song: SongDTO, index: number) => void;
 }
-export default function SongItemArtist({
-                                           song,
-                                           rank,
-                                           allArtists,
-                                           albumId,
-                                           queue,
-                                           albumName,
-                                           onPress
-                                       }: SongItemArtistProps) {
 
-    const router = useRouter();
+function SongItemArtistComponent({
+                                     song,
+                                     rank,
+                                     index,
+                                     albumId,
+                                     onPress,
+                                 }: SongItemArtistProps) {
+    const handlePress = useCallback(() => {
+        onPress(song, index);
+    }, [onPress, song, index]);
 
-    const formatDuration = (duration: string | number) => {
-        if (typeof duration === "string" && duration.includes(":")) return duration;
-        const num = typeof duration === "string" ? parseInt(duration) : duration;
-        const mins = Math.floor(num / 60);
-        const secs = num % 60;
-        return `${mins}:${secs.toString().padStart(2, "0")}`;
-    };
+    const shineDelay = useMemo(() => getShineDelay(song.id), [song.id]);
+
+    const animationDelay = useMemo(() => rank * 50, [rank]);
 
     return (
-        <TouchableOpacity style={styles.container} activeOpacity={0.85} onPress={() => onPress?.(song)}>
+        <TouchableOpacity
+            style={styles.container}
+            activeOpacity={0.85}
+            onPress={handlePress}
+        >
             <MotiView
                 from={{ opacity: 0, translateY: 15 }}
                 animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "timing", duration: 300, delay: rank * 50 }}
+                transition={{ type: "timing", duration: 300, delay: animationDelay }}
             >
                 <LinearGradient
                     colors={["rgba(29,185,84,0.08)", "rgba(255,255,255,0.02)"]}
@@ -55,72 +174,48 @@ export default function SongItemArtist({
 
                         {/* Info */}
                         <View style={styles.info}>
-
                             <View style={styles.titleRow}>
                                 <Text style={styles.title} numberOfLines={1}>
                                     {song.title}
                                 </Text>
-
-                                {/* Award */}
                                 <AwardBadges streams={song.stream} />
                             </View>
 
                             <View style={styles.artistRow}>
                                 <Ionicons name="person-outline" size={12} color="#666" />
                                 {song.artists.map((artist, i) => (
-                                    <TouchableOpacity
+                                    <ArtistLink
                                         key={artist.id}
-                                        onPress={() =>
-                                            router.push({
-                                                pathname: "/(tabs)/artistdetails",
-                                                params: { artistId: artist.id, from: "artistdetails", albumId },
-                                            })
-                                        }
-                                    >
-                                        <Text style={styles.artistLink}>
-                                            {artist.name}
-                                            {i < song.artists.length - 1 ? ", " : ""}
-                                        </Text>
-                                    </TouchableOpacity>
+                                        artist={artist}
+                                        isLast={i === song.artists.length - 1}
+                                        albumId={albumId}
+                                    />
                                 ))}
                             </View>
                         </View>
 
-
                         {/* Durata */}
-                        <View style={styles.durationContainer}>
-                            <Ionicons name="time-outline" size={14} color="#666" />
-                            <Text style={styles.duration}>
-                                {formatDuration(song.duration)}
-                            </Text>
-                        </View>
+                        <DurationBadge duration={song.duration} />
 
                         {/* Streams */}
-                        <View style={styles.streamContainer}>
-                            <Ionicons name="headset-outline" size={14} color="#666" />
-                            <Text style={styles.streamText}>
-                                {song.stream?.toLocaleString("it-IT") ?? "0"}
-                            </Text>
-                        </View>
+                        <StreamBadge streams={song.stream} />
                     </View>
                 </LinearGradient>
 
                 {/* Shine effect */}
-                <MotiView
-                    from={{ translateX: -200 }}
-                    animate={{ translateX: 400 }}
-                    transition={{
-                        type: "timing",
-                        duration: 3000,
-                        loop: true,
-                        delay: Math.random() * 2000,
-                    }}
-                    style={styles.shineEffect}
-                />
+                <ShineEffect delay={shineDelay} />
             </MotiView>
         </TouchableOpacity>
     );
 }
+
+// ✅ Export memoizzato
+const SongItemArtist = memo(SongItemArtistComponent);
+export default SongItemArtist;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 STYLES
+// ═══════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
     container: {
@@ -140,8 +235,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.03)",
     },
-
-    /* Rank */
     rank: {
         color: "#1DB954",
         fontSize: 16,
@@ -177,8 +270,6 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         textDecorationLine: "underline",
     },
-
-    /* Durata identica al SongItem */
     durationContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -194,8 +285,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: "600",
     },
-
-    /* Streams identici al SongItem */
     streamContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -210,8 +299,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: "600",
     },
-
-    /* Shine */
     shineEffect: {
         position: "absolute",
         top: 0,

@@ -1,20 +1,15 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback, memo } from "react";
 import {
     View,
-    Text,
-    FlatList,
     StyleSheet,
-    Dimensions,
-    TouchableOpacity,
+    FlatList,
+    ListRenderItemInfo,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
 import { AlbumDTO } from "@/types/music";
 import AlbumCard from "@/components/AlbumCard";
-import RotatingLogo from "@/components/RotatingLogo";
-import { BlurView } from "expo-blur";
+import LockedAlbumCard from "@/components/LockedAlbumCard";
 import { useAuth } from "@/context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -22,389 +17,143 @@ import { useAlbums } from "@/hooks/useAlbums";
 import { usePrefetchAllSongs } from "@/hooks/usePrefetchAllSongs";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNews } from "@/hooks/useNews";
-import LockedAlbumCard from "@/components/LockedAlbumCard";
 
-const { width, height } = Dimensions.get("window");
-const CARD_WIDTH = width / 2.3;
+// Import componenti separati
+import {
+    HomeHeader,
+    HeroSection,
+    NewsDropdown,
+    SectionHeader,
+    SkeletonGrid,
+    SortOrder,
+} from "@/components/home";
 
-type SortOrder = "newest" | "oldest" | "alphabetical";
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎵 ALBUM ITEM (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type AlbumItemProps = {
+    album: AlbumDTO;
+    index: number;
+    isUpcoming: boolean;
+    isAdmin: boolean;
+};
+
+const AlbumItem = memo(function AlbumItem({ album, index, isUpcoming, isAdmin }: AlbumItemProps) {
+    if (isUpcoming) {
+        return <LockedAlbumCard album={album} index={index} isAdmin={isAdmin} />;
+    }
+    return <AlbumCard album={album} index={index} />;
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏠 HOME SCREEN
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function HomeScreen() {
     const { data: albumPreviews, isLoading: albumsLoading } = useAlbums();
     usePrefetchAllSongs(albumPreviews);
+
     const { appUser } = useAuth();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const qc = useQueryClient();
+    const { data: newsList } = useNews();
+
     const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
     const [showSortMenu, setShowSortMenu] = useState(false);
-    const qc = useQueryClient();
     const [showNews, setShowNews] = useState(false);
-    const { data: newsList } = useNews();
-    const isAdmin = appUser?.email === "admin@prova.com";
 
-    const albums: AlbumDTO[] | null = useMemo(() => {
+    const isAdmin = appUser?.email === "admin@prova.com";
+    const username = appUser?.username ?? "Utente";
+    const newsCount = newsList?.length ?? 0;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔧 MEMOIZED DATA
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const albums = useMemo((): AlbumDTO[] | null => {
         if (!albumPreviews) return null;
         return albumPreviews.map((preview) => {
             const songs = qc.getQueryData(["songs", preview.id]) ?? [];
-            return {
-                ...preview,
-                songs,
-            } as AlbumDTO;
+            return { ...preview, songs } as AlbumDTO;
         });
     }, [albumPreviews, qc]);
 
-    const sortedAlbums = useMemo(() => {
-        if (!albums || albums.length === 0) return [];
+    const { finalAlbumList, upcomingAlbumId } = useMemo(() => {
+        if (!albums || albums.length === 0) {
+            return { finalAlbumList: [], upcomingAlbumId: null };
+        }
+
+        // Sort
         const sorted = [...albums];
         switch (sortOrder) {
             case "newest":
-                return sorted.sort(
-                    (a, b) =>
-                        new Date(b.releaseDate).getTime() -
-                        new Date(a.releaseDate).getTime()
-                );
+                sorted.sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime());
+                break;
             case "oldest":
-                return sorted.sort(
-                    (a, b) =>
-                        new Date(a.releaseDate).getTime() -
-                        new Date(b.releaseDate).getTime()
-                );
+                sorted.sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime());
+                break;
             case "alphabetical":
-                return sorted.sort((a, b) => a.name.localeCompare(b.name));
-            default:
-                return sorted;
+                sorted.sort((a, b) => a.name.localeCompare(b.name));
+                break;
         }
+
+        // Find upcoming
+        const upcoming = sorted.find((a) => !a.available);
+        const upcomingId = upcoming?.id ?? null;
+
+        // Build final list
+        if (upcoming) {
+            const withoutUpcoming = sorted.filter((a) => a.id !== upcoming.id);
+            return { finalAlbumList: [upcoming, ...withoutUpcoming], upcomingAlbumId: upcomingId };
+        }
+
+        return { finalAlbumList: sorted, upcomingAlbumId: null };
     }, [albums, sortOrder]);
 
-    // ----------------------
-//  UPCOMING ALBUM LOGIC
-// ----------------------
-    const upcomingAlbum = useMemo(() => {
-        if (!sortedAlbums) return null;
-        return sortedAlbums.find((a) => a.available === false);
-    }, [sortedAlbums]);
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎮 HANDLERS
+    // ═══════════════════════════════════════════════════════════════════════
 
+    const handleToggleNews = useCallback(() => {
+        setShowNews((prev) => !prev);
+    }, []);
 
-    const albumsWithoutUpcoming = useMemo(() => {
-        if (!sortedAlbums) return [];
-        if (!upcomingAlbum) return sortedAlbums;
-        return sortedAlbums.filter((a) => a.id !== upcomingAlbum.id);
-    }, [sortedAlbums, upcomingAlbum]);
+    const handleOpenSettings = useCallback(() => {
+        router.push("/settings");
+    }, [router]);
 
-// La lista finale che mostri nella FlatList
-    const finalAlbumList = useMemo(() => {
-        if (!upcomingAlbum) return albumsWithoutUpcoming;
-        return [upcomingAlbum, ...albumsWithoutUpcoming];
-    }, [upcomingAlbum, albumsWithoutUpcoming]);
+    const handleToggleSortMenu = useCallback(() => {
+        setShowSortMenu((prev) => !prev);
+    }, []);
 
+    const handleSelectSort = useCallback((order: SortOrder) => {
+        setSortOrder(order);
+        setShowSortMenu(false);
+    }, []);
 
-    const getSortLabel = (order: SortOrder) => {
-        switch (order) {
-            case "newest":
-                return "Più recenti";
-            case "oldest":
-                return "Più vecchi";
-            case "alphabetical":
-                return "A-Z";
-        }
-    };
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎨 RENDER ITEM (memoizzato)
+    // ═══════════════════════════════════════════════════════════════════════
 
-    const getSortIcon = (order: SortOrder) => {
-        switch (order) {
-            case "newest":
-                return "arrow-down-outline";
-            case "oldest":
-                return "arrow-up-outline";
-            case "alphabetical":
-                return "text-outline";
-        }
-    };
-
-    const renderHeader = () => (
-        <View style={styles.headerContainer}>
-            <View style={styles.topBar}>
-                <MotiView
-                    from={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "timing", duration: 600 }}
-                    style={styles.appLogoContainer}
-                >
-                    <Text style={styles.appName}>ASO Music</Text>
-                </MotiView>
-
-                <View style={styles.topRightButtons}>
-                    <TouchableOpacity
-                        style={styles.notificationButton}
-                        onPress={() => setShowNews((prev) => !prev)}
-                    >
-                        <BlurView intensity={80} tint="dark" style={styles.iconBlur}>
-                            <Ionicons name="notifications-outline" size={22} color="#1DB954" />
-                            {newsList && newsList.length > 0 && (
-                                <View style={styles.notificationBadge}>
-                                    <Text style={styles.notificationBadgeText}>
-                                        {newsList.length}
-                                    </Text>
-                                </View>
-                            )}
-                        </BlurView>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.settingsButton}
-                        onPress={() => router.push("/settings")}
-                    >
-                        <BlurView intensity={80} tint="dark" style={styles.iconBlur}>
-                            <Ionicons name="settings-outline" size={22} color="#1DB954" />
-                        </BlurView>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {showNews && (
-                <MotiView
-                    from={{ opacity: 0, translateY: -20 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    exit={{ opacity: 0, translateY: -20 }}
-                    transition={{ type: "timing", duration: 250 }}
-                    style={styles.newsDropdownContainer}
-                >
-                    <BlurView intensity={90} tint="dark" style={styles.newsDropdownBlur}>
-                        {newsList && newsList.length > 0 ? (
-                            newsList.slice(0, 3).map((news) => (
-                                <View key={news.id} style={styles.newsItem}>
-                                    <Ionicons
-                                        name="musical-notes"
-                                        size={16}
-                                        color="#1DB954"
-                                    />
-                                    <Text numberOfLines={2} style={styles.newsText}>
-                                        {news.message}
-                                    </Text>
-                                </View>
-                            ))
-                        ) : (
-                            <Text style={styles.newsEmpty}>Nessuna notifica</Text>
-                        )}
-                    </BlurView>
-                </MotiView>
-            )}
-
-            <MotiView
-                from={{ opacity: 0, translateY: -30 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "timing", duration: 700 }}
-            >
-                <BlurView intensity={20} tint="dark" style={styles.heroBlur}>
-                    <LinearGradient
-                        colors={[
-                            "rgba(29, 185, 84, 0.2)",
-                            "rgba(138, 43, 226, 0.15)",
-                            "rgba(29, 185, 84, 0.1)",
-                        ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.heroGradient}
-                    >
-                        <View style={styles.heroContent}>
-                            <View style={styles.greetingSection}>
-                                <Text style={styles.greeting}>Benvenuto 👋</Text>
-                                <Text style={styles.username}>
-                                    {appUser?.username ?? "Utente"}
-                                </Text>
-                                <Text style={styles.subtitle}>
-                                    Esplora la tua musica preferita
-                                </Text>
-                            </View>
-
-                            <RotatingLogo size={70} />
-                        </View>
-                    </LinearGradient>
-                </BlurView>
-            </MotiView>
-        </View>
+    const renderItem = useCallback(
+        ({ item, index }: ListRenderItemInfo<AlbumDTO>) => (
+            <AlbumItem
+                album={item}
+                index={index}
+                isUpcoming={item.id === upcomingAlbumId}
+                isAdmin={isAdmin}
+            />
+        ),
+        [upcomingAlbumId, isAdmin]
     );
 
-    const renderSectionHeader = () => (
-        <MotiView
-            from={{ opacity: 0, translateX: -20 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ type: "timing", duration: 600, delay: 700 }}
-            style={styles.sectionHeaderContainer}
-        >
-            <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionLeft}>
-                    <View style={styles.sectionIconContainer}>
-                        <LinearGradient
-                            colors={["#1DB954", "#1ed760"]}
-                            style={styles.sectionIconGradient}
-                        >
-                            <Ionicons name="disc" size={18} color="#000" />
-                        </LinearGradient>
-                    </View>
-                    <Text style={styles.sectionTitle}>La Tua Libreria</Text>
-                </View>
+    const keyExtractor = useCallback((item: AlbumDTO) => item.id, []);
 
-                <TouchableOpacity
-                    style={styles.sortButton}
-                    onPress={() => setShowSortMenu(!showSortMenu)}
-                >
-                    <BlurView intensity={80} tint="dark" style={styles.sortButtonBlur}>
-                        <Ionicons
-                            name={getSortIcon(sortOrder)}
-                            size={16}
-                            color="#1DB954"
-                        />
-                        <Text style={styles.sortButtonText}>
-                            {getSortLabel(sortOrder)}
-                        </Text>
-                        <Ionicons
-                            name={showSortMenu ? "chevron-up" : "chevron-down"}
-                            size={14}
-                            color="#888"
-                        />
-                    </BlurView>
-                </TouchableOpacity>
-            </View>
-
-            {showSortMenu && (
-                <MotiView
-                    from={{ opacity: 0, translateY: -10, scale: 0.9 }}
-                    animate={{ opacity: 1, translateY: 0, scale: 1 }}
-                    exit={{ opacity: 0, translateY: -10, scale: 0.9 }}
-                    transition={{ type: "timing", duration: 200 }}
-                    style={styles.sortMenuContainer}
-                >
-                    <BlurView intensity={90} tint="dark" style={styles.sortMenu}>
-                        <LinearGradient
-                            colors={[
-                                "rgba(26, 26, 26, 0.95)",
-                                "rgba(18, 18, 18, 0.95)",
-                            ]}
-                            style={styles.sortMenuGradient}
-                        >
-                            {(
-                                ["newest", "oldest", "alphabetical"] as SortOrder[]
-                            ).map((order) => (
-                                <TouchableOpacity
-                                    key={order}
-                                    style={[
-                                        styles.sortMenuItem,
-                                        sortOrder === order && styles.sortMenuItemActive,
-                                    ]}
-                                    onPress={() => {
-                                        setSortOrder(order);
-                                        setShowSortMenu(false);
-                                    }}
-                                >
-                                    <Ionicons
-                                        name={getSortIcon(order)}
-                                        size={20}
-                                        color={sortOrder === order ? "#1DB954" : "#888"}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.sortMenuItemText,
-                                            sortOrder === order &&
-                                            styles.sortMenuItemTextActive,
-                                        ]}
-                                    >
-                                        {getSortLabel(order)}
-                                    </Text>
-                                    {sortOrder === order && (
-                                        <Ionicons
-                                            name="checkmark-circle"
-                                            size={20}
-                                            color="#1DB954"
-                                        />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </LinearGradient>
-                    </BlurView>
-                </MotiView>
-            )}
-
-            <View style={styles.sectionDividerContainer}>
-                <LinearGradient
-                    colors={["#1DB954", "transparent"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.sectionDivider}
-                />
-            </View>
-        </MotiView>
-    );
-
-    const renderAlbumCard = ({ item, index }: { item: AlbumDTO; index: number }) => {
-        if (index === 0 && upcomingAlbum && item.id === upcomingAlbum.id) {
-            return <LockedAlbumCard album={item} index={index} isAdmin={isAdmin} />;
-        }
-        return <AlbumCard album={item} index={index} />;
-    };
-
-    const renderParticles = () => (
-        <View style={styles.particlesContainer}>
-            {[...Array(12)].map((_, i) => (
-                <MotiView
-                    key={i}
-                    from={{
-                        opacity: 0.1,
-                        translateY: 0,
-                        translateX: Math.random() * width,
-                    }}
-                    animate={{
-                        opacity: [0.1, 0.3, 0.1],
-                        translateY: height,
-                    }}
-                    transition={{
-                        loop: true,
-                        type: "timing",
-                        duration: 8000 + Math.random() * 4000,
-                        delay: Math.random() * 2000,
-                    }}
-                    style={[
-                        styles.particle,
-                        {
-                            left: Math.random() * width,
-                            width: 2 + Math.random() * 3,
-                            height: 2 + Math.random() * 3,
-                        },
-                    ]}
-                />
-            ))}
-        </View>
-    );
-
-    const renderSkeletons = () => (
-        <View style={styles.skeletonGrid}>
-            {new Array(8).fill(0).map((_, i) => (
-                <MotiView
-                    key={i}
-                    from={{ opacity: 0.3, scale: 0.9 }}
-                    animate={{ opacity: 0.6, scale: 1 }}
-                    transition={{
-                        loop: true,
-                        type: "timing",
-                        duration: 1500,
-                        delay: i * 100,
-                        repeatReverse: true,
-                    }}
-                    style={styles.skeletonCard}
-                >
-                    <LinearGradient
-                        colors={["#1a1a1a", "#252525", "#1a1a1a"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.skeletonInner}
-                    >
-                        <View style={styles.skeletonSquare} />
-                        <View style={styles.skeletonLine} />
-                        <View style={[styles.skeletonLine, { width: "60%" }]} />
-                    </LinearGradient>
-                </MotiView>
-            ))}
-        </View>
-    );
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎨 RENDER
+    // ═══════════════════════════════════════════════════════════════════════
 
     return (
         <View style={styles.container}>
@@ -413,29 +162,55 @@ export default function HomeScreen() {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
-
             <StatusBar style="light" />
 
-            {renderParticles()}
-
             <View style={styles.content}>
-                {renderHeader()}
-                {renderSectionHeader()}
+                {/* Header Container */}
+                <View style={styles.headerContainer}>
+                    <HomeHeader
+                        newsCount={newsCount}
+                        onToggleNews={handleToggleNews}
+                        onOpenSettings={handleOpenSettings}
+                    />
 
-                {albumsLoading || !sortedAlbums ? (
-                    renderSkeletons()
+                    <NewsDropdown newsList={newsList} visible={showNews} />
+
+                    <HeroSection username={username} />
+                </View>
+
+                {/* Section Header */}
+                <SectionHeader
+                    sortOrder={sortOrder}
+                    showSortMenu={showSortMenu}
+                    onToggleSortMenu={handleToggleSortMenu}
+                    onSelectSort={handleSelectSort}
+                />
+
+                {/* Album List */}
+                {albumsLoading || !finalAlbumList.length ? (
+                    <SkeletonGrid />
                 ) : (
                     <FlatList
                         data={finalAlbumList}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={keyExtractor}
                         numColumns={2}
                         columnWrapperStyle={styles.row}
-                        renderItem={renderAlbumCard}
+                        renderItem={renderItem}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={[
                             styles.listContent,
                             { paddingBottom: insets.bottom + 120 },
                         ]}
+                        // ✅ Ottimizzazioni FlatList
+                        removeClippedSubviews={true}
+                        maxToRenderPerBatch={6}
+                        windowSize={5}
+                        initialNumToRender={6}
+                        getItemLayout={(_, index) => ({
+                            length: 220, // altezza approssimativa card
+                            offset: 220 * Math.floor(index / 2),
+                            index,
+                        })}
                     />
                 )}
             </View>
@@ -443,202 +218,27 @@ export default function HomeScreen() {
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 STYLES
+// ═══════════════════════════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    content: { flex: 1, paddingHorizontal: 16, paddingTop: 50 },
-    topBar: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 20,
-        paddingHorizontal: 4,
-    },
-    appLogoContainer: { flexDirection: "row", alignItems: "center" },
-    appName: {
-        color: "#1DB954",
-        fontSize: 20,
-        fontWeight: "900",
-        letterSpacing: 0.5,
-    },
-    settingsButton: { borderRadius: 12, overflow: "hidden" },
-    settingsBlur: { padding: 10, borderRadius: 12 },
-
-    particlesContainer: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: "hidden",
-    },
-    particle: { position: "absolute", backgroundColor: "#1DB954", borderRadius: 50 },
-
-    headerContainer: { marginBottom: 24 },
-    heroBlur: { borderRadius: 24, overflow: "hidden" },
-    heroGradient: { padding: 24 },
-    heroContent: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    greetingSection: { flex: 1, paddingRight: 16 },
-    greeting: {
-        color: "#b3b3b3",
-        fontSize: 14,
-        fontWeight: "500",
-        marginBottom: 4,
-    },
-    username: {
-        color: "#fff",
-        fontSize: 32,
-        fontWeight: "900",
-        letterSpacing: -1,
-        marginBottom: 4,
-    },
-    subtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
-
-    sectionHeaderContainer: { marginBottom: 20, zIndex: 100 },
-    sectionTitleRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 12,
-        gap: 8,
-    },
-    sectionLeft: {
-        flexDirection: "row",
-        alignItems: "center",
+    container: {
         flex: 1,
-        minWidth: 0,
     },
-    sectionIconContainer: {
-        marginRight: 10,
-        borderRadius: 10,
-        overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 4,
+    content: {
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingTop: 50,
     },
-    sectionIconGradient: {
-        width: 34,
-        height: 34,
-        justifyContent: "center",
-        alignItems: "center",
+    headerContainer: {
+        marginBottom: 24,
     },
-    sectionTitle: {
-        color: "#fff",
-        fontSize: 20,
-        fontWeight: "900",
-        letterSpacing: -0.3,
-        flexShrink: 1,
-    },
-
-    sortButton: { borderRadius: 10, overflow: "hidden", flexShrink: 0 },
-    sortButtonBlur: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        gap: 6,
-    },
-    sortButtonText: { color: "#fff", fontSize: 12, fontWeight: "600" },
-
-    sortMenuContainer: {
-        position: "absolute",
-        top: 52,
-        right: 0,
-        zIndex: 1000,
-        minWidth: 200,
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-    sortMenu: { borderRadius: 16, overflow: "hidden" },
-    sortMenuGradient: { padding: 8 },
-    sortMenuItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 14,
-        gap: 12,
-        borderRadius: 12,
-        marginBottom: 4,
-    },
-    sortMenuItemActive: { backgroundColor: "rgba(29, 185, 84, 0.15)" },
-    sortMenuItemText: { flex: 1, color: "#888", fontSize: 15, fontWeight: "600" },
-    sortMenuItemTextActive: { color: "#fff" },
-
-    sectionDividerContainer: { width: "100%" },
-    sectionDivider: { height: 3, width: "30%", borderRadius: 2 },
-
-    row: { justifyContent: "space-between", marginBottom: 16 },
-    listContent: { paddingBottom: 100 },
-
-    skeletonGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-    skeletonCard: {
-        width: CARD_WIDTH,
-        height: CARD_WIDTH + 60,
+    row: {
+        justifyContent: "space-between",
         marginBottom: 16,
-        borderRadius: 16,
-        overflow: "hidden",
     },
-    skeletonInner: { flex: 1, padding: 12, justifyContent: "center" },
-    skeletonSquare: {
-        width: "100%",
-        aspectRatio: 1,
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        borderRadius: 12,
-        marginBottom: 12,
+    listContent: {
+        paddingBottom: 100,
     },
-    skeletonLine: {
-        height: 10,
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        borderRadius: 5,
-        width: "80%",
-        marginTop: 6,
-    },
-
-    topRightButtons: { flexDirection: "row", alignItems: "center", gap: 12 },
-    notificationButton: { borderRadius: 12, overflow: "hidden", position: "relative" },
-    iconBlur: {
-        padding: 10,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    notificationBadge: {
-        position: "absolute",
-        top: 4,
-        right: 4,
-        backgroundColor: "#ff3b30",
-        borderRadius: 8,
-        paddingHorizontal: 5,
-        paddingVertical: 1,
-        minWidth: 16,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    notificationBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
-
-    newsDropdownContainer: {
-        position: "absolute",
-        top: 70,
-        right: 10,
-        zIndex: 1000,
-        width: 260,
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-    newsDropdownBlur: {
-        borderRadius: 16,
-        overflow: "hidden",
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-    },
-    newsItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingVertical: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255,255,255,0.05)",
-    },
-    newsText: { flex: 1, color: "#fff", fontSize: 13, lineHeight: 18 },
-    newsEmpty: { textAlign: "center", color: "#999", fontSize: 13, paddingVertical: 10 },
 });

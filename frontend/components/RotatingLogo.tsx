@@ -1,59 +1,197 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo, memo } from "react";
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
-    Image,
     Modal,
     Dimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSongs } from "@/hooks/useSongs";
 import { usePlayer } from "@/context/PlayerContext";
-import { SongDTO} from "@/types/music";
+import { SongDTO, AlbumDTO } from "@/types/music";
 
 const { width } = Dimensions.get("window");
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎵 MODAL CONTENT (memoizzato, renderizzato solo quando visibile)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ModalContentProps = {
+    suggestedSong: SongDTO | null;
+    onPlay: () => void;
+    onClose: () => void;
+};
+
+const ModalContent = memo(function ModalContent({
+                                                    suggestedSong,
+                                                    onPlay,
+                                                    onClose,
+                                                }: ModalContentProps) {
+    return (
+        <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={onClose}
+        >
+            <MotiView
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "timing", duration: 300 }}
+                style={styles.messageWrapper}
+            >
+                <View style={styles.messageBlurContainer}>
+                    <BlurView intensity={85} tint="dark" style={styles.messageBlur}>
+                        <LinearGradient
+                            colors={[
+                                "rgba(29, 185, 84, 0.2)",
+                                "rgba(138, 43, 226, 0.15)",
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.messageGradient}
+                        >
+                            {/* Header */}
+                            <View style={styles.messageHeader}>
+                                <View style={styles.messageHeaderLeft}>
+                                    <Text style={styles.messageEmoji}>🎧</Text>
+                                    <Text style={styles.messageTitle}>DJ Cheddar</Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={onClose}
+                                    style={styles.closeButton}
+                                >
+                                    <Ionicons name="close-circle" size={24} color="#888" />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Divider */}
+                            <LinearGradient
+                                colors={["#1DB954", "transparent"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.messageDivider}
+                            />
+
+                            {/* Content */}
+                            <View style={styles.messageContent}>
+                                {suggestedSong ? (
+                                    <TouchableOpacity onPress={onPlay} activeOpacity={0.7}>
+                                        <Text style={styles.messageText}>
+                                            Ti consiglio di ascoltare{" "}
+                                            <Text style={styles.songTitle}>
+                                                {suggestedSong.title}
+                                            </Text>
+                                            .
+                                        </Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <Text style={styles.messageText}>
+                                        Ti consiglio di ascoltare una canzone a caso.
+                                    </Text>
+                                )}
+                                <Text style={styles.messageAuthor}>— ASO Music</Text>
+                            </View>
+                        </LinearGradient>
+                    </BlurView>
+                </View>
+            </MotiView>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ✨ BADGE (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SparklesBadge = memo(function SparklesBadge() {
+    return (
+        <MotiView
+            from={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", delay: 500 }}
+            style={styles.badge}
+        >
+            <LinearGradient
+                colors={["#1DB954", "#1ed760"]}
+                style={styles.badgeGradient}
+            >
+                <Ionicons name="sparkles" size={12} color="#000" />
+            </LinearGradient>
+        </MotiView>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔄 ROTATING LOGO
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface RotatingLogoProps {
     size?: number;
 }
 
-export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
+function RotatingLogoComponent({ size = 70 }: RotatingLogoProps) {
     const [showMessage, setShowMessage] = useState(false);
     const [suggestedSong, setSuggestedSong] = useState<SongDTO | null>(null);
+    const [songAlbum, setSongAlbum] = useState<AlbumDTO | null>(null);
+
     const { data: albums } = useSongs();
     const { playSong } = usePlayer();
 
-    const handlePress = () => {
+    // ✅ Stili memoizzati basati su size
+    const containerStyle = useMemo(
+        () => ({
+            ...styles.logoContainer,
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+        }),
+        [size]
+    );
+
+    const wrapperStyle = useMemo(
+        () => ({
+            ...styles.logoWrapper,
+            borderRadius: size / 2,
+        }),
+        [size]
+    );
+
+    // ✅ Handler memoizzato
+    const handlePress = useCallback(() => {
         if (!albums || albums.length === 0) return;
 
         const randomAlbum = albums[Math.floor(Math.random() * albums.length)];
+        if (!randomAlbum.songs || randomAlbum.songs.length === 0) return;
+
         const randomSong =
             randomAlbum.songs[Math.floor(Math.random() * randomAlbum.songs.length)];
 
-        setSuggestedSong({ ...randomSong });
+        setSuggestedSong(randomSong); // ✅ Niente spread, usa direttamente
+        setSongAlbum(randomAlbum);
         setShowMessage(true);
-    };
+    }, [albums]);
 
-    const handlePlay = async () => {
-        if (!suggestedSong || !albums) return;
+    // ✅ Handler memoizzato
+    const handlePlay = useCallback(async () => {
+        if (!suggestedSong || !songAlbum) return;
 
-        const album = albums.find((a) =>
-            a.songs.some((s) => s.id === suggestedSong.id)
-        );
-
-        if (!album) return;
-
-        const queue = album.songs;
+        const queue = songAlbum.songs;
         const startIndex = queue.findIndex((s) => s.id === suggestedSong.id);
 
         await playSong(suggestedSong, queue, startIndex);
         setShowMessage(false);
-    };
+    }, [suggestedSong, songAlbum, playSong]);
+
+    // ✅ Handler memoizzato
+    const handleClose = useCallback(() => {
+        setShowMessage(false);
+    }, []);
 
     return (
         <>
@@ -76,16 +214,13 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                             duration: 300,
                         },
                     }}
-                    style={[
-                        styles.logoContainer,
-                        { width: size, height: size, borderRadius: size / 2 },
-                    ]}
+                    style={containerStyle}
                 >
-                    <View style={styles.logoWrapper}>
+                    <View style={wrapperStyle}>
                         <Image
                             source={require("@/assets/images/icon.png")}
                             style={styles.logoImage}
-                            resizeMode="cover"
+                            contentFit="cover"
                         />
                         <LinearGradient
                             colors={["transparent", "rgba(29, 185, 84, 0.2)"]}
@@ -93,103 +228,38 @@ export default function RotatingLogo({ size = 70 }: RotatingLogoProps) {
                         />
                     </View>
 
-                    {/* Indicator Badge */}
-                    <MotiView
-                        from={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", delay: 500 }}
-                        style={styles.badge}
-                    >
-                        <LinearGradient
-                            colors={["#1DB954", "#1ed760"]}
-                            style={styles.badgeGradient}
-                        >
-                            <Ionicons name="sparkles" size={12} color="#000" />
-                        </LinearGradient>
-                    </MotiView>
+                    {/* Badge */}
+                    <SparklesBadge />
                 </MotiView>
             </TouchableOpacity>
 
-            {/* Modal dinamico */}
+            {/* Modal - ✅ Contenuto renderizzato solo quando visibile */}
             <Modal
                 visible={showMessage}
                 transparent
                 animationType="fade"
-                onRequestClose={() => setShowMessage(false)}
-                hardwareAccelerated={false}
+                onRequestClose={handleClose}
+                hardwareAccelerated
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowMessage(false)}
-                >
-                    <MotiView
-                        from={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "timing", duration: 300 }}
-                        style={styles.messageWrapper}
-                    >
-                        {/* 🔧 Spostiamo BlurView fuori da Moti per evitare il flicker */}
-                        <View style={styles.messageBlurContainer}>
-                            <BlurView intensity={85} tint="dark" style={styles.messageBlur}>
-                                <LinearGradient
-                                    colors={[
-                                        "rgba(29, 185, 84, 0.2)",
-                                        "rgba(138, 43, 226, 0.15)",
-                                    ]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.messageGradient}
-                                >
-                                    {/* Tutto il contenuto interno rimane invariato */}
-                                    <View style={styles.messageHeader}>
-                                        <View style={styles.messageHeaderLeft}>
-                                            <Text style={styles.messageEmoji}>🎧</Text>
-                                            <Text style={styles.messageTitle}>DJ Cheddar</Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            onPress={() => setShowMessage(false)}
-                                            style={styles.closeButton}
-                                        >
-                                            <Ionicons name="close-circle" size={24} color="#888" />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <LinearGradient
-                                        colors={["#1DB954", "transparent"]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.messageDivider}
-                                    />
-
-                                    <View style={styles.messageContent}>
-                                        {suggestedSong ? (
-                                            <TouchableOpacity onPress={handlePlay} activeOpacity={0.7}>
-                                                <Text style={styles.messageText}>
-                                                    Ti consiglio di ascoltare{" "}
-                                                    <Text style={{ color: "#1DB954", fontWeight: "bold" }}>
-                                                        {suggestedSong.title}
-                                                    </Text>
-                                                    .
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ) : (
-                                            <Text style={styles.messageText}>
-                                                Ti consiglio di ascoltare una canzone a caso.
-                                            </Text>
-                                        )}
-                                        <Text style={styles.messageAuthor}>— ASO Music</Text>
-                                    </View>
-                                </LinearGradient>
-                            </BlurView>
-                        </View>
-                    </MotiView>
-
-                </TouchableOpacity>
+                {showMessage && (
+                    <ModalContent
+                        suggestedSong={suggestedSong}
+                        onPlay={handlePlay}
+                        onClose={handleClose}
+                    />
+                )}
             </Modal>
         </>
     );
 }
+
+// ✅ Export memoizzato
+const RotatingLogo = memo(RotatingLogoComponent);
+export default RotatingLogo;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 STYLES
+// ═══════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
     logoContainer: {
@@ -203,7 +273,6 @@ const styles = StyleSheet.create({
     logoWrapper: {
         flex: 1,
         overflow: "hidden",
-        borderRadius: 35,
     },
     logoImage: {
         width: "100%",
@@ -291,6 +360,10 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         fontStyle: "italic",
         fontWeight: "500",
+    },
+    songTitle: {
+        color: "#1DB954",
+        fontWeight: "bold",
     },
     messageAuthor: {
         color: "#1DB954",

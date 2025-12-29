@@ -1,23 +1,116 @@
-import React, { useRef } from "react";
+import React, { useRef, memo, useCallback } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
-    Image,
     Dimensions,
     PanResponder,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView, AnimatePresence } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
 import { usePlayer } from "@/context/PlayerContext";
+import { useProgress } from "@/context/ProgressContext";
+import { SongDTO } from "@/types/music";
 
 const { width } = Dimensions.get("window");
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 MINI PROGRESS BAR (si aggiorna ogni 500ms)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MiniProgressBar = memo(function MiniProgressBar() {
+    const { progress, duration } = useProgress();
+
+    const progressWidth = duration > 0 ? (progress / duration) * width : 0;
+
+    return (
+        <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: progressWidth }]} />
+        </View>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎵 SONG INFO (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type SongInfoProps = {
+    currentSong: SongDTO;
+    onPress: () => void;
+};
+
+const SongInfo = memo(function SongInfo({ currentSong, onPress }: SongInfoProps) {
+    return (
+        <TouchableOpacity
+            style={styles.infoContainer}
+            activeOpacity={0.8}
+            onPress={onPress}
+        >
+            <Text style={styles.title} numberOfLines={1}>
+                {currentSong.title}
+            </Text>
+            <Text style={styles.artist} numberOfLines={1}>
+                {Array.isArray(currentSong.artists)
+                    ? currentSong.artists.map((a) => a?.name).join(", ")
+                    : "Artista sconosciuto"}
+            </Text>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ▶️ PLAY BUTTON (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type PlayButtonProps = {
+    isPlaying: boolean;
+    onPress: () => void;
+};
+
+const PlayButton = memo(function PlayButton({ isPlaying, onPress }: PlayButtonProps) {
+    return (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+            <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.playButton}>
+                <Ionicons
+                    name={isPlaying ? "pause" : "play"}
+                    size={22}
+                    color="#000"
+                    style={{ marginLeft: isPlaying ? 0 : 2 }}
+                />
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️ COVER (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type CoverProps = {
+    uri: string;
+};
+
+const Cover = memo(function Cover({ uri }: CoverProps) {
+    return (
+        <Image
+            source={{ uri }}
+            style={styles.cover}
+            contentFit="cover"
+            transition={200}
+        />
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎧 MINI PLAYER (NON si aggiorna ogni 500ms)
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default function MiniPlayer() {
-    const { currentSong, isPlaying, togglePlayPause, progress, duration } = usePlayer();
+    const { currentSong, isPlaying, togglePlayPause } = usePlayer();
     const router = useRouter();
     const segments = useSegments();
 
@@ -30,9 +123,18 @@ export default function MiniPlayer() {
         })
     ).current;
 
-    if ((segments as string[]).includes("fullplayer") || !currentSong) return null;
+    const handleOpenFullPlayer = useCallback(() => {
+        router.push("/fullplayer");
+    }, [router]);
 
-    const progressWidth = duration > 0 ? (progress / duration) * width : 0;
+    const handleTogglePlayPause = useCallback(() => {
+        togglePlayPause();
+    }, [togglePlayPause]);
+
+    // Non mostrare se siamo nel fullplayer o non c'è canzone
+    if ((segments as string[]).includes("fullplayer") || !currentSong) {
+        return null;
+    }
 
     return (
         <AnimatePresence>
@@ -45,43 +147,37 @@ export default function MiniPlayer() {
                 style={styles.container}
             >
                 <LinearGradient colors={["#121212", "#0a0a0a"]} style={styles.inner}>
-                    <Image source={{ uri: currentSong.coverURL }} style={styles.cover} />
+                    {/* Cover - memoizzata */}
+                    <Cover uri={currentSong.coverURL} />
 
-                    <TouchableOpacity
-                        style={styles.infoContainer}
-                        activeOpacity={0.8}
-                        onPress={() => router.push("/fullplayer")}
-                    >
-                        <Text style={styles.title} numberOfLines={1}>
-                            {currentSong.title}
-                        </Text>
-                        <Text style={styles.artist} numberOfLines={1}>
-                            {Array.isArray(currentSong.artists)
-                                ? currentSong.artists.map(a => a?.name).join(", ")
-                                : "Artista sconosciuto"}
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Info - memoizzata */}
+                    <SongInfo
+                        currentSong={currentSong}
+                        onPress={handleOpenFullPlayer}
+                    />
 
-                    <TouchableOpacity onPress={togglePlayPause} activeOpacity={0.8}>
-                        <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.playButton}>
-                            <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#000" />
-                        </LinearGradient>
-                    </TouchableOpacity>
+                    {/* Play Button - memoizzato */}
+                    <PlayButton
+                        isPlaying={isPlaying}
+                        onPress={handleTogglePlayPause}
+                    />
                 </LinearGradient>
 
-                {/* Progress bar */}
-                <View style={styles.progressContainer}>
-                    <View style={[styles.progressBar, { width: progressWidth }]} />
-                </View>
+                {/* Progress bar - si aggiorna ogni 500ms */}
+                <MiniProgressBar />
             </MotiView>
         </AnimatePresence>
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 STYLES
+// ═══════════════════════════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
-        bottom: 60, // ✅ si posiziona sopra la tab bar
+        bottom: 60,
         left: 0,
         width,
         zIndex: 999,
@@ -91,7 +187,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 14,
         paddingVertical: 10,
-        borderTopLeftRadius: 16, // ✅ bordi arrotondati superiori
+        borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
         overflow: "hidden",
         shadowColor: "#000",
@@ -105,10 +201,20 @@ const styles = StyleSheet.create({
         height: 48,
         borderRadius: 6,
         marginRight: 12,
+        backgroundColor: "#1a1a1a",
     },
-    infoContainer: { flex: 1 },
-    title: { color: "#fff", fontSize: 14, fontWeight: "700" },
-    artist: { color: "#aaa", fontSize: 12 },
+    infoContainer: {
+        flex: 1
+    },
+    title: {
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "700"
+    },
+    artist: {
+        color: "#aaa",
+        fontSize: 12
+    },
     playButton: {
         width: 42,
         height: 42,

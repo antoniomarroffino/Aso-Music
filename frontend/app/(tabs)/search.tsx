@@ -1,4 +1,4 @@
-import React, {useState, useMemo} from "react";
+import React, { useState, useMemo, useCallback, memo } from "react";
 import {
     View,
     Text,
@@ -7,45 +7,199 @@ import {
     TextInput,
     TouchableOpacity,
     FlatList,
+    ListRenderItemInfo,
 } from "react-native";
-import {LinearGradient} from "expo-linear-gradient";
-import {StatusBar} from "expo-status-bar";
-import {useSafeAreaInsets} from "react-native-safe-area-context";
-import {MotiView} from "moti";
-import {Ionicons} from "@expo/vector-icons";
-import {useSongs} from "@/hooks/useSongs";
-import {useArtists} from "@/hooks/useArtists";
-import {useRouter} from "expo-router";
-import {Image} from "expo-image";
-import {usePlayer} from "@/context/PlayerContext";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MotiView } from "moti";
+import { Ionicons } from "@expo/vector-icons";
+import { useSongs } from "@/hooks/useSongs";
+import { useArtists } from "@/hooks/useArtists";
+import { useRouter } from "expo-router";
+import { Image } from "expo-image";
+import { usePlayer } from "@/context/PlayerContext";
+import { SongDTO } from "@/types/music";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔧 TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+type SearchType = "all" | "songs" | "albums" | "artists";
+
+type ResultItem = {
+    id: string;
+    type: "song" | "album" | "artist";
+    name: string;
+    artist?: string;
+    image?: string;
+    albumCover?: string;
+    albumId?: string;
+    queue?: SongDTO[];
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 ICON/COLOR MAPS (fuori dal componente per evitare ricreazioni)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
+    song: "musical-notes-outline",
+    album: "disc-outline",
+    artist: "person-outline",
+};
+
+const COLOR_MAP: Record<string, string> = {
+    song: "#1DB954",
+    album: "#8A2BE2",
+    artist: "#FFB347",
+};
+
+const FILTER_OPTIONS: SearchType[] = ["all", "songs", "albums", "artists"];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔍 RESULT ITEM (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ResultItemProps = {
+    item: ResultItem;
+    onPress: (item: ResultItem) => void;
+};
+
+const SearchResultItem = memo(function SearchResultItem({ item, onPress }: ResultItemProps) {
+    const handlePress = useCallback(() => {
+        onPress(item);
+    }, [item, onPress]);
+
+    const imageUri = item.image || item.albumCover;
+
+    return (
+        <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handlePress}
+            style={styles.resultItem}
+        >
+            <LinearGradient
+                colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                style={styles.resultGradient}
+            >
+                {imageUri ? (
+                    <Image
+                        source={{ uri: imageUri }}
+                        style={styles.resultImage}
+                        contentFit="cover"
+                        transition={200}
+                    />
+                ) : (
+                    <View
+                        style={[
+                            styles.resultIconContainer,
+                            { backgroundColor: COLOR_MAP[item.type] + "20" },
+                        ]}
+                    >
+                        <Ionicons
+                            name={ICON_MAP[item.type]}
+                            size={20}
+                            color={COLOR_MAP[item.type]}
+                        />
+                    </View>
+                )}
+
+                <View style={styles.resultTextContainer}>
+                    <Text style={styles.resultName} numberOfLines={1}>
+                        {item.name}
+                    </Text>
+                    {item.artist && (
+                        <Text style={styles.resultSubtitle} numberOfLines={1}>
+                            {item.artist}
+                        </Text>
+                    )}
+                </View>
+
+                <Ionicons name="chevron-forward" size={16} color="#666" />
+            </LinearGradient>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎚️ FILTER BUTTON (memoizzato)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type FilterButtonProps = {
+    type: SearchType;
+    isActive: boolean;
+    onPress: (type: SearchType) => void;
+};
+
+const FilterButton = memo(function FilterButton({ type, isActive, onPress }: FilterButtonProps) {
+    const handlePress = useCallback(() => {
+        onPress(type);
+    }, [type, onPress]);
+
+    return (
+        <TouchableOpacity
+            onPress={handlePress}
+            activeOpacity={0.8}
+            style={[styles.filterButton, isActive && styles.filterButtonActive]}
+        >
+            <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
+                {type.toUpperCase()}
+            </Text>
+        </TouchableOpacity>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📭 EMPTY STATES (memoizzati)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const EmptySearchPlaceholder = memo(function EmptySearchPlaceholder() {
+    return (
+        <View style={styles.placeholder}>
+            <Ionicons name="search-outline" size={40} color="#1DB954" />
+            <Text style={styles.placeholderText}>Inizia a cercare qualcosa...</Text>
+        </View>
+    );
+});
+
+const NoResultsPlaceholder = memo(function NoResultsPlaceholder() {
+    return (
+        <View style={styles.placeholder}>
+            <Ionicons name="alert-circle-outline" size={40} color="#555" />
+            <Text style={styles.placeholderText}>Nessun risultato trovato</Text>
+        </View>
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔎 SEARCH SCREEN
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const {playSong} = usePlayer();
-    const {data: albums} = useSongs();
-    const {data: artists} = useArtists();
+    const { playSong } = usePlayer();
+    const { data: albums } = useSongs();
+    const { data: artists } = useArtists();
 
-    const [searchType, setSearchType] = useState<"all" | "songs" | "albums" | "artists">("all");
+    const [searchType, setSearchType] = useState<SearchType>("all");
     const [query, setQuery] = useState("");
 
-    // 🔍 Funzione helper per match case-insensitive
-    const matches = (text: string, query: string) =>
-        text?.toLowerCase().includes(query.toLowerCase().trim());
-
-    // 🎧 Logica di ricerca
+    // 🔍 Logica di ricerca
     const results = useMemo(() => {
-        if (!query.trim()) return [];
+        const trimmedQuery = query.trim().toLowerCase();
+        if (!trimmedQuery || !albums || !artists) return [];
 
-        const songResults: any[] = [];
-        const albumResults: any[] = [];
-        const artistResults: any[] = [];
+        const matches = (text: string | undefined) =>
+            text?.toLowerCase().includes(trimmedQuery) ?? false;
 
-        if (!albums || !artists) return [];
+        const songResults: ResultItem[] = [];
+        const albumResults: ResultItem[] = [];
+        const artistResults: ResultItem[] = [];
 
         // 1️⃣ Artisti
-        artists.forEach((artist) => {
-            if (matches(artist.name, query)) {
+        for (const artist of artists) {
+            if (matches(artist.name)) {
                 artistResults.push({
                     id: artist.id,
                     type: "artist",
@@ -53,11 +207,11 @@ export default function SearchScreen() {
                     image: artist.profileURL,
                 });
             }
-        });
+        }
 
-        // 2️⃣ Album
-        albums.forEach((album) => {
-            if (matches(album.name, query)) {
+        // 2️⃣ Album e Songs
+        for (const album of albums) {
+            if (matches(album.name)) {
                 albumResults.push({
                     id: album.id,
                     type: "album",
@@ -68,115 +222,116 @@ export default function SearchScreen() {
             }
 
             // 3️⃣ Songs
-            album.songs?.forEach((song) => {
-                const matchByTitle = matches(song.title, query);
-                const matchByArtist = song.artists?.some((a) => matches(a.name, query));
+            if (album.songs) {
+                for (const song of album.songs) {
+                    const matchByTitle = matches(song.title);
+                    const matchByArtist = song.artists?.some((a) => matches(a.name));
 
-                if (matchByTitle || matchByArtist) {
-                    songResults.push({
-                        id: song.id,
-                        type: "song",
-                        name: song.title,
-                        artist: song.artists?.map((a) => a.name).join(", "),
-                        albumCover: album.coverURL,
-                        albumId: album.id,
-                        queue: album.songs,
-                    });
+                    if (matchByTitle || matchByArtist) {
+                        songResults.push({
+                            id: song.id,
+                            type: "song",
+                            name: song.title,
+                            artist: song.artists?.map((a) => a.name).join(", "),
+                            albumCover: album.coverURL,
+                            albumId: album.id,
+                            queue: album.songs,
+                        });
+                    }
                 }
-            });
-        });
-
-        // 🎯 Ordine personalizzato per "All"
-        if (searchType === "all") {
-            return [
-                ...artistResults.sort((a, b) => a.name.localeCompare(b.name)),
-                ...albumResults.sort((a, b) => a.name.localeCompare(b.name)),
-                ...songResults.sort((a, b) => a.name.localeCompare(b.name)),
-            ];
-        }
-
-        if (searchType === "artists") return artistResults;
-        if (searchType === "albums") return albumResults;
-        if (searchType === "songs") return songResults;
-        return [];
-    }, [query, searchType, albums, artists]);
-
-    // 🔸 Azione al tap
-    const handlePress = (item: any) => {
-        if (item.type === "artist") {
-            router.push({
-                pathname: "/(tabs)/artistdetails",
-                params: { artistId: item.id, from: "search" },
-            });
-        } else if (item.type === "album") {
-            router.push({
-                pathname: "/(tabs)/albumdetails",
-                params: { id: item.id, from: "search" },
-            });
-        } else if (item.type === "song") {
-            const queue = item.queue ?? [];
-            const songIndex = queue.findIndex((s: any) => s.id === item.id);
-
-            if (songIndex !== -1) {
-                playSong(queue[songIndex], queue, songIndex);
             }
         }
-    };
 
+        // 🎯 Filtra e ordina
+        const sortByName = (a: ResultItem, b: ResultItem) => a.name.localeCompare(b.name);
 
-    // 🔸 UI elemento risultato
-    const renderResultItem = ({item}: any) => {
-        const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
-            song: "musical-notes-outline",
-            album: "disc-outline",
-            artist: "person-outline",
-        };
+        switch (searchType) {
+            case "artists":
+                return artistResults.sort(sortByName);
+            case "albums":
+                return albumResults.sort(sortByName);
+            case "songs":
+                return songResults.sort(sortByName);
+            default:
+                return [
+                    ...artistResults.sort(sortByName),
+                    ...albumResults.sort(sortByName),
+                    ...songResults.sort(sortByName),
+                ];
+        }
+    }, [query, searchType, albums, artists]);
 
-        const colorMap: Record<string, string> = {
-            song: "#1DB954",
-            album: "#8A2BE2",
-            artist: "#FFB347",
-        };
+    // 🔸 Handlers (memoizzati)
+    const handleItemPress = useCallback(
+        (item: ResultItem) => {
+            if (item.type === "artist") {
+                router.push({
+                    pathname: "/(tabs)/artistdetails",
+                    params: { artistId: item.id, from: "search" },
+                });
+            } else if (item.type === "album") {
+                router.push({
+                    pathname: "/(tabs)/albumdetails",
+                    params: { id: item.id, from: "search" },
+                });
+            } else if (item.type === "song" && item.queue) {
+                const songIndex = item.queue.findIndex((s) => s.id === item.id);
+                if (songIndex !== -1) {
+                    playSong(item.queue[songIndex], item.queue, songIndex);
+                }
+            }
+        },
+        [router, playSong]
+    );
 
+    const handleFilterChange = useCallback((type: SearchType) => {
+        setSearchType(type);
+    }, []);
+
+    const handleClearQuery = useCallback(() => {
+        setQuery("");
+    }, []);
+
+    const handleQueryChange = useCallback((text: string) => {
+        setQuery(text);
+    }, []);
+
+    // 🔸 FlatList renderItem (memoizzato)
+    const renderItem = useCallback(
+        ({ item }: ListRenderItemInfo<ResultItem>) => (
+            <SearchResultItem item={item} onPress={handleItemPress} />
+        ),
+        [handleItemPress]
+    );
+
+    const keyExtractor = useCallback((item: ResultItem) => `${item.type}-${item.id}`, []);
+
+    // 🔸 Content
+    const renderContent = () => {
+        if (!query.trim()) {
+            return <EmptySearchPlaceholder />;
+        }
+        if (results.length === 0) {
+            return <NoResultsPlaceholder />;
+        }
         return (
-            <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handlePress(item)}
-                style={styles.resultItem}
-            >
-                <LinearGradient
-                    colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
-                    style={styles.resultGradient}
-                >
-                    {item.image || item.albumCover ? (
-                        <Image
-                            source={{uri: item.image || item.albumCover}}
-                            style={styles.resultImage}
-                            contentFit="cover"
-                        />
-                    ) : (
-                        <View
-                            style={[
-                                styles.resultIconContainer,
-                                {backgroundColor: colorMap[item.type] + "20"},
-                            ]}
-                        >
-                            <Ionicons
-                                name={iconMap[item.type]}
-                                size={20}
-                                color={colorMap[item.type]}
-                            />
-                        </View>
-                    )}
-
-                    <View style={styles.resultTextContainer}>
-                        <Text style={styles.resultName}>{item.name}</Text>
-                        {item.artist && <Text style={styles.resultSubtitle}>{item.artist}</Text>}
-                    </View>
-
-                    <Ionicons name="chevron-forward" size={16} color="#666"/>
-                </LinearGradient>
-            </TouchableOpacity>
+            <FlatList
+                data={results}
+                keyExtractor={keyExtractor}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                // ✅ Ottimizzazioni FlatList
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                initialNumToRender={10}
+                getItemLayout={(_, index) => ({
+                    length: 64, // altezza approssimativa item
+                    offset: 64 * index,
+                    index,
+                })}
+            />
         );
     };
 
@@ -187,25 +342,22 @@ export default function SearchScreen() {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
-            {Platform.OS !== "web" && <StatusBar style="light"/>}
-
+            {Platform.OS !== "web" && <StatusBar style="light" />}
 
             {/* HEADER */}
             <MotiView
-                from={{opacity: 0, translateY: -20}}
-                animate={{opacity: 1, translateY: 0}}
-                transition={{type: "timing", duration: 600}}
+                from={{ opacity: 0, translateY: -20 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: "timing", duration: 600 }}
                 style={[
                     styles.header,
-                    {
-                        paddingTop: Platform.OS === "web" ? 40 : insets.top + 30
-                    },
+                    { paddingTop: Platform.OS === "web" ? 40 : insets.top + 30 },
                 ]}
             >
                 <View style={styles.headerRow}>
                     <View style={styles.iconContainer}>
                         <LinearGradient colors={["#1DB954", "#1ed760"]} style={styles.iconGradient}>
-                            <Ionicons name="search" size={22} color="#000"/>
+                            <Ionicons name="search" size={22} color="#000" />
                         </LinearGradient>
                     </View>
                     <Text style={styles.headerTitle}>Cerca Musica</Text>
@@ -215,88 +367,91 @@ export default function SearchScreen() {
 
             {/* 🔎 Barra di ricerca */}
             <View style={styles.searchBarContainer}>
-                <Ionicons name="search-outline" size={18} color="#888" style={styles.searchIcon}/>
+                <Ionicons name="search-outline" size={18} color="#888" style={styles.searchIcon} />
                 <TextInput
                     placeholder="Cerca..."
                     placeholderTextColor="#666"
                     style={styles.searchInput}
                     value={query}
-                    onChangeText={setQuery}
+                    onChangeText={handleQueryChange}
+                    autoCorrect={false}
+                    autoCapitalize="none"
                 />
                 {query.length > 0 && (
-                    <TouchableOpacity onPress={() => setQuery("")} style={styles.clearButton}>
-                        <Ionicons name="close-circle" size={18} color="#999"/>
+                    <TouchableOpacity onPress={handleClearQuery} style={styles.clearButton}>
+                        <Ionicons name="close-circle" size={18} color="#999" />
                     </TouchableOpacity>
                 )}
             </View>
 
             {/* 🎚️ Filtro tipo */}
             <View style={styles.filterRow}>
-                {["all", "songs", "albums", "artists"].map((type) => {
-                    const isActive = searchType === type;
-                    return (
-                        <TouchableOpacity
-                            key={type}
-                            onPress={() => setSearchType(type as any)}
-                            activeOpacity={0.8}
-                            style={[styles.filterButton, isActive && styles.filterButtonActive]}
-                        >
-                            <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                                {type.toUpperCase()}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
+                {FILTER_OPTIONS.map((type) => (
+                    <FilterButton
+                        key={type}
+                        type={type}
+                        isActive={searchType === type}
+                        onPress={handleFilterChange}
+                    />
+                ))}
             </View>
 
             {/* 📄 Risultati */}
-            <View style={[styles.resultsContainer, {paddingBottom: insets.bottom + 100}]}>
-                {query.length === 0 ? (
-                    <View style={styles.placeholder}>
-                        <Ionicons name="search-outline" size={40} color="#1DB954"/>
-                        <Text style={styles.placeholderText}>Inizia a cercare qualcosa...</Text>
-                    </View>
-                ) : results.length === 0 ? (
-                    <View style={styles.placeholder}>
-                        <Ionicons name="alert-circle-outline" size={40} color="#555"/>
-                        <Text style={styles.placeholderText}>Nessun risultato trovato</Text>
-                    </View>
-                ) : (
-                    <FlatList
-                        data={results}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderResultItem}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{paddingHorizontal: 20, paddingTop: 10}}
-                    />
-                )}
+            <View style={[styles.resultsContainer, { paddingBottom: insets.bottom + 100 }]}>
+                {renderContent()}
             </View>
         </View>
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 STYLES
+// ═══════════════════════════════════════════════════════════════════════════
+
 const styles = StyleSheet.create({
-    container: {flex: 1, backgroundColor: "#000"},
+    container: {
+        flex: 1,
+        backgroundColor: "#000"
+    },
     header: {
         paddingHorizontal: 20,
         paddingBottom: 10,
         borderBottomWidth: 1,
         borderBottomColor: "rgba(255,255,255,0.05)",
     },
-    headerRow: {flexDirection: "row", alignItems: "center", marginBottom: 8},
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8
+    },
     iconContainer: {
         marginRight: 12,
         borderRadius: 12,
         overflow: "hidden",
         shadowColor: "#1DB954",
-        shadowOffset: {width: 0, height: 2},
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 6,
         elevation: 4,
     },
-    iconGradient: {width: 40, height: 40, justifyContent: "center", alignItems: "center"},
-    headerTitle: {color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5},
-    headerSubtitle: {color: "#b3b3b3", fontSize: 14, fontWeight: "500", marginBottom: 4},
+    iconGradient: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center"
+    },
+    headerTitle: {
+        color: "#fff",
+        fontSize: 26,
+        fontWeight: "900",
+        letterSpacing: -0.5
+    },
+    headerSubtitle: {
+        color: "#b3b3b3",
+        fontSize: 14,
+        fontWeight: "500",
+        marginBottom: 4
+    },
     searchBarContainer: {
         flexDirection: "row",
         alignItems: "center",
@@ -309,9 +464,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)",
     },
-    searchIcon: {marginRight: 8},
-    searchInput: {flex: 1, color: "#fff", fontSize: 15},
-    clearButton: {padding: 4},
+    searchIcon: {
+        marginRight: 8
+    },
+    searchInput: {
+        flex: 1,
+        color: "#fff",
+        fontSize: 15
+    },
+    clearButton: {
+        padding: 4
+    },
     filterRow: {
         flexDirection: "row",
         justifyContent: "center",
@@ -327,11 +490,31 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.1)",
         backgroundColor: "rgba(255,255,255,0.05)",
     },
-    filterButtonActive: {backgroundColor: "rgba(29,185,84,0.2)", borderColor: "#1DB954"},
-    filterText: {color: "#ccc", fontWeight: "600", fontSize: 13},
-    filterTextActive: {color: "#1DB954", fontWeight: "700"},
-    resultsContainer: {flex: 1},
-    resultItem: {marginBottom: 10, borderRadius: 14, overflow: "hidden"},
+    filterButtonActive: {
+        backgroundColor: "rgba(29,185,84,0.2)",
+        borderColor: "#1DB954"
+    },
+    filterText: {
+        color: "#ccc",
+        fontWeight: "600",
+        fontSize: 13
+    },
+    filterTextActive: {
+        color: "#1DB954",
+        fontWeight: "700"
+    },
+    resultsContainer: {
+        flex: 1
+    },
+    listContent: {
+        paddingHorizontal: 20,
+        paddingTop: 10
+    },
+    resultItem: {
+        marginBottom: 10,
+        borderRadius: 14,
+        overflow: "hidden"
+    },
     resultGradient: {
         flexDirection: "row",
         alignItems: "center",
@@ -354,9 +537,26 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginRight: 12,
     },
-    resultTextContainer: {flex: 1},
-    resultName: {color: "#fff", fontSize: 15, fontWeight: "600"},
-    resultSubtitle: {color: "#888", fontSize: 13},
-    placeholder: {flex: 1, alignItems: "center", justifyContent: "center", gap: 8},
-    placeholderText: {color: "#888", fontSize: 15},
+    resultTextContainer: {
+        flex: 1
+    },
+    resultName: {
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: "600"
+    },
+    resultSubtitle: {
+        color: "#888",
+        fontSize: 13
+    },
+    placeholder: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8
+    },
+    placeholderText: {
+        color: "#888",
+        fontSize: 15
+    },
 });
