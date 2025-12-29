@@ -1,22 +1,30 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { TouchableOpacity, Text, View, StyleSheet, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { AlbumDTO } from "@/types/music";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+
+import { AlbumPreviewDTO, SongDTO } from "@/types/music";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width / 2.3;
 
 type AlbumCardProps = {
-    album: AlbumDTO;
+    album: AlbumPreviewDTO;
     index?: number;
 };
 
 export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
+
+    // ✅ Legge le songs dalla cache (prefetchate)
+    const songs = useMemo(() => {
+        return queryClient.getQueryData<SongDTO[]>(["songs", album.id]) ?? [];
+    }, [queryClient, album.id]);
 
     const handlePress = () => {
         router.push({
@@ -36,13 +44,13 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                     <LinearGradient
                         colors={[
                             "rgba(255,255,255,0.05)",
-                            "rgba(255,255,255,0.02)"
+                            "rgba(255,255,255,0.02)",
                         ]}
                         style={styles.gradientBorder}
                     >
                         <View style={styles.cardInner}>
 
-                            {/* COVER — pulita senza pulsanti */}
+                            {/* COVER */}
                             <View style={styles.coverWrapper}>
                                 <Image
                                     source={{ uri: album.coverURL }}
@@ -52,7 +60,7 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                                     placeholder={require("@/assets/images/placeholder-album.png")}
                                 />
 
-                                {/* Shine effect leggerissimo */}
+                                {/* Shine effect */}
                                 <MotiView
                                     from={{ translateX: -CARD_WIDTH }}
                                     animate={{ translateX: CARD_WIDTH * 2 }}
@@ -79,16 +87,21 @@ export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
                                     </Text>
                                 </View>
 
-                                {/* Numero brani */}
-                                {album.songs?.length > 0 && (
+                                {/* 🎵 Numero brani (da cache) */}
+                                {songs.length > 0 && (
                                     <View style={styles.trackBadge}>
-                                        <Ionicons name="musical-notes" size={10} color="#1DB954" />
+                                        <Ionicons
+                                            name="musical-notes"
+                                            size={10}
+                                            color="#1DB954"
+                                        />
                                         <Text style={styles.trackCount}>
-                                            {album.songs.length} brani
+                                            {songs.length} brani
                                         </Text>
                                     </View>
                                 )}
                             </View>
+
                         </View>
                     </LinearGradient>
                 </View>

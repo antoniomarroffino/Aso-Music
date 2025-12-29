@@ -10,7 +10,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
 import { Stack } from "expo-router";
 import { useAlbums } from "@/hooks/useAlbums";
-import { useLoadAllSongsLazy } from "@/hooks/useLoadAllSongsLazy";
+import { usePrefetchAllSongs } from "@/hooks/usePrefetchAllSongs";
 
 // 🟢 Maintenance ON/OFF
 const MAINTENANCE_MODE = false;
@@ -32,7 +32,7 @@ const queryClient = new QueryClient({
 function AuthGateLayout() {
     const { firebaseUser, loadingAuth, logout } = useAuth();
     const { data: albumPreviews } = useAlbums();
-    useLoadAllSongsLazy(albumPreviews);
+    usePrefetchAllSongs(albumPreviews);
 
     const isAdmin =
         firebaseUser?.email?.toLowerCase() === "admin@prova.com";

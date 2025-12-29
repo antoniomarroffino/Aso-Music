@@ -14,7 +14,8 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import { useSongs } from "@/hooks/useSongs";
+import { useAlbums } from "@/hooks/useAlbums";
+import { useQueryClient } from "@tanstack/react-query";
 import { useArtists } from "@/hooks/useArtists";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -179,25 +180,25 @@ export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { playSong } = usePlayer();
-    const { data: albums } = useSongs();
+    const { data: albumPreviews } = useAlbums();
     const { data: artists } = useArtists();
+    const queryClient = useQueryClient();
 
     const [searchType, setSearchType] = useState<SearchType>("all");
     const [query, setQuery] = useState("");
 
-    // 🔍 Logica di ricerca
     const results = useMemo(() => {
         const trimmedQuery = query.trim().toLowerCase();
-        if (!trimmedQuery || !albums || !artists) return [];
+        if (!trimmedQuery || !albumPreviews || !artists) return [];
 
-        const matches = (text: string | undefined) =>
+        const matches = (text?: string) =>
             text?.toLowerCase().includes(trimmedQuery) ?? false;
 
         const songResults: ResultItem[] = [];
         const albumResults: ResultItem[] = [];
         const artistResults: ResultItem[] = [];
 
-        // 1️⃣ Artisti
+        // 1️⃣ ARTISTS
         for (const artist of artists) {
             if (matches(artist.name)) {
                 artistResults.push({
@@ -209,8 +210,8 @@ export default function SearchScreen() {
             }
         }
 
-        // 2️⃣ Album e Songs
-        for (const album of albums) {
+        // 2️⃣ ALBUMS + SONGS (da cache)
+        for (const album of albumPreviews) {
             if (matches(album.name)) {
                 albumResults.push({
                     id: album.id,
@@ -221,29 +222,29 @@ export default function SearchScreen() {
                 });
             }
 
-            // 3️⃣ Songs
-            if (album.songs) {
-                for (const song of album.songs) {
-                    const matchByTitle = matches(song.title);
-                    const matchByArtist = song.artists?.some((a) => matches(a.name));
+            const songs = queryClient.getQueryData<SongDTO[]>(["songs", album.id]);
+            if (!songs) continue;
 
-                    if (matchByTitle || matchByArtist) {
-                        songResults.push({
-                            id: song.id,
-                            type: "song",
-                            name: song.title,
-                            artist: song.artists?.map((a) => a.name).join(", "),
-                            albumCover: album.coverURL,
-                            albumId: album.id,
-                            queue: album.songs,
-                        });
-                    }
+            for (const song of songs) {
+                const matchByTitle = matches(song.title);
+                const matchByArtist = song.artists?.some((a) => matches(a.name));
+
+                if (matchByTitle || matchByArtist) {
+                    songResults.push({
+                        id: song.id,
+                        type: "song",
+                        name: song.title,
+                        artist: song.artists?.map((a) => a.name).join(", "),
+                        albumCover: album.coverURL,
+                        albumId: album.id,
+                        queue: songs,
+                    });
                 }
             }
         }
 
-        // 🎯 Filtra e ordina
-        const sortByName = (a: ResultItem, b: ResultItem) => a.name.localeCompare(b.name);
+        const sortByName = (a: ResultItem, b: ResultItem) =>
+            a.name.localeCompare(b.name);
 
         switch (searchType) {
             case "artists":
@@ -259,7 +260,7 @@ export default function SearchScreen() {
                     ...songResults.sort(sortByName),
                 ];
         }
-    }, [query, searchType, albums, artists]);
+    }, [query, searchType, albumPreviews, artists, queryClient]);
 
     // 🔸 Handlers (memoizzati)
     const handleItemPress = useCallback(

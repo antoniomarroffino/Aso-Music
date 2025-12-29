@@ -1,61 +1,75 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { fetchSongsByAlbum } from "@/api/songs";
 import { AlbumPreviewDTO } from "@/types/music";
 
-const PRIORITY_ALBUM_IDS: string[] = [
-    "mQCN5PneGy9WvdV6CITz",
-];
+const PRIORITY_ALBUM_IDS = ["mQCN5PneGy9WvdV6CITz"];
 
 export function usePrefetchAllSongs(albumPreviews?: AlbumPreviewDTO[]) {
     const qc = useQueryClient();
-    const hasPrefetched = useRef(false);
+
+    // tieni traccia solo degli album che hai già prefetciato, non un boolean "globale"
+    const prefetchedIdsRef = useRef<Set<string>>(new Set());
+
+    const availableAlbums = useMemo(() => {
+        return (albumPreviews ?? []).filter(a => a.available);
+    }, [albumPreviews]);
 
     useEffect(() => {
-        if (!albumPreviews || albumPreviews.length === 0) return;
-        if (hasPrefetched.current) return; // Evita prefetch multipli
+        if (availableAlbums.length === 0) return;
 
-        hasPrefetched.current = true;
+        const prefetch = async (albumId: string) => {
+            if (prefetchedIdsRef.current.has(albumId)) return;
 
-        // ✅ Ordina gli album: prioritari prima, poi gli altri
-        const sortedAlbums = [...albumPreviews].sort((a, b) => {
-            const aPriority = PRIORITY_ALBUM_IDS.indexOf(a.id);
-            const bPriority = PRIORITY_ALBUM_IDS.indexOf(b.id);
+            // stessa chiave identica a quella che usi in useQuery
+            const key = ["songs", albumId] as const;
 
-            // Se entrambi sono prioritari, mantieni l'ordine di PRIORITY_ALBUM_IDS
-            if (aPriority !== -1 && bPriority !== -1) {
-                return aPriority - bPriority;
+            // evita di rilanciare se già in cache
+            if (qc.getQueryData(key)) {
+                prefetchedIdsRef.current.add(albumId);
+                return;
             }
 
-            if (aPriority !== -1) return -1;
-            if (bPriority !== -1) return 1;
+            await qc.prefetchQuery({
+                queryKey: key,
+                queryFn: () => fetchSongsByAlbum(albumId),
+                staleTime: 1000 * 60 * 60,
+            });
 
-            return 0;
-        });
-
-        // ✅ Prefetch in sequenza (uno alla volta) per dare vera priorità
-        const prefetchSequentially = async () => {
-            for (const album of sortedAlbums) {
-                // Salta album non disponibili
-                if (!album.available) continue;
-
-                const cached = qc.getQueryData(["songs", album.id]);
-                if (cached) continue;
-
-                try {
-                    await qc.prefetchQuery({
-                        queryKey: ["songs", album.id],
-                        queryFn: () => fetchSongsByAlbum(album.id),
-                        staleTime: 1000 * 60 * 60, // 1h
-                    });
-
-                    console.log(`✅ Prefetched: ${album.name}`);
-                } catch (error) {
-                    console.warn(`⚠️ Errore prefetch ${album.name}:`, error);
-                }
-            }
+            prefetchedIdsRef.current.add(albumId);
         };
 
-        prefetchSequentially();
-    }, [albumPreviews, qc]);
+        const run = async () => {
+            // 1) PRIORITÀ: prefetcha sempre prima questi, SE presenti nella lista album
+            const priorityToFetch = PRIORITY_ALBUM_IDS
+                .filter(id => availableAlbums.some(a => a.id === id));
+
+            for (const id of priorityToFetch) {
+                try {
+                    await prefetch(id);
+                    console.log("✅ Prefetched PRIORITY:", id);
+                } catch (e) {
+                    console.warn("⚠️ Priority prefetch failed:", id, e);
+                }
+            }
+
+            // 2) RESTO: qui puoi farlo sequenziale o parallelo
+            // Sequenziale (più “gentile”):
+            for (const a of availableAlbums) {
+                if (PRIORITY_ALBUM_IDS.includes(a.id)) continue;
+                try {
+                    await prefetch(a.id);
+                } catch (e) {
+                    console.warn(`⚠️ Errore prefetch ${a.name}:`, e);
+                }
+            }
+
+            // Oppure parallelo (più veloce) dopo la priorità:
+            // await Promise.all(availableAlbums
+            //   .filter(a => !PRIORITY_ALBUM_IDS.includes(a.id))
+            //   .map(a => prefetch(a.id).catch(e => console.warn(`⚠️ ${a.name}`, e))));
+        };
+
+        run();
+    }, [availableAlbums, qc]);
 }

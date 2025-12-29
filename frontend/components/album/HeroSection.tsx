@@ -1,31 +1,31 @@
-import React, { memo } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
-import { AlbumDTO } from "@/types/music";
+import React, {memo} from "react";
+import {Dimensions, StyleSheet, Text, View} from "react-native";
+import {LinearGradient} from "expo-linear-gradient";
+import {Image} from "expo-image";
+import {MotiView} from "moti";
+import {Ionicons} from "@expo/vector-icons";
+import {AlbumPreviewDTO} from "@/types/music";
 
-const { width } = Dimensions.get("window");
+const {width} = Dimensions.get("window");
 const COVER_SIZE = width * 0.7;
 
 type HeroSectionProps = {
-    album: AlbumDTO;
+    album: AlbumPreviewDTO;
 };
 
-const HeroSection = memo(function HeroSection({ album }: HeroSectionProps) {
+const HeroSection = memo(function HeroSection({album}: HeroSectionProps) {
     return (
         <MotiView
-            from={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", damping: 15, delay: 200 }}
+            from={{scale: 0.8, opacity: 0}}
+            animate={{scale: 1, opacity: 1}}
+            transition={{type: "spring", damping: 15, delay: 200}}
             style={styles.heroSection}
         >
             {/* Cover con effetti */}
             <View style={styles.coverContainer}>
                 <MotiView
-                    from={{ opacity: 0.3, scale: 0.9 }}
-                    animate={{ opacity: 0.6, scale: 1.1 }}
+                    from={{opacity: 0.3, scale: 0.9}}
+                    animate={{opacity: 0.6, scale: 1.1}}
                     transition={{
                         type: "timing",
                         duration: 2000,
@@ -46,7 +46,7 @@ const HeroSection = memo(function HeroSection({ album }: HeroSectionProps) {
                 >
                     <View style={styles.coverWrapper}>
                         <Image
-                            source={{ uri: album.coverURL }}
+                            source={{uri: album.coverURL}}
                             style={styles.cover}
                             contentFit="cover"
                             transition={300}
@@ -59,8 +59,8 @@ const HeroSection = memo(function HeroSection({ album }: HeroSectionProps) {
                 </LinearGradient>
 
                 <MotiView
-                    from={{ translateX: -COVER_SIZE }}
-                    animate={{ translateX: COVER_SIZE * 2 }}
+                    from={{translateX: -COVER_SIZE}}
+                    animate={{translateX: COVER_SIZE * 2}}
                     transition={{
                         type: "timing",
                         duration: 3000,
@@ -76,7 +76,7 @@ const HeroSection = memo(function HeroSection({ album }: HeroSectionProps) {
             <View style={styles.albumInfo}>
                 <Text style={styles.albumTitle}>{album.name}</Text>
                 <View style={styles.artistRow}>
-                    <Ionicons name="person" size={16} color="#888" />
+                    <Ionicons name="person" size={16} color="#888"/>
                     <Text style={styles.albumArtist}>{album.artist}</Text>
                 </View>
             </View>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: COVER_SIZE,
         backgroundColor: "rgba(255, 255, 255, 0.15)",
-        transform: [{ skewX: "-20deg" }],
+        transform: [{skewX: "-20deg"}],
     },
     albumInfo: {
         alignItems: "center",

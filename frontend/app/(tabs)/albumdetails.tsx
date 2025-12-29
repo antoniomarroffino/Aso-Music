@@ -3,8 +3,11 @@ import { View, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useQuery } from "@tanstack/react-query";
+
 import { SongDTO } from "@/types/music";
-import { useSongs } from "@/hooks/useSongs";
+import { useAlbums } from "@/hooks/useAlbums";
+import { fetchSongsByAlbum } from "@/api/songs";
 import { usePlayer } from "@/context/PlayerContext";
 import { useArtists } from "@/hooks/useArtists";
 import SafeScrollView from "@/components/ui/SafeScrollView";
@@ -24,27 +27,37 @@ import {
 export default function AlbumDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const { data: albums, isLoading } = useSongs();
+
+    const { data: albumPreviews } = useAlbums();
     const { data: artists, isLoading: loadingArtists } = useArtists();
     const { playSong, currentSong, isPlaying, togglePlayPause } = usePlayer();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔧 MEMOIZED DATA
-    // ═══════════════════════════════════════════════════════════════════════
+    // 🔑 METADATA ALBUM
+    const album = useMemo(() => {
+        return albumPreviews?.find((a) => a.id === id);
+    }, [albumPreviews, id]);
 
-    const parsedAlbum = useMemo(() => {
-        return albums?.find((a) => a.id === id);
-    }, [albums, id]);
+    // 🎵 SONGS ALBUM (cache-first, prefetch-friendly)
+    const {
+        data: songs = [],
+        isLoading: loadingSongs,
+    } = useQuery<SongDTO[]>({
+        queryKey: ["songs", id],
+        queryFn: () => fetchSongsByAlbum(id!),
+        enabled: !!id,
+        staleTime: 1000 * 60 * 60,
+    });
 
+    // 🔀 SORT
     const sortedSongs = useMemo(() => {
-        if (!parsedAlbum?.songs) return [];
-        return [...parsedAlbum.songs].sort(
+        return [...songs].sort(
             (a, b) => a.tracklistPosition - b.tracklistPosition
         );
-    }, [parsedAlbum?.songs]);
+    }, [songs]);
 
+    // 📊 STATS
     const stats = useMemo(() => {
-        if (!sortedSongs.length || !parsedAlbum) {
+        if (!sortedSongs.length || !album) {
             return { trackCount: 0, duration: "0 min", date: "" };
         }
 
@@ -63,16 +76,13 @@ export default function AlbumDetails() {
         return {
             trackCount: sortedSongs.length,
             duration: formattedDuration,
-            date: formatReleaseDate(parsedAlbum.releaseDate),
+            date: formatReleaseDate(album.releaseDate),
         };
-    }, [sortedSongs, parsedAlbum]);
+    }, [sortedSongs, album]);
 
     const currentSongId = currentSong?.id ?? null;
 
-    // ═══════════════════════════════════════════════════════════════════════
     // 🎮 HANDLERS
-    // ═══════════════════════════════════════════════════════════════════════
-
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
@@ -94,15 +104,12 @@ export default function AlbumDetails() {
         }
     }, [playSong, sortedSongs]);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🎨 RENDER
-    // ═══════════════════════════════════════════════════════════════════════
-
-    if (isLoading || loadingArtists) {
+    // 🖥️ RENDER STATES
+    if (loadingSongs || loadingArtists) {
         return <LoadingState />;
     }
 
-    if (!parsedAlbum) {
+    if (!album) {
         return <SlowLoadingState onGoBack={handleGoBack} />;
     }
 
@@ -117,19 +124,22 @@ export default function AlbumDetails() {
             />
             <StatusBar style="light" />
 
-            {/* Header */}
-            <AlbumHeader title={parsedAlbum.name} onGoBack={handleGoBack} />
+            <AlbumHeader title={album.name} onGoBack={handleGoBack} />
 
-            <SafeScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                {/* Hero Section */}
-                <HeroSection album={parsedAlbum} />
+            <SafeScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+            >
+                <HeroSection album={album} />
 
-                {/* Stats Cards */}
                 <View style={styles.statsContainer}>
                     <StatCard
                         icon="musical-notes"
                         iconColor="#1DB954"
-                        gradientColors={["rgba(29, 185, 84, 0.15)", "rgba(29, 185, 84, 0.05)"]}
+                        gradientColors={[
+                            "rgba(29, 185, 84, 0.15)",
+                            "rgba(29, 185, 84, 0.05)",
+                        ]}
                         value={stats.trackCount}
                         label="Tracce"
                         delay={400}
@@ -137,7 +147,10 @@ export default function AlbumDetails() {
                     <StatCard
                         icon="time"
                         iconColor="#BA55D3"
-                        gradientColors={["rgba(138, 43, 226, 0.15)", "rgba(75, 0, 130, 0.05)"]}
+                        gradientColors={[
+                            "rgba(138, 43, 226, 0.15)",
+                            "rgba(75, 0, 130, 0.05)",
+                        ]}
                         value={stats.duration}
                         label="Durata"
                         delay={500}
@@ -145,21 +158,22 @@ export default function AlbumDetails() {
                     <StatCard
                         icon="calendar"
                         iconColor="#FF453A"
-                        gradientColors={["rgba(255, 69, 58, 0.15)", "rgba(255, 45, 85, 0.05)"]}
+                        gradientColors={[
+                            "rgba(255, 69, 58, 0.15)",
+                            "rgba(255, 45, 85, 0.05)",
+                        ]}
                         value={stats.date}
                         label="Uscita"
                         delay={600}
                     />
                 </View>
 
-                {/* Play Button */}
                 <PlayAlbumButton onPress={handlePlayAlbum} />
 
-                {/* Tracklist */}
                 <TracklistSection
                     songs={sortedSongs}
                     artists={artists}
-                    albumId={parsedAlbum.id}
+                    albumId={album.id}
                     currentSongId={currentSongId}
                     isPlaying={isPlaying}
                     onPlaySong={handlePlaySong}

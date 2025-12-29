@@ -1,34 +1,27 @@
-import React, { useEffect, useMemo, useState, useCallback, memo } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    Dimensions,
-    TouchableOpacity,
-    Platform,
-    ScrollView,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { MotiView } from "moti";
-import { BlurView } from "expo-blur";
-import { useArtists } from "@/hooks/useArtists";
-import { useSongs } from "@/hooks/useSongs";
+import React, {memo, useCallback, useEffect, useMemo, useState} from "react";
+import {Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,} from "react-native";
+import {useLocalSearchParams, useRouter} from "expo-router";
+import {Image} from "expo-image";
+import {LinearGradient} from "expo-linear-gradient";
+import {Ionicons} from "@expo/vector-icons";
+import {MotiView} from "moti";
+import {BlurView} from "expo-blur";
+import {useArtists} from "@/hooks/useArtists";
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
 import SafeScrollView from "@/components/ui/SafeScrollView";
-import { usePlayer } from "@/context/PlayerContext";
-import { SongDTO, ArtistDTO, AlbumDTO } from "@/types/music";
+import {usePlayer} from "@/context/PlayerContext";
+import {AlbumPreviewDTO, ArtistDTO, SongDTO} from "@/types/music";
+import {useAlbums} from "@/hooks/useAlbums";
+import {useQueryClient} from "@tanstack/react-query";
 
-const { width, height } = Dimensions.get("window");
+const {width, height} = Dimensions.get("window");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🎨 PARTICLES (generate una sola volta, fuori dal componente)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const PARTICLES = Array.from({ length: 15 }, (_, i) => ({
+const PARTICLES = Array.from({length: 15}, (_, i) => ({
     id: i,
     left: Math.random() * width,
     width: 2 + Math.random() * 3,
@@ -87,17 +80,17 @@ const LoadingState = memo(function LoadingState() {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
-            <ParticlesBackground />
+            <ParticlesBackground/>
 
             <View style={styles.loadingContainer}>
                 <MotiView
-                    from={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
+                    from={{opacity: 0, scale: 0.8}}
+                    animate={{opacity: 1, scale: 1}}
+                    transition={{type: "spring", damping: 15}}
                 >
                     <MotiView
-                        from={{ rotate: "0deg" }}
-                        animate={{ rotate: "360deg" }}
+                        from={{rotate: "0deg"}}
+                        animate={{rotate: "360deg"}}
                         transition={{
                             type: "timing",
                             duration: 2000,
@@ -109,14 +102,14 @@ const LoadingState = memo(function LoadingState() {
                             colors={["#1DB954", "#1ed760"]}
                             style={styles.loadingIconGradient}
                         >
-                            <Ionicons name="person" size={40} color="#000" />
+                            <Ionicons name="person" size={40} color="#000"/>
                         </LinearGradient>
                     </MotiView>
 
                     <MotiView
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "timing", delay: 200 }}
+                        from={{opacity: 0, translateY: 10}}
+                        animate={{opacity: 1, translateY: 0}}
+                        transition={{type: "timing", delay: 200}}
                     >
                         <Text style={styles.loadingText}>Caricamento artista...</Text>
                     </MotiView>
@@ -125,8 +118,8 @@ const LoadingState = memo(function LoadingState() {
                         {[0, 1, 2].map((i) => (
                             <MotiView
                                 key={i}
-                                from={{ opacity: 0.3, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
+                                from={{opacity: 0.3, scale: 0.8}}
+                                animate={{opacity: 1, scale: 1}}
                                 transition={{
                                     type: "timing",
                                     duration: 800,
@@ -152,7 +145,7 @@ type ErrorStateProps = {
     onGoBack: () => void;
 };
 
-const ErrorState = memo(function ErrorState({ onGoBack }: ErrorStateProps) {
+const ErrorState = memo(function ErrorState({onGoBack}: ErrorStateProps) {
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -160,16 +153,16 @@ const ErrorState = memo(function ErrorState({ onGoBack }: ErrorStateProps) {
                 locations={[0, 0.3, 0.7, 1]}
                 style={StyleSheet.absoluteFillObject}
             />
-            <ParticlesBackground />
+            <ParticlesBackground/>
 
             <View style={styles.loadingContainer}>
                 <MotiView
-                    from={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
+                    from={{opacity: 0, scale: 0.8}}
+                    animate={{opacity: 1, scale: 1}}
+                    transition={{type: "spring", damping: 15}}
                 >
                     <View style={styles.errorIcon}>
-                        <Ionicons name="alert-circle" size={60} color="#FF453A" />
+                        <Ionicons name="alert-circle" size={60} color="#FF453A"/>
                     </View>
                     <Text style={styles.errorTextStyled}>Artista non trovato</Text>
                     <Text style={styles.errorSubtext}>
@@ -184,7 +177,7 @@ const ErrorState = memo(function ErrorState({ onGoBack }: ErrorStateProps) {
                             colors={["#1DB954", "#1ed760"]}
                             style={styles.backToHomeGradient}
                         >
-                            <Ionicons name="arrow-back" size={20} color="#000" />
+                            <Ionicons name="arrow-back" size={20} color="#000"/>
                             <Text style={styles.backToHomeText}>Torna indietro</Text>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -213,9 +206,9 @@ const EmptySection = memo(function EmptySection({
                                                 }: EmptySectionProps) {
     return (
         <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "spring", damping: 15, delay }}
+            from={{opacity: 0, translateY: 20}}
+            animate={{opacity: 1, translateY: 0}}
+            transition={{type: "spring", damping: 15, delay}}
             style={styles.emptyContainer}
         >
             <LinearGradient
@@ -223,7 +216,7 @@ const EmptySection = memo(function EmptySection({
                 style={styles.emptyGradient}
             >
                 <View style={styles.emptyIconContainer}>
-                    <Ionicons name={icon} size={48} color="#555" />
+                    <Ionicons name={icon} size={48} color="#555"/>
                 </View>
                 <Text style={styles.emptyTitle}>{title}</Text>
                 <Text style={styles.emptySubtitle}>{subtitle}</Text>
@@ -306,13 +299,13 @@ const SongListSection = memo(function SongListSection({
 // ═══════════════════════════════════════════════════════════════════════════
 
 type AlbumsSectionProps = {
-    albums: AlbumDTO[];
+    albums: AlbumPreviewDTO[];
 };
 
-const AlbumsSection = memo(function AlbumsSection({ albums }: AlbumsSectionProps) {
-    const { latestAlbum, otherAlbums } = useMemo(() => {
+const AlbumsSection = memo(function AlbumsSection({albums}: AlbumsSectionProps) {
+    const {latestAlbum, otherAlbums} = useMemo(() => {
         if (albums.length === 0) {
-            return { latestAlbum: null, otherAlbums: [] };
+            return {latestAlbum: null, otherAlbums: []};
         }
 
         const sorted = [...albums].sort(
@@ -350,7 +343,7 @@ const AlbumsSection = memo(function AlbumsSection({ albums }: AlbumsSectionProps
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.albumsRow}
                 >
-                    <AlbumCard album={latestAlbum} index={0} />
+                    <AlbumCard album={latestAlbum} index={0}/>
                 </ScrollView>
             </View>
 
@@ -364,7 +357,7 @@ const AlbumsSection = memo(function AlbumsSection({ albums }: AlbumsSectionProps
                         contentContainerStyle={styles.albumsRow}
                     >
                         {otherAlbums.map((album, index) => (
-                            <AlbumCard key={album.id} album={album} index={index + 1} />
+                            <AlbumCard key={album.id} album={album} index={index + 1}/>
                         ))}
                     </ScrollView>
                 </View>
@@ -382,7 +375,7 @@ type HeaderProps = {
     onGoBack: () => void;
 };
 
-const Header = memo(function Header({ artist, onGoBack }: HeaderProps) {
+const Header = memo(function Header({artist, onGoBack}: HeaderProps) {
     return (
         <LinearGradient colors={["#1a1a1a", "#0a0a0a"]} style={styles.header}>
             <BlurView
@@ -391,18 +384,18 @@ const Header = memo(function Header({ artist, onGoBack }: HeaderProps) {
                 style={styles.backWrapper}
             >
                 <TouchableOpacity onPress={onGoBack} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={26} color="#fff" />
+                    <Ionicons name="chevron-back" size={26} color="#fff"/>
                 </TouchableOpacity>
             </BlurView>
 
             <MotiView
-                from={{ opacity: 0, translateY: -20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "timing", duration: 600 }}
+                from={{opacity: 0, translateY: -20}}
+                animate={{opacity: 1, translateY: 0}}
+                transition={{type: "timing", duration: 600}}
             >
                 <View style={styles.imageWrapper}>
                     <Image
-                        source={{ uri: artist.profileURL }}
+                        source={{uri: artist.profileURL}}
                         style={styles.image}
                         contentFit="cover"
                         transition={300}
@@ -420,17 +413,16 @@ const Header = memo(function Header({ artist, onGoBack }: HeaderProps) {
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
-    const { artistId, from, albumId } = useLocalSearchParams<{
+    const {artistId, from, albumId} = useLocalSearchParams<{
         artistId?: string;
         from?: string;
         albumId?: string;
     }>();
 
-    const { data: artists, isLoading } = useArtists();
-    const { data: albums } = useSongs();
+    const {data: artists, isLoading} = useArtists();
 
     const [visibleCount, setVisibleCount] = useState(5);
-    const { playSong, togglePlayPause } = usePlayer();
+    const {playSong, togglePlayPause} = usePlayer();
 
     // Reset visible count when artist changes
     useEffect(() => {
@@ -445,22 +437,33 @@ export default function ArtistDetailsScreen() {
         if (!artistId || !artists) return null;
         return artists.find((a) => a.id === artistId) ?? null;
     }, [artistId, artists]);
-
+    const {data: albumPreviews} = useAlbums();
+    const queryClient = useQueryClient();
     const artistSongs = useMemo(() => {
-        if (!albums || !artist) return [];
-        const allSongs = albums.flatMap((album) => album.songs ?? []);
-        const filtered = allSongs.filter((song) =>
-            song.artists.some((a) => a.id === artist.id)
-        );
-        return filtered.sort((a, b) => b.stream - a.stream);
-    }, [albums, artist]);
+        if (!albumPreviews || !artist) return [];
+
+        const allSongs = albumPreviews.flatMap((album) => {
+            const songs = queryClient.getQueryData<any[]>(["songs", album.id]);
+            return songs ?? [];
+        });
+
+        return allSongs
+            .filter((song) =>
+                song.artists.some((a: ArtistDTO) => a.id === artist.id)
+            )
+            .sort((a, b) => b.stream - a.stream);
+    }, [albumPreviews, artist, queryClient]);
 
     const artistAlbums = useMemo(() => {
-        if (!albums || !artist) return [];
-        return albums.filter((album) =>
-            album.songs.some((song) => song.artists.some((a) => a.id === artist.id))
-        );
-    }, [albums, artist]);
+        if (!albumPreviews || !artist) return [];
+
+        return albumPreviews.filter((album) => {
+            const songs = queryClient.getQueryData<any[]>(["songs", album.id]);
+            return songs?.some((song) =>
+                song.artists.some((a: AlbumPreviewDTO) => a.id === artist.id)
+            );
+        });
+    }, [albumPreviews, artist, queryClient]);
 
     // ✅ Memoize allArtists to avoid recreating on each render
     const allArtists = useMemo(() => {
@@ -477,7 +480,7 @@ export default function ArtistDetailsScreen() {
         } else if (from === "albumdetails" && albumId) {
             router.replace({
                 pathname: "/(tabs)/albumdetails",
-                params: { id: albumId },
+                params: {id: albumId},
             });
         } else {
             router.back();
@@ -508,17 +511,17 @@ export default function ArtistDetailsScreen() {
     // ═══════════════════════════════════════════════════════════════════════
 
     if (isLoading) {
-        return <LoadingState />;
+        return <LoadingState/>;
     }
 
     if (!artist) {
-        return <ErrorState onGoBack={handleGoBack} />;
+        return <ErrorState onGoBack={handleGoBack}/>;
     }
 
     return (
         <SafeScrollView style={styles.container}>
             {/* HEADER */}
-            <Header artist={artist} onGoBack={handleGoBack} />
+            <Header artist={artist} onGoBack={handleGoBack}/>
 
             {/* BIO */}
             <View style={styles.bioContainer}>
@@ -542,7 +545,7 @@ export default function ArtistDetailsScreen() {
 
             {/* 💿 ALBUMS */}
             <View style={styles.section}>
-                <AlbumsSection albums={artistAlbums} />
+                <AlbumsSection albums={artistAlbums}/>
             </View>
         </SafeScrollView>
     );
@@ -578,7 +581,7 @@ const styles = StyleSheet.create({
         borderRadius: 50,
         marginBottom: 24,
         shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 8 },
+        shadowOffset: {width: 0, height: 8},
         shadowOpacity: 0.5,
         shadowRadius: 16,
         elevation: 12,
@@ -632,7 +635,7 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         overflow: "hidden",
         shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: {width: 0, height: 4},
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,
