@@ -88,21 +88,22 @@ export default function AlbumDetails() {
     }, [router]);
 
     const handlePlaySong = useCallback(
-        (song: SongDTO, index: number) => {
+        (_song: SongDTO, index: number) => {
             if (index === -1) {
                 togglePlayPause();
                 return;
             }
-            playSong(song, sortedSongs, index);
+            playSong(songs[index], songs, index);
         },
-        [playSong, sortedSongs, togglePlayPause]
+        [playSong, songs, togglePlayPause]
     );
 
+
     const handlePlayAlbum = useCallback(() => {
-        if (sortedSongs.length > 0) {
-            playSong(sortedSongs[0], sortedSongs, 0);
+        if (songs.length > 0) {
+            playSong(songs[0], songs, 0);
         }
-    }, [playSong, sortedSongs]);
+    }, [playSong, songs]);
 
     // 🖥️ RENDER STATES
     if (loadingSongs || loadingArtists) {

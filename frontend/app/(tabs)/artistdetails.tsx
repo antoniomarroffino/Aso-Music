@@ -488,15 +488,21 @@ export default function ArtistDetailsScreen() {
     }, [from, albumId, router]);
 
     const handlePlaySong = useCallback(
-        (song: SongDTO, index: number) => {
-            if (index === -1) {
-                togglePlayPause();
-                return;
-            }
-            playSong(song, artistSongs, index);
+        (song: SongDTO) => {
+            const albumId = song.albumId;
+            if (!albumId) return;
+
+            const queue = queryClient.getQueryData<SongDTO[]>(["songs", albumId]);
+            if (!queue) return;
+
+            const index = queue.findIndex((s) => s.id === song.id);
+            if (index === -1) return;
+
+            playSong(queue[index], queue, index);
         },
-        [playSong, togglePlayPause, artistSongs]
+        [playSong, queryClient]
     );
+
 
     const handleShowMore = useCallback(() => {
         setVisibleCount((prev) => prev + 5);

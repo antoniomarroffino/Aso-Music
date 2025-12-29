@@ -125,14 +125,21 @@ function RotatingLogoComponent({ size = 70 }: { size?: number }) {
     }, [albums, queryClient]);
 
     const handlePlay = useCallback(() => {
-        if (!suggestedSong || !queue) return;
+        if (!suggestedSong?.albumId) return;
+
+        const queue = queryClient.getQueryData<SongDTO[]>([
+            "songs",
+            suggestedSong.albumId,
+        ]);
+        if (!queue) return;
 
         const index = queue.findIndex((s) => s.id === suggestedSong.id);
         if (index === -1) return;
 
-        playSong(suggestedSong, queue, index);
+        playSong(queue[index], queue, index);
         setShowMessage(false);
-    }, [suggestedSong, queue, playSong]);
+    }, [suggestedSong, playSong, queryClient]);
+
 
     return (
         <>

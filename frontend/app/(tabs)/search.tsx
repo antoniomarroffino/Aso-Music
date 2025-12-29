@@ -237,8 +237,8 @@ export default function SearchScreen() {
                         artist: song.artists?.map((a) => a.name).join(", "),
                         albumCover: album.coverURL,
                         albumId: album.id,
-                        queue: songs,
                     });
+
                 }
             }
         }
@@ -275,12 +275,16 @@ export default function SearchScreen() {
                     pathname: "/(tabs)/albumdetails",
                     params: { id: item.id, from: "search" },
                 });
-            } else if (item.type === "song" && item.queue) {
-                const songIndex = item.queue.findIndex((s) => s.id === item.id);
-                if (songIndex !== -1) {
-                    playSong(item.queue[songIndex], item.queue, songIndex);
-                }
+            } else if (item.type === "song" && item.albumId) {
+                const queue = queryClient.getQueryData<SongDTO[]>(["songs", item.albumId]);
+                if (!queue) return;
+
+                const index = queue.findIndex((s) => s.id === item.id);
+                if (index === -1) return;
+
+                playSong(queue[index], queue, index);
             }
+
         },
         [router, playSong]
     );
