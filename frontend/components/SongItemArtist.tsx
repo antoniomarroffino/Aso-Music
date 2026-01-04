@@ -143,7 +143,7 @@ function SongItemArtistComponent({
                                      albumId,
                                      onPress,
                                  }: SongItemArtistProps) {
-    const isDisabled = song.title === "nome";
+    const isDisabled = song.title === "Maxim/Pompeii/Oceano";
     const handlePress = useCallback(() => {
         if (isDisabled) return;
         onPress(song, index);
