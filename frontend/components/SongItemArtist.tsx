@@ -143,9 +143,13 @@ function SongItemArtistComponent({
                                      albumId,
                                      onPress,
                                  }: SongItemArtistProps) {
+    const isDisabled = song.title === "nome";
     const handlePress = useCallback(() => {
+        if (isDisabled) return;
         onPress(song, index);
-    }, [onPress, song, index]);
+    }, [onPress, song, index, isDisabled]);
+
+
 
     const shineDelay = useMemo(() => getShineDelay(song.id), [song.id]);
 
@@ -153,11 +157,16 @@ function SongItemArtistComponent({
 
     return (
         <TouchableOpacity
-            style={styles.container}
-            activeOpacity={0.85}
+            style={[
+                styles.container,
+                isDisabled && { opacity: 0.4 }
+            ]}
+            activeOpacity={isDisabled ? 1 : 0.85}
+            disabled={isDisabled}
             onPress={handlePress}
         >
-            <MotiView
+
+        <MotiView
                 from={{ opacity: 0, translateY: 15 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 transition={{ type: "timing", duration: 300, delay: animationDelay }}

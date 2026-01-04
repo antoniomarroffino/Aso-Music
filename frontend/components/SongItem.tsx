@@ -58,11 +58,20 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
         return names.length > 0 ? names : ["Artista sconosciuto"];
     }, [song.artists, allArtists]);
 
+    const isDisabled = song.title === "nome";
+
     return (
         <TouchableOpacity
-            style={styles.container}
-            activeOpacity={0.8}
-            onPress={() => onPress?.(song, index)}
+            style={[
+                styles.container,
+                isDisabled && { opacity: 0.4 }
+            ]}
+            activeOpacity={isDisabled ? 1 : 0.8}
+            disabled={isDisabled}
+            onPress={() => {
+                if (isDisabled) return;
+                onPress?.(song, index);
+            }}
         >
 
         <MotiView
@@ -122,15 +131,17 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
                                             return (
                                                 <TouchableOpacity
                                                     key={artist.id}
+                                                    disabled={isDisabled}
                                                     onPress={() =>
                                                         router.push({
                                                             pathname: "/(tabs)/artistdetails",
-                                                            params: { artistId: artist.id, from: "albumdetails" , albumId: albumId},
+                                                            params: { artistId: artist.id, from: "albumdetails", albumId },
                                                         })
                                                     }
                                                     activeOpacity={0.7}
                                                 >
-                                                    <Text style={styles.artistLink}>
+
+                                                <Text style={styles.artistLink}>
                                                         {artist.name}
                                                         {i < song.artists.length - 1 ? ", " : ""}
                                                     </Text>
