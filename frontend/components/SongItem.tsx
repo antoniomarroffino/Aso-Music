@@ -58,7 +58,7 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
         return names.length > 0 ? names : ["Artista sconosciuto"];
     }, [song.artists, allArtists]);
 
-    const isDisabled = song.title === "Maxim/Pompeii/Oceano";
+    const isDisabled = song.title === "none";
 
     return (
         <TouchableOpacity
