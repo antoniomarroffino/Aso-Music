@@ -169,7 +169,7 @@ public class SongRepository implements ISongRepository {
 
     private void checkAndCreateCertificationNews(DocumentSnapshot songSnapshot, Long newCount) {
         try {
-            if (newCount < 40) {
+            if (newCount < 50) {
                 return;
             }
 

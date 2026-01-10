@@ -85,20 +85,20 @@ public final class SongUtils {
     }
 
     public static String buildCertificationMessage(String songName, String artistName, long streamCount) {
-        if (streamCount < 40) {
+        if (streamCount < 50) {
             return null;
         }
 
-        if (streamCount == 40L) {
+        if (streamCount == 50L) {
             return "🥇 \"" + songName + "\" di " + artistName + " ha ottenuto il disco d'oro!";
         }
 
-        if (streamCount == 80L) {
+        if (streamCount == 100L) {
             return "💿 \"" + songName + "\" di " + artistName + " ha ottenuto il disco di platino!";
         }
 
-        if (streamCount > 80 && streamCount % 80 == 0) {
-            int multiplier = (int) (streamCount / 80);
+        if (streamCount > 100 && streamCount % 100 == 0) {
+            int multiplier = (int) (streamCount / 100);
             String label = getPlatinoLabel(multiplier);
             return "💿 \"" + songName + "\" di " + artistName + " ha ottenuto il " + label + " disco di platino!";
         }
