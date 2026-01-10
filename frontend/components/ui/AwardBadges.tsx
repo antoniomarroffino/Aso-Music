@@ -8,16 +8,16 @@ interface AwardBadgesProps {
 }
 
 export default function AwardBadges({ streams }: AwardBadgesProps) {
-    if (!streams || streams < 40) return null;
+    if (!streams || streams < 50) return null;
 
-    const platinumCount = Math.floor(streams / 80);
-    const showGold = streams >= 40 && streams < 80;
+    const platinumCount = Math.floor(streams / 100);
+    const showGold = streams >= 50 && streams < 100;
     const showPlatinum = platinumCount > 0;
 
     return (
         <View style={styles.container}>
 
-            {/* Oro: solo tra 40 e 79 */}
+            {/* Oro: solo tra 50 e 99 */}
             {showGold && (
                 <LinearGradient
                     colors={["#FFD700", "#E6B000"]}
