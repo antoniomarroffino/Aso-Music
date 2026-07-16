@@ -1,6 +1,7 @@
 package com.asomusic.backend.controller;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
+import com.asomusic.backend.model.dto.SongPlaybackUrlDTO;
 import com.asomusic.backend.service.song.ISongService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -9,6 +10,8 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 @Path("/songs")
 @Produces(MediaType.APPLICATION_JSON)
@@ -55,6 +58,47 @@ public class SongController {
             e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("{\"error\": \"" + e.getMessage() + "\"}")
+                    .build();
+        }
+    }
+
+    @GET
+    @Path("/album/{albumId}/songs/{songId}/playback-url")
+    @Operation(
+            summary = "Genera una URL temporanea per riprodurre una canzone"
+    )
+    public Response getPlaybackUrl(
+            @PathParam("albumId") String albumId,
+            @PathParam("songId") String songId
+    ) {
+        try {
+            SongPlaybackUrlDTO playbackUrl =
+                    songService.generatePlaybackUrl(
+                            albumId,
+                            songId
+                    );
+
+            return Response.ok(playbackUrl).build();
+
+        } catch (NoSuchElementException e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(Map.of(
+                            "error", "SONG_NOT_FOUND",
+                            "message", e.getMessage()
+                    ))
+                    .build();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            return Response.status(
+                            Response.Status.INTERNAL_SERVER_ERROR
+                    )
+                    .entity(Map.of(
+                            "error", "PLAYBACK_URL_GENERATION_FAILED",
+                            "message",
+                            "Unable to generate song playback URL"
+                    ))
                     .build();
         }
     }

@@ -11,10 +11,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 @ApplicationScoped
@@ -135,6 +132,36 @@ public class SongRepository implements ISongRepository {
         songRef.update("stream", newCount);
 
         checkAndCreateCertificationNews(snapshot, newCount);
+    }
+
+    @Override
+    public Optional<String> fetchSongAudioStoragePath(
+            String albumId,
+            String songId
+    ) throws ExecutionException, InterruptedException {
+
+        DocumentReference songReference = db
+                .collection("album")
+                .document(albumId)
+                .collection("songs")
+                .document(songId);
+
+        DocumentSnapshot songSnapshot = songReference
+                .get(FieldMask.of("audioURL"))
+                .get();
+
+        if (!songSnapshot.exists()) {
+            return Optional.empty();
+        }
+
+        String audioStoragePath =
+                songSnapshot.getString("audioURL");
+
+        if (audioStoragePath == null || audioStoragePath.isBlank()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(audioStoragePath);
     }
 
     private List<ArtistDTO> resolveArtists(QueryDocumentSnapshot songDoc) {
