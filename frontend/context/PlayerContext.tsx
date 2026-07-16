@@ -9,20 +9,22 @@ import React, {
     useMemo,
 } from "react";
 import { Audio } from "expo-av";
-import { SongDTO } from "@/types/music";
-import { incrementStreamCount } from "@/api/songs";
+import {SongPreviewDTO} from "@/types/music";
+import {fetchSongPlaybackUrl, incrementStreamCount} from "@/api/songs";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProgressContext, ProgressContextType, useProgress } from "./ProgressContext";
 
 type PlayerContextType = {
-    currentSong: SongDTO | null;
-    nextSong: SongDTO | null;
+    currentSong: SongPreviewDTO | null;
+    nextSong: SongPreviewDTO | null;
     isPlaying: boolean;
+
     playSong: (
-        song: SongDTO,
-        queue?: SongDTO[],
-        startIndex?: number
+        song: SongPreviewDTO,
+        queue?: SongPreviewDTO[],
+        startIndex?: number,
     ) => Promise<void>;
+
     togglePlayPause: () => Promise<void>;
     stopSong: () => Promise<void>;
     nextSongAction: () => Promise<void>;
@@ -53,14 +55,20 @@ type MediaSessionEvent =
 
 export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
-    const [currentSong, setCurrentSong] = useState<SongDTO | null>(null);
+    const [currentSong, setCurrentSong] =
+        useState<SongPreviewDTO | null>(null);
+
+    const currentQueueRef =
+        useRef<SongPreviewDTO[]>([]);
+
+    const currentSongRef =
+        useRef<SongPreviewDTO | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [queueVersion, setQueueVersion] = useState(0);
 
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
 
-    const currentQueueRef = useRef<SongDTO[]>([]);
     const currentIndexRef = useRef<number>(0);
     const currentAlbumIdRef = useRef<string | null>(null);
     const currentAlbumNameRef = useRef<string | null>(null);
@@ -70,7 +78,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const lastStreamedSongId = useRef<string | null>(null);
 
     const isPlayingRef = useRef(false);
-    const currentSongRef = useRef<SongDTO | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -82,10 +89,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         currentSongRef.current = currentSong;
     }, [currentSong]);
 
-    const nextSong = useMemo((): SongDTO | null => {
+    const nextSong = useMemo((): SongPreviewDTO | null => {
         const queue = currentQueueRef.current;
-        if (queue.length === 0) return null;
-        const nextIndex = (currentIndexRef.current + 1) % queue.length;
+
+        if (queue.length === 0) {
+            return null;
+        }
+
+        const nextIndex =
+            (currentIndexRef.current + 1) % queue.length;
+
         return queue[nextIndex] ?? null;
     }, [queueVersion]);
 
@@ -103,20 +116,23 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                 lastStreamedSongId.current = songId;
 
                 try {
-                    queryClient.setQueryData(["songs"], (oldData: any) => {
-                        if (!oldData) return oldData;
-                        return oldData.map((album: any) => {
-                            if (album.id !== albumId) return album;
-                            return {
-                                ...album,
-                                songs: album.songs.map((s: any) =>
-                                    s.id === songId
-                                        ? { ...s, stream: (s.stream ?? 0) + 1 }
-                                        : s
-                                ),
-                            };
-                        });
-                    });
+                    queryClient.setQueryData<SongPreviewDTO[]>(
+                        ["songs", albumId],
+                        (oldSongs) => {
+                            if (!oldSongs) {
+                                return oldSongs;
+                            }
+
+                            return oldSongs.map((song) =>
+                                song.id === songId
+                                    ? {
+                                        ...song,
+                                        stream: (song.stream ?? 0) + 1,
+                                    }
+                                    : song,
+                            );
+                        },
+                    );
                     await incrementStreamCount(albumId, songId);
                 } catch (e) {
                     console.error("❌ Errore stream:", e);
@@ -127,11 +143,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     );
 
     const updateMediaSessionsForSong = useCallback(
-        (song: SongDTO, albumName: string | null, playing: boolean) => {
+        (
+            song: SongPreviewDTO,
+            albumName: string | null,
+            playing: boolean,
+        ) => {
             const artistNames =
-                song.artists?.map((a) => a?.name).join(", ") || "Artista sconosciuto";
+                song.artists
+                    ?.map((artist) => artist?.name)
+                    .join(", ") || "Artista sconosciuto";
 
-            // 🔊 Native (expo-media-session)
             try {
                 MediaSession?.setMetadata?.({
                     title: song.title || "Brano",
@@ -139,29 +160,43 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
                     album: albumName || "",
                     artwork: song.coverURL || "",
                 });
-                MediaSession?.setPlaybackState?.(playing ? "playing" : "paused");
+
+                MediaSession?.setPlaybackState?.(
+                    playing ? "playing" : "paused",
+                );
             } catch {
-                // ignore
+                // Ignora errori MediaSession native.
             }
 
-            // 🌐 Web MediaSession
-            if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+            if (
+                typeof navigator !== "undefined" &&
+                "mediaSession" in navigator
+            ) {
                 try {
-                    // @ts-ignore
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: song.title || "Brano",
-                        artist: artistNames,
-                        album: albumName || "",
-                        artwork: [{ src: song.coverURL || "", sizes: "512x512", type: "image/png" }],
-                    });
-                    // @ts-ignore
-                    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+                    navigator.mediaSession.metadata =
+                        new MediaMetadata({
+                            title: song.title || "Brano",
+                            artist: artistNames,
+                            album: albumName || "",
+                            artwork: song.coverURL
+                                ? [
+                                    {
+                                        src: song.coverURL,
+                                        sizes: "512x512",
+                                        type: "image/png",
+                                    },
+                                ]
+                                : [],
+                        });
+
+                    navigator.mediaSession.playbackState =
+                        playing ? "playing" : "paused";
                 } catch {
-                    // ignore
+                    // Ignora errori MediaSession web.
                 }
             }
         },
-        []
+        [],
     );
 
     const cleanupSound = useCallback(async () => {
@@ -179,13 +214,17 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const playSongInternalRef = useRef<
-        (song: SongDTO, queue?: SongDTO[], startIndex?: number) => Promise<void>
+        (
+            song: SongPreviewDTO,
+            queue?: SongPreviewDTO[],
+            startIndex?: number,
+        ) => Promise<void>
     >(async () => {});
 
     playSongInternalRef.current = async (
-        song: SongDTO,
-        queue?: SongDTO[],
-        startIndex?: number
+        song: SongPreviewDTO,
+        queue?: SongPreviewDTO[],
+        startIndex?: number,
     ): Promise<void> => {
         const session = ++killSwitch.current;
 
@@ -198,93 +237,171 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
         if (queue && queue.length > 0) {
             currentQueueRef.current = queue;
-            const idx = typeof startIndex === "number"
-                ? startIndex
-                : queue.findIndex((s) => s.id === song.id);
-            currentIndexRef.current = idx >= 0 ? idx : 0;
-            setQueueVersion((v) => v + 1);
+
+            const resolvedIndex =
+                typeof startIndex === "number"
+                    ? startIndex
+                    : queue.findIndex(
+                        (queuedSong) =>
+                            queuedSong.id === song.id,
+                    );
+
+            currentIndexRef.current =
+                resolvedIndex >= 0
+                    ? resolvedIndex
+                    : 0;
+
+            setQueueVersion((version) => version + 1);
         }
 
-        currentAlbumIdRef.current = song.albumId ?? null;
-        currentAlbumNameRef.current = song.albumName ?? null;
+        currentAlbumIdRef.current = song.albumId;
+        currentAlbumNameRef.current = song.albumName;
 
         setCurrentSong(song);
+        setIsPlaying(false);
         setProgress(0);
         setDuration(0);
 
-        const effectiveAlbumName = song.albumName ?? currentAlbumNameRef.current;
-        updateMediaSessionsForSong(song, effectiveAlbumName, true);
-        scheduleStreamIncrement(song.albumId ?? null, song.id);
-
         try {
-            const { sound } = await Audio.Sound.createAsync(
-                { uri: song.audioURL },
-                { shouldPlay: true }
-            );
+            /*
+             * La signed URL viene richiesta solo quando la traccia
+             * deve essere effettivamente riprodotta.
+             */
+            const playback =
+                await fetchSongPlaybackUrl(
+                    song.albumId,
+                    song.id,
+                );
+
+            /*
+             * Nel frattempo l'utente potrebbe aver selezionato
+             * un'altra canzone.
+             */
+            if (session !== killSwitch.current) {
+                return;
+            }
+
+            const { sound } =
+                await Audio.Sound.createAsync(
+                    {
+                        uri: playback.url,
+                    },
+                    {
+                        shouldPlay: true,
+                    },
+                );
 
             if (session !== killSwitch.current) {
-                console.log("⚠️ Sessione invalidata, scarico il sound");
                 try {
                     await sound.unloadAsync();
                 } catch {
-                    // ignore
+                    // Ignora errore durante cleanup.
                 }
+
                 return;
             }
 
             soundRef.current = sound;
+
             setIsPlaying(true);
+
+            updateMediaSessionsForSong(
+                song,
+                song.albumName,
+                true,
+            );
+
+            /*
+             * Il timer degli ascolti parte solo dopo che
+             * il player è stato creato correttamente.
+             */
+            scheduleStreamIncrement(
+                song.albumId,
+                song.id,
+            );
 
             await sound.setProgressUpdateIntervalAsync(500);
 
-            // ✅ Handler per progress e auto-next
             sound.setOnPlaybackStatusUpdate((status: any) => {
-                if (session !== killSwitch.current) return;
-                if (!status?.isLoaded) return;
+                if (session !== killSwitch.current) {
+                    return;
+                }
 
-                // ✅ Aggiorna progress (solo ProgressContext viene ri-renderizzato)
+                if (!status?.isLoaded) {
+                    return;
+                }
+
                 setProgress(status.positionMillis / 1000);
-                setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
 
-                // ✅ isPlaying viene aggiornato solo se cambia realmente
-                setIsPlaying((prev) => {
-                    if (prev !== !!status.isPlaying) {
-                        return !!status.isPlaying;
-                    }
-                    return prev;
+                setDuration(
+                    status.durationMillis
+                        ? status.durationMillis / 1000
+                        : 0,
+                );
+
+                setIsPlaying((previousValue) => {
+                    const nextValue =
+                        Boolean(status.isPlaying);
+
+                    return previousValue === nextValue
+                        ? previousValue
+                        : nextValue;
                 });
 
-                // Auto-next
-                if (status.didJustFinish && !status.isLooping) {
-                    console.log("🎵 Canzone terminata, passo alla successiva");
+                if (
+                    status.didJustFinish &&
+                    !status.isLooping
+                ) {
+                    const currentQueue =
+                        currentQueueRef.current;
 
-                    const currentQueue = currentQueueRef.current;
                     if (currentQueue.length === 0) {
-                        console.log("⚠️ Queue vuota, non proseguo");
                         return;
                     }
 
-                    const nextIndex = (currentIndexRef.current + 1) % currentQueue.length;
-                    const nextTrack = currentQueue[nextIndex];
+                    const nextIndex =
+                        (currentIndexRef.current + 1) %
+                        currentQueue.length;
+
+                    const nextTrack =
+                        currentQueue[nextIndex];
 
                     if (nextTrack) {
-                        console.log(`▶️ Prossima: ${nextTrack.title} (index: ${nextIndex})`);
-                        playSongInternalRef.current(nextTrack, currentQueue, nextIndex);
+                        void playSongInternalRef.current(
+                            nextTrack,
+                            currentQueue,
+                            nextIndex,
+                        );
                     }
                 }
             });
+        } catch (error) {
+            if (session !== killSwitch.current) {
+                return;
+            }
 
-        } catch (e) {
-            console.log("❌ Errore durante playSong:", e);
+            console.error(
+                "Errore durante la riproduzione della canzone:",
+                error,
+            );
+
             setIsPlaying(false);
         }
     };
 
     const playSong = useCallback(
-        async (song: SongDTO, queue?: SongDTO[], startIndex?: number) => {
-            await playSongInternalRef.current(song, queue, startIndex);
+        async (
+            song: SongPreviewDTO,
+            queue?: SongPreviewDTO[],
+            startIndex?: number,
+        ) => {
+            await playSongInternalRef.current(
+                song,
+                queue,
+                startIndex,
+            );
         },
-        []
+        [],
     );
 
     const togglePlayPause = useCallback(async () => {

@@ -3,11 +3,11 @@ import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import { SongDTO, ArtistDTO } from "@/types/music";
+import {SongDTO, ArtistDTO, SongPreviewDTO} from "@/types/music";
 import SongItem from "@/components/SongItem";
 
 type TracklistSectionProps = {
-    songs: SongDTO[];
+    songs: SongPreviewDTO[];
     artists: ArtistDTO[] | undefined;
     albumId: string;
     currentSongId: string | null;

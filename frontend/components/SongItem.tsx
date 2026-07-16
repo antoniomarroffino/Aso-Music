@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import {ArtistDTO, SongDTO} from "@/types/music";
+import {ArtistDTO, SongDTO, SongPreviewDTO} from "@/types/music";
 import { useRouter } from "expo-router";
 import AwardBadges from "@/components/ui/AwardBadges";
 
 
 interface SongItemProps {
-    song: SongDTO;
+    song: SongPreviewDTO;
     index?: number;
     allArtists?: ArtistDTO[];
     albumId: string;

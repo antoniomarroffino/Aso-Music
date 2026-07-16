@@ -25,7 +25,7 @@ export type AlbumDTO = {
     description: string;
     coverURL: string;
     releaseDate: string;
-    songs: SongDTO[];
+    songs: SongPreviewDTO[];
     available: boolean;
     availableAt: number | null;
 };
@@ -40,3 +40,20 @@ export type AlbumPreviewDTO = {
     available: boolean;
     availableAt?: number | null;
 };
+
+export interface SongPreviewDTO {
+    id: string;
+    title: string;
+    duration: string;
+    coverURL: string;
+    stream: number;
+    tracklistPosition: number;
+    artists: ArtistDTO[];
+    albumId: string;
+    albumName: string;
+}
+
+export interface SongPlaybackUrlDTO {
+    url: string;
+    expiresAt: string;
+}

@@ -1,11 +1,19 @@
 import React, { useCallback, useMemo } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import {
+    Platform,
+    StyleSheet,
+    View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import {
+    Stack,
+    useLocalSearchParams,
+    useRouter,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useQuery } from "@tanstack/react-query";
 
-import { SongDTO } from "@/types/music";
+import { SongPreviewDTO } from "@/types/music";
 import { useAlbums } from "@/hooks/useAlbums";
 import { fetchSongsByAlbum } from "@/api/songs";
 import { usePlayer } from "@/context/PlayerContext";
@@ -13,127 +21,226 @@ import { useArtists } from "@/hooks/useArtists";
 import SafeScrollView from "@/components/ui/SafeScrollView";
 
 import {
-    LoadingState,
-    SlowLoadingState,
     AlbumHeader,
-    HeroSection,
-    StatCard,
-    PlayAlbumButton,
-    TracklistSection,
     formatReleaseDate,
+    HeroSection,
+    LoadingState,
     parseDuration,
+    PlayAlbumButton,
+    SlowLoadingState,
+    StatCard,
+    TracklistSection,
 } from "@/components/album";
 
 export default function AlbumDetails() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id } = useLocalSearchParams<{ id?: string }>();
     const router = useRouter();
 
     const { data: albumPreviews } = useAlbums();
-    const { data: artists, isLoading: loadingArtists } = useArtists();
-    const { playSong, currentSong, isPlaying, togglePlayPause } = usePlayer();
+    const {
+        data: artists,
+        isLoading: loadingArtists,
+    } = useArtists();
 
-    // 🔑 METADATA ALBUM
-    const album = useMemo(() => {
-        return albumPreviews?.find((a) => a.id === id);
-    }, [albumPreviews, id]);
+    const {
+        playSong,
+        currentSong,
+        isPlaying,
+        togglePlayPause,
+    } = usePlayer();
 
-    // 🎵 SONGS ALBUM (cache-first, prefetch-friendly)
+    const album = useMemo(
+        () => albumPreviews?.find(
+            (albumPreview) => albumPreview.id === id,
+        ),
+        [albumPreviews, id],
+    );
+
     const {
         data: songs = [],
         isLoading: loadingSongs,
-    } = useQuery<SongDTO[]>({
+    } = useQuery<SongPreviewDTO[]>({
         queryKey: ["songs", id],
-        queryFn: () => fetchSongsByAlbum(id!),
-        enabled: !!id,
+        queryFn: () => {
+            if (!id) {
+                throw new Error(
+                    "Album ID non disponibile",
+                );
+            }
+
+            return fetchSongsByAlbum(id);
+        },
+        enabled: Boolean(id),
         staleTime: 1000 * 60 * 60,
     });
 
-    // 🔀 SORT
-    const sortedSongs = useMemo(() => {
-        return [...songs].sort(
-            (a, b) => a.tracklistPosition - b.tracklistPosition
-        );
-    }, [songs]);
+    const sortedSongs = useMemo(
+        () =>
+            [...songs].sort(
+                (firstSong, secondSong) =>
+                    firstSong.tracklistPosition -
+                    secondSong.tracklistPosition,
+            ),
+        [songs],
+    );
 
-    // 📊 STATS
     const stats = useMemo(() => {
-        if (!sortedSongs.length || !album) {
-            return { trackCount: 0, duration: "0 min", date: "" };
+        if (!album) {
+            return {
+                trackCount: 0,
+                duration: "0 min",
+                date: "",
+            };
         }
 
         const totalSeconds = sortedSongs.reduce(
-            (acc, song) => acc + parseDuration(song.duration),
-            0
+            (total, song) =>
+                total + parseDuration(song.duration),
+            0,
         );
 
-        const totalMinutes = Math.floor(totalSeconds / 60);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
+        const totalMinutes =
+            Math.floor(totalSeconds / 60);
+
+        const hours =
+            Math.floor(totalMinutes / 60);
+
+        const minutes =
+            totalMinutes % 60;
 
         const formattedDuration =
-            hours > 0 ? `${hours}h ${minutes}min` : `${minutes} min`;
+            hours > 0
+                ? `${hours}h ${minutes}min`
+                : `${minutes} min`;
 
         return {
             trackCount: sortedSongs.length,
             duration: formattedDuration,
-            date: formatReleaseDate(album.releaseDate),
+            date: formatReleaseDate(
+                album.releaseDate,
+            ),
         };
-    }, [sortedSongs, album]);
+    }, [album, sortedSongs]);
 
-    const currentSongId = currentSong?.id ?? null;
+    const currentSongId =
+        currentSong?.id ?? null;
 
-    // 🎮 HANDLERS
     const handleGoBack = useCallback(() => {
         router.back();
     }, [router]);
 
     const handlePlaySong = useCallback(
-        (_song: SongDTO, index: number) => {
-            if (index === -1) {
+        (
+            song: SongPreviewDTO,
+            index: number,
+        ) => {
+            /*
+             * Se l'utente seleziona la traccia già attiva,
+             * cambiamo soltanto lo stato play/pausa.
+             */
+            if (currentSongId === song.id) {
                 togglePlayPause();
                 return;
             }
-            playSong(songs[index], songs, index);
+
+            /*
+             * PlayerContext riceve la preview e risolve
+             * la signed URL audio soltanto quando serve.
+             */
+            void playSong(
+                song,
+                sortedSongs,
+                index,
+            );
         },
-        [playSong, songs, togglePlayPause]
+        [
+            currentSongId,
+            playSong,
+            sortedSongs,
+            togglePlayPause,
+        ],
     );
 
-
     const handlePlayAlbum = useCallback(() => {
-        if (songs.length > 0) {
-            playSong(songs[0], songs, 0);
-        }
-    }, [playSong, songs]);
+        const firstSong = sortedSongs[0];
 
-    // 🖥️ RENDER STATES
+        if (!firstSong) {
+            return;
+        }
+
+        if (currentSongId === firstSong.id) {
+            togglePlayPause();
+            return;
+        }
+
+        void playSong(
+            firstSong,
+            sortedSongs,
+            0,
+        );
+    }, [
+        currentSongId,
+        playSong,
+        sortedSongs,
+        togglePlayPause,
+    ]);
+
     if (loadingSongs || loadingArtists) {
         return <LoadingState />;
     }
 
     if (!album) {
-        return <SlowLoadingState onGoBack={handleGoBack} />;
+        return (
+            <SlowLoadingState
+                onGoBack={handleGoBack}
+            />
+        );
     }
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ headerShown: false }} />
+            <Stack.Screen
+                options={{
+                    headerShown: false,
+                }}
+            />
 
             <LinearGradient
-                colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
-                locations={[0, 0.3, 0.7, 1]}
-                style={StyleSheet.absoluteFillObject}
+                colors={[
+                    "#000000",
+                    "#0a0a0a",
+                    "#1a1a2e",
+                    "#0f0f0f",
+                ]}
+                locations={[
+                    0,
+                    0.3,
+                    0.7,
+                    1,
+                ]}
+                style={
+                    StyleSheet.absoluteFillObject
+                }
             />
+
             <StatusBar style="light" />
 
-            <AlbumHeader title={album.name} onGoBack={handleGoBack} />
+            <AlbumHeader
+                title={album.name}
+                onGoBack={handleGoBack}
+            />
 
             <SafeScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={
+                    styles.scrollContent
+                }
             >
                 <HeroSection album={album} />
 
-                <View style={styles.statsContainer}>
+                <View
+                    style={styles.statsContainer}
+                >
                     <StatCard
                         icon="musical-notes"
                         iconColor="#1DB954"
@@ -145,6 +252,7 @@ export default function AlbumDetails() {
                         label="Tracce"
                         delay={400}
                     />
+
                     <StatCard
                         icon="time"
                         iconColor="#BA55D3"
@@ -156,6 +264,7 @@ export default function AlbumDetails() {
                         label="Durata"
                         delay={500}
                     />
+
                     <StatCard
                         icon="calendar"
                         iconColor="#FF453A"
@@ -169,11 +278,13 @@ export default function AlbumDetails() {
                     />
                 </View>
 
-                <PlayAlbumButton onPress={handlePlayAlbum} />
+                <PlayAlbumButton
+                    onPress={handlePlayAlbum}
+                />
 
                 <TracklistSection
                     songs={sortedSongs}
-                    artists={artists}
+                    artists={artists ?? []}
                     albumId={album.id}
                     currentSongId={currentSongId}
                     isPlaying={isPlaying}
@@ -192,7 +303,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingTop: Platform.OS === "ios" ? 80 : 70,
+        paddingTop:
+            Platform.OS === "ios"
+                ? 80
+                : 70,
         paddingHorizontal: 20,
     },
     statsContainer: {
