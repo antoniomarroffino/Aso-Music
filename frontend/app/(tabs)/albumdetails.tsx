@@ -1,10 +1,13 @@
-import React, { useCallback, useMemo } from "react";
+import React, {
+    useCallback,
+    useMemo,
+} from "react";
 import {
-    Platform,
     StyleSheet,
     View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { MotiView } from "moti";
 import {
     Stack,
     useLocalSearchParams,
@@ -12,6 +15,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useQuery } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SongPreviewDTO } from "@/types/music";
 import { useAlbums } from "@/hooks/useAlbums";
@@ -33,10 +37,16 @@ import {
 } from "@/components/album";
 
 export default function AlbumDetails() {
-    const { id } = useLocalSearchParams<{ id?: string }>();
-    const router = useRouter();
+    const { id } =
+        useLocalSearchParams<{ id?: string }>();
 
-    const { data: albumPreviews } = useAlbums();
+    const router = useRouter();
+    const insets = useSafeAreaInsets();
+
+    const {
+        data: albumPreviews,
+    } = useAlbums();
+
     const {
         data: artists,
         isLoading: loadingArtists,
@@ -50,17 +60,25 @@ export default function AlbumDetails() {
     } = usePlayer();
 
     const album = useMemo(
-        () => albumPreviews?.find(
-            (albumPreview) => albumPreview.id === id,
-        ),
-        [albumPreviews, id],
+        () =>
+            albumPreviews?.find(
+                (albumPreview) =>
+                    albumPreview.id === id,
+            ),
+        [
+            albumPreviews,
+            id,
+        ],
     );
 
     const {
         data: songs = [],
         isLoading: loadingSongs,
     } = useQuery<SongPreviewDTO[]>({
-        queryKey: ["songs", id],
+        queryKey: [
+            "songs",
+            id,
+        ],
         queryFn: () => {
             if (!id) {
                 throw new Error(
@@ -77,7 +95,10 @@ export default function AlbumDetails() {
     const sortedSongs = useMemo(
         () =>
             [...songs].sort(
-                (firstSong, secondSong) =>
+                (
+                    firstSong,
+                    secondSong,
+                ) =>
                     firstSong.tracklistPosition -
                     secondSong.tracklistPosition,
             ),
@@ -93,106 +114,126 @@ export default function AlbumDetails() {
             };
         }
 
-        const totalSeconds = sortedSongs.reduce(
-            (total, song) =>
-                total + parseDuration(song.duration),
-            0,
-        );
+        const totalSeconds =
+            sortedSongs.reduce(
+                (total, song) =>
+                    total +
+                    parseDuration(
+                        song.duration,
+                    ),
+                0,
+            );
 
         const totalMinutes =
-            Math.floor(totalSeconds / 60);
+            Math.floor(
+                totalSeconds / 60,
+            );
 
         const hours =
-            Math.floor(totalMinutes / 60);
+            Math.floor(
+                totalMinutes / 60,
+            );
 
         const minutes =
             totalMinutes % 60;
 
         const formattedDuration =
             hours > 0
-                ? `${hours}h ${minutes}min`
+                ? `${hours}h ${minutes}m`
                 : `${minutes} min`;
 
         return {
-            trackCount: sortedSongs.length,
-            duration: formattedDuration,
+            trackCount:
+            sortedSongs.length,
+            duration:
+            formattedDuration,
             date: formatReleaseDate(
                 album.releaseDate,
             ),
         };
-    }, [album, sortedSongs]);
+    }, [
+        album,
+        sortedSongs,
+    ]);
 
     const currentSongId =
         currentSong?.id ?? null;
 
-    const handleGoBack = useCallback(() => {
-        router.back();
-    }, [router]);
+    const handleGoBack =
+        useCallback(() => {
+            router.back();
+        }, [router]);
 
-    const handlePlaySong = useCallback(
-        (
-            song: SongPreviewDTO,
-            index: number,
-        ) => {
-            /*
-             * Se l'utente seleziona la traccia già attiva,
-             * cambiamo soltanto lo stato play/pausa.
-             */
-            if (currentSongId === song.id) {
-                togglePlayPause();
+    const handlePlaySong =
+        useCallback(
+            (
+                song: SongPreviewDTO,
+                index: number,
+            ) => {
+                if (
+                    currentSongId ===
+                    song.id
+                ) {
+                    void togglePlayPause();
+                    return;
+                }
+
+                void playSong(
+                    song,
+                    sortedSongs,
+                    index,
+                );
+            },
+            [
+                currentSongId,
+                playSong,
+                sortedSongs,
+                togglePlayPause,
+            ],
+        );
+
+    const handlePlayAlbum =
+        useCallback(() => {
+            const firstSong =
+                sortedSongs[0];
+
+            if (!firstSong) {
                 return;
             }
 
-            /*
-             * PlayerContext riceve la preview e risolve
-             * la signed URL audio soltanto quando serve.
-             */
+            if (
+                currentSongId ===
+                firstSong.id
+            ) {
+                void togglePlayPause();
+                return;
+            }
+
             void playSong(
-                song,
+                firstSong,
                 sortedSongs,
-                index,
+                0,
             );
-        },
-        [
+        }, [
             currentSongId,
             playSong,
             sortedSongs,
             togglePlayPause,
-        ],
-    );
+        ]);
 
-    const handlePlayAlbum = useCallback(() => {
-        const firstSong = sortedSongs[0];
-
-        if (!firstSong) {
-            return;
-        }
-
-        if (currentSongId === firstSong.id) {
-            togglePlayPause();
-            return;
-        }
-
-        void playSong(
-            firstSong,
-            sortedSongs,
-            0,
-        );
-    }, [
-        currentSongId,
-        playSong,
-        sortedSongs,
-        togglePlayPause,
-    ]);
-
-    if (loadingSongs || loadingArtists) {
+    if (
+        loadingSongs ||
+        loadingArtists
+    ) {
         return <LoadingState />;
     }
 
     if (!album) {
         return (
             <SlowLoadingState
-                onGoBack={handleGoBack}
+                onGoBack={
+                    handleGoBack
+                }
             />
         );
     }
@@ -207,15 +248,15 @@ export default function AlbumDetails() {
 
             <LinearGradient
                 colors={[
-                    "#000000",
-                    "#0a0a0a",
-                    "#1a1a2e",
-                    "#0f0f0f",
+                    "#050609",
+                    "#090b12",
+                    "#0c0c17",
+                    "#050506",
                 ]}
                 locations={[
                     0,
-                    0.3,
-                    0.7,
+                    0.32,
+                    0.72,
                     1,
                 ]}
                 style={
@@ -223,73 +264,196 @@ export default function AlbumDetails() {
                 }
             />
 
+            <MotiView
+                pointerEvents="none"
+                from={{
+                    opacity: 0.32,
+                    scale: 0.94,
+                }}
+                animate={{
+                    opacity: 0.52,
+                    scale: 1.06,
+                }}
+                transition={{
+                    type: "timing",
+                    duration: 6000,
+                    loop: true,
+                    repeatReverse: true,
+                }}
+                style={[
+                    styles.ambientGlow,
+                    styles.topGlow,
+                ]}
+            >
+                <LinearGradient
+                    colors={[
+                        "rgba(29,185,84,0.20)",
+                        "rgba(99,72,255,0.12)",
+                        "transparent",
+                    ]}
+                    style={
+                        StyleSheet.absoluteFillObject
+                    }
+                />
+            </MotiView>
+
+            <View
+                pointerEvents="none"
+                style={[
+                    styles.ambientGlow,
+                    styles.bottomGlow,
+                ]}
+            >
+                <LinearGradient
+                    colors={[
+                        "rgba(84,58,220,0.13)",
+                        "rgba(29,185,84,0.05)",
+                        "transparent",
+                    ]}
+                    style={
+                        StyleSheet.absoluteFillObject
+                    }
+                />
+            </View>
+
             <StatusBar style="light" />
 
             <AlbumHeader
                 title={album.name}
-                onGoBack={handleGoBack}
+                onGoBack={
+                    handleGoBack
+                }
             />
 
             <SafeScrollView
                 style={styles.scrollView}
-                contentContainerStyle={
-                    styles.scrollContent
-                }
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    {
+                        paddingTop:
+                            insets.top +
+                            66,
+                    },
+                ]}
             >
-                <HeroSection album={album} />
+                <HeroSection
+                    album={album}
+                />
+
+                <MotiView
+                    from={{
+                        opacity: 0,
+                        translateY: 14,
+                    }}
+                    animate={{
+                        opacity: 1,
+                        translateY: 0,
+                    }}
+                    transition={{
+                        type: "spring",
+                        damping: 16,
+                        delay: 250,
+                    }}
+                    style={
+                        styles.statsPanel
+                    }
+                >
+                    <View
+                        style={
+                            styles.statsContainer
+                        }
+                    >
+                        <StatCard
+                            icon="musical-notes"
+                            iconColor="#1ED760"
+                            gradientColors={[
+                                "rgba(29,185,84,0.18)",
+                                "rgba(29,185,84,0.035)",
+                            ]}
+                            value={
+                                stats.trackCount
+                            }
+                            label="Tracce"
+                            delay={300}
+                        />
+
+                        <StatCard
+                            icon="time"
+                            iconColor="#B994FF"
+                            gradientColors={[
+                                "rgba(132,87,255,0.18)",
+                                "rgba(75,48,150,0.035)",
+                            ]}
+                            value={
+                                stats.duration
+                            }
+                            label="Durata"
+                            delay={350}
+                        />
+
+                        <StatCard
+                            icon="calendar"
+                            iconColor="#FF7B72"
+                            gradientColors={[
+                                "rgba(255,92,92,0.17)",
+                                "rgba(175,43,70,0.035)",
+                            ]}
+                            value={stats.date}
+                            label="Uscita"
+                            delay={400}
+                        />
+                    </View>
+                </MotiView>
 
                 <View
-                    style={styles.statsContainer}
+                    style={
+                        styles.playButtonSection
+                    }
                 >
-                    <StatCard
-                        icon="musical-notes"
-                        iconColor="#1DB954"
-                        gradientColors={[
-                            "rgba(29, 185, 84, 0.15)",
-                            "rgba(29, 185, 84, 0.05)",
-                        ]}
-                        value={stats.trackCount}
-                        label="Tracce"
-                        delay={400}
-                    />
-
-                    <StatCard
-                        icon="time"
-                        iconColor="#BA55D3"
-                        gradientColors={[
-                            "rgba(138, 43, 226, 0.15)",
-                            "rgba(75, 0, 130, 0.05)",
-                        ]}
-                        value={stats.duration}
-                        label="Durata"
-                        delay={500}
-                    />
-
-                    <StatCard
-                        icon="calendar"
-                        iconColor="#FF453A"
-                        gradientColors={[
-                            "rgba(255, 69, 58, 0.15)",
-                            "rgba(255, 45, 85, 0.05)",
-                        ]}
-                        value={stats.date}
-                        label="Uscita"
-                        delay={600}
+                    <PlayAlbumButton
+                        onPress={
+                            handlePlayAlbum
+                        }
                     />
                 </View>
 
-                <PlayAlbumButton
-                    onPress={handlePlayAlbum}
-                />
+                <View
+                    style={
+                        styles.tracklistShell
+                    }
+                >
+                    <LinearGradient
+                        pointerEvents="none"
+                        colors={[
+                            "rgba(255,255,255,0.04)",
+                            "transparent",
+                        ]}
+                        style={
+                            styles.tracklistTopGlow
+                        }
+                    />
 
-                <TracklistSection
-                    songs={sortedSongs}
-                    artists={artists ?? []}
-                    albumId={album.id}
-                    currentSongId={currentSongId}
-                    isPlaying={isPlaying}
-                    onPlaySong={handlePlaySong}
-                />
+                    <TracklistSection
+                        songs={
+                            sortedSongs
+                        }
+                        artists={
+                            artists ?? []
+                        }
+                        albumId={
+                            album.id
+                        }
+                        currentSongId={
+                            currentSongId
+                        }
+                        isPlaying={
+                            isPlaying
+                        }
+                        onPlaySong={
+                            handlePlaySong
+                        }
+                    />
+                </View>
             </SafeScrollView>
         </View>
     );
@@ -298,21 +462,65 @@ export default function AlbumDetails() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: "#050506",
     },
+
     scrollView: {
         flex: 1,
     },
+
     scrollContent: {
-        paddingTop:
-            Platform.OS === "ios"
-                ? 80
-                : 70,
-        paddingHorizontal: 20,
+        paddingHorizontal: 14,
+        paddingBottom: 150,
     },
+
+    ambientGlow: {
+        position: "absolute",
+        overflow: "hidden",
+        borderRadius: 999,
+    },
+
+    topGlow: {
+        width: 430,
+        height: 430,
+        top: -190,
+        right: -170,
+    },
+
+    bottomGlow: {
+        width: 380,
+        height: 380,
+        bottom: -180,
+        left: -180,
+    },
+
+    statsPanel: {
+        marginTop: 2,
+        marginBottom: 14,
+        borderRadius: 20,
+    },
+
     statsContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 24,
-        gap: 12,
+        alignItems: "stretch",
+        gap: 8,
+    },
+
+    playButtonSection: {
+        marginBottom: 14,
+    },
+
+    tracklistShell: {
+        position: "relative",
+        borderRadius: 18,
+    },
+
+    tracklistTopGlow: {
+        position: "absolute",
+        top: 0,
+        left: 12,
+        right: 12,
+        height: 1,
+        zIndex: 2,
     },
 });

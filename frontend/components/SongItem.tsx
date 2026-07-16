@@ -1,12 +1,21 @@
-import React, {useMemo} from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useMemo } from "react";
+import {
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import {ArtistDTO, SongDTO, SongPreviewDTO} from "@/types/music";
 import { useRouter } from "expo-router";
-import AwardBadges from "@/components/ui/AwardBadges";
 
+import {
+    ArtistDTO,
+    SongPreviewDTO,
+} from "@/types/music";
+import AwardBadges from "@/components/ui/AwardBadges";
 
 interface SongItemProps {
     song: SongPreviewDTO;
@@ -15,180 +24,485 @@ interface SongItemProps {
     albumId: string;
     isActive?: boolean;
     isPlaying?: boolean;
-    onPress?: (song: SongDTO, index: number) => void;
+    onPress?: (
+        song: SongPreviewDTO,
+        index: number,
+    ) => void;
 }
 
-
-
-function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, onPress }: SongItemProps) {
+function SongItem({
+                      song,
+                      index = 0,
+                      albumId,
+                      isActive = false,
+                      isPlaying = false,
+                      onPress,
+                  }: SongItemProps) {
     const router = useRouter();
+
     const formattedNumber =
         song.tracklistPosition < 10
             ? `0${song.tracklistPosition}`
             : `${song.tracklistPosition}`;
 
-    const formatDuration = (duration: string | number) => {
+    const formattedDuration = useMemo(() => {
+        const duration = song.duration;
+
         if (typeof duration === "string") {
-            if (duration.includes(":")) return duration;
-            const num = parseInt(duration, 10);
-            if (isNaN(num)) return "0:00";
-            const mins = Math.floor(num / 60);
-            const secs = num % 60;
-            return `${mins}:${secs.toString().padStart(2, "0")}`;
-        } else {
-            const mins = Math.floor(duration / 60);
-            const secs = duration % 60;
-            return `${mins}:${secs.toString().padStart(2, "0")}`;
+            if (duration.includes(":")) {
+                return duration;
+            }
+
+            const totalSeconds =
+                Number.parseInt(duration, 10);
+
+            if (Number.isNaN(totalSeconds)) {
+                return "0:00";
+            }
+
+            const minutes =
+                Math.floor(totalSeconds / 60);
+
+            const seconds =
+                totalSeconds % 60;
+
+            return `${minutes}:${seconds
+                .toString()
+                .padStart(2, "0")}`;
         }
-    };
-    useMemo(() => {
-        if (!Array.isArray(song.artists) || !allArtists) {
-            return ["Artista sconosciuto"];
+
+        const minutes =
+            Math.floor(duration / 60);
+
+        const seconds =
+            duration % 60;
+
+        return `${minutes}:${seconds
+            .toString()
+            .padStart(2, "0")}`;
+    }, [song.duration]);
+
+    const artistNames = useMemo(() => {
+        if (
+            !Array.isArray(song.artists) ||
+            song.artists.length === 0
+        ) {
+            return "Artista sconosciuto";
         }
 
         const names = song.artists
-            .map((artist) => {
-                if (artist && typeof artist === "object" && "name" in artist) {
-                    return artist.name;
-                }
-                return null;
-            })
-            .filter((n): n is string => Boolean(n));
+            .map((artist) => artist?.name)
+            .filter(
+                (name): name is string =>
+                    Boolean(name),
+            );
 
-        return names.length > 0 ? names : ["Artista sconosciuto"];
-    }, [song.artists, allArtists]);
+        return names.length > 0
+            ? names.join(", ")
+            : "Artista sconosciuto";
+    }, [song.artists]);
 
-    const isDisabled = song.title === "none";
+    const isDisabled =
+        song.title === "none";
+
+    const hasCover =
+        Boolean(song.coverURL);
 
     return (
         <TouchableOpacity
             style={[
-                styles.container,
-                isDisabled && { opacity: 0.4 }
+                styles.touchable,
+                isDisabled &&
+                styles.disabledTouchable,
             ]}
-            activeOpacity={isDisabled ? 1 : 0.8}
+            activeOpacity={
+                isDisabled ? 1 : 0.82
+            }
             disabled={isDisabled}
             onPress={() => {
-                if (isDisabled) return;
+                if (isDisabled) {
+                    return;
+                }
+
                 onPress?.(song, index);
             }}
         >
-
-        <MotiView
-                from={{ opacity: 0, translateX: -30, scale: 0.95 }}
-                animate={{ opacity: 1, translateX: 0, scale: 1 }}
+            <MotiView
+                from={{
+                    opacity: 0,
+                    translateY: 8,
+                }}
+                animate={{
+                    opacity: 1,
+                    translateY: 0,
+                }}
                 transition={{
-                    type: "spring",
-                    delay: index * 50,
-                    damping: 15,
+                    type: "timing",
+                    duration: 220,
+                    delay: Math.min(index * 25, 250),
                 }}
             >
-                <View style={styles.wrapper}>
+                <View style={styles.cardShell}>
                     <LinearGradient
-                        colors={[
-                            "rgba(29, 185, 84, 0.08)",
-                            "rgba(255, 255, 255, 0.02)",
-                        ]}
+                        colors={
+                            isActive
+                                ? [
+                                    "rgba(29,185,84,0.55)",
+                                    "rgba(92,72,255,0.28)",
+                                    "rgba(255,255,255,0.07)",
+                                ]
+                                : [
+                                    "rgba(255,255,255,0.10)",
+                                    "rgba(255,255,255,0.025)",
+                                ]
+                        }
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.gradientBorder}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.borderGradient}
                     >
-                        <View style={styles.inner}>
-                            {/* Numero traccia */}
-                            <View style={styles.numberContainer}>
+                        <View
+                            style={[
+                                styles.card,
+                                isActive &&
+                                styles.activeCard,
+                            ]}
+                        >
+                            {isActive && (
                                 <LinearGradient
                                     colors={[
-                                        "rgba(29, 185, 84, 0.2)",
-                                        "rgba(29, 185, 84, 0.05)",
+                                        "#1DB954",
+                                        "#6F5CFF",
                                     ]}
-                                    style={styles.numberCircle}
+                                    style={
+                                        styles.activeIndicator
+                                    }
+                                />
+                            )}
+
+                            <View
+                                style={
+                                    styles.numberContainer
+                                }
+                            >
+                                <Text
+                                    style={[
+                                        styles.trackNumber,
+                                        isActive &&
+                                        styles.activeTrackNumber,
+                                    ]}
                                 >
-                                    <Text style={styles.trackNumber}>
-                                        {formattedNumber}
-                                    </Text>
-                                </LinearGradient>
+                                    {formattedNumber}
+                                </Text>
                             </View>
 
-                            {/* Info canzone */}
+                            <View
+                                style={
+                                    styles.coverContainer
+                                }
+                            >
+                                {hasCover ? (
+                                    <Image
+                                        source={{
+                                            uri: song.coverURL,
+                                        }}
+                                        resizeMode="cover"
+                                        style={styles.cover}
+                                    />
+                                ) : (
+                                    <LinearGradient
+                                        colors={[
+                                            "#222631",
+                                            "#11131a",
+                                        ]}
+                                        style={
+                                            styles.coverPlaceholder
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="musical-note"
+                                            size={17}
+                                            color="#798093"
+                                        />
+                                    </LinearGradient>
+                                )}
+
+                                {isActive && (
+                                    <View
+                                        style={
+                                            styles.activeDotOuter
+                                        }
+                                    >
+                                        <MotiView
+                                            from={{
+                                                opacity: 0.4,
+                                                scale: 0.8,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                                scale: 1,
+                                            }}
+                                            transition={{
+                                                type: "timing",
+                                                duration: 800,
+                                                loop: true,
+                                            }}
+                                            style={
+                                                styles.activeDot
+                                            }
+                                        />
+                                    </View>
+                                )}
+                            </View>
+
                             <View style={styles.info}>
-                                <View style={styles.titleRow}>
+                                <View
+                                    style={
+                                        styles.titleRow
+                                    }
+                                >
                                     <Text
+                                        numberOfLines={1}
                                         style={[
                                             styles.title,
-                                            isActive && { color: "#1DB954" },
+                                            isActive &&
+                                            styles.activeTitle,
                                         ]}
                                     >
                                         {song.title}
                                     </Text>
-                                    <AwardBadges streams={song.stream} />
 
+                                    <AwardBadges
+                                        streams={
+                                            song.stream
+                                        }
+                                    />
                                 </View>
-                                <View style={styles.artistRow}>
-                                    <Ionicons name="person-outline" size={12} color="#666" />
-                                    {Array.isArray(song.artists) && song.artists.length > 0 ? (
-                                        song.artists.map((artist, i) => {
-                                            if (!artist?.id || !artist?.name) return null;
-                                            return (
-                                                <TouchableOpacity
-                                                    key={artist.id}
-                                                    disabled={isDisabled}
-                                                    onPress={() =>
-                                                        router.push({
-                                                            pathname: "/(tabs)/artistdetails",
-                                                            params: { artistId: artist.id, from: "albumdetails", albumId },
-                                                        })
-                                                    }
-                                                    activeOpacity={0.7}
-                                                >
 
-                                                <Text style={styles.artistLink}>
-                                                        {artist.name}
-                                                        {i < song.artists.length - 1 ? ", " : ""}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            );
-                                        })
+                                <View
+                                    style={
+                                        styles.artistRow
+                                    }
+                                >
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={10}
+                                        color="#777e91"
+                                    />
+
+                                    {Array.isArray(
+                                        song.artists,
+                                    ) &&
+                                    song.artists.length >
+                                    0 ? (
+                                        <View
+                                            style={
+                                                styles.artistLinks
+                                            }
+                                        >
+                                            {song.artists.map(
+                                                (
+                                                    artist,
+                                                    artistIndex,
+                                                ) => {
+                                                    if (
+                                                        !artist?.id ||
+                                                        !artist?.name
+                                                    ) {
+                                                        return null;
+                                                    }
+
+                                                    return (
+                                                        <TouchableOpacity
+                                                            key={
+                                                                artist.id
+                                                            }
+                                                            activeOpacity={
+                                                                0.65
+                                                            }
+                                                            disabled={
+                                                                isDisabled
+                                                            }
+                                                            onPress={(
+                                                                event,
+                                                            ) => {
+                                                                event.stopPropagation();
+
+                                                                router.push(
+                                                                    {
+                                                                        pathname:
+                                                                            "/(tabs)/artistdetails",
+                                                                        params: {
+                                                                            artistId:
+                                                                            artist.id,
+                                                                            from: "albumdetails",
+                                                                            albumId,
+                                                                        },
+                                                                    },
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                numberOfLines={
+                                                                    1
+                                                                }
+                                                                style={
+                                                                    styles.artistLink
+                                                                }
+                                                            >
+                                                                {
+                                                                    artist.name
+                                                                }
+                                                                {artistIndex <
+                                                                song
+                                                                    .artists
+                                                                    .length -
+                                                                1
+                                                                    ? ", "
+                                                                    : ""}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                },
+                                            )}
+                                        </View>
                                     ) : (
-                                        <Text style={styles.artist}>Artista sconosciuto</Text>
+                                        <Text
+                                            numberOfLines={1}
+                                            style={
+                                                styles.artistFallback
+                                            }
+                                        >
+                                            {
+                                                artistNames
+                                            }
+                                        </Text>
                                     )}
                                 </View>
 
+                                <View
+                                    style={
+                                        styles.metadataRow
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.metadataItem
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="headset-outline"
+                                            size={10}
+                                            color="#858ca0"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.metadataText
+                                            }
+                                        >
+                                            {song.stream?.toLocaleString(
+                                                "it-IT",
+                                            ) ?? "0"}
+                                        </Text>
+                                    </View>
+
+                                    <View
+                                        style={
+                                            styles.metadataDot
+                                        }
+                                    />
+
+                                    <View
+                                        style={
+                                            styles.metadataItem
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="time-outline"
+                                            size={10}
+                                            color="#858ca0"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.metadataText
+                                            }
+                                        >
+                                            {
+                                                formattedDuration
+                                            }
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
 
-                            {/* Durata */}
-                            <View style={styles.durationContainer}>
-                                <Ionicons
-                                    name="time-outline"
-                                    size={14}
-                                    color="#666"
-                                />
-                                <Text style={styles.duration}>
-                                    {formatDuration(song.duration)}
-                                </Text>
+                            <View
+                                style={
+                                    styles.actionContainer
+                                }
+                            >
+                                <LinearGradient
+                                    colors={
+                                        isActive
+                                            ? [
+                                                "#1DB954",
+                                                "#16d36a",
+                                            ]
+                                            : [
+                                                "rgba(255,255,255,0.10)",
+                                                "rgba(255,255,255,0.035)",
+                                            ]
+                                    }
+                                    style={
+                                        styles.actionButton
+                                    }
+                                >
+                                    <Ionicons
+                                        name={
+                                            isActive &&
+                                            isPlaying
+                                                ? "pause"
+                                                : "play"
+                                        }
+                                        size={13}
+                                        color={
+                                            isActive
+                                                ? "#04110a"
+                                                : "#e8ebf5"
+                                        }
+                                        style={
+                                            !(
+                                                isActive &&
+                                                isPlaying
+                                            )
+                                                ? styles.playIcon
+                                                : undefined
+                                        }
+                                    />
+                                </LinearGradient>
                             </View>
-                            <View style={styles.streamContainer}>
-                                <Ionicons name="headset-outline" size={14} color="#666" />
-                                <Text style={styles.streamText}>
-                                    {song.stream?.toLocaleString("it-IT") ?? "0"}
-                                </Text>
-                            </View>
-
-
                         </View>
                     </LinearGradient>
 
-                    {/* Effetto shine */}
-                    <MotiView
-                        from={{ translateX: -200 }}
-                        animate={{ translateX: 400 }}
-                        transition={{
-                            type: "timing",
-                            duration: 3000,
-                            loop: true,
-                            delay: Math.random() * 2000 + index * 200,
-                        }}
-                        style={styles.shineEffect}
-                    />
+                    {isActive && (
+                        <MotiView
+                            pointerEvents="none"
+                            from={{
+                                translateX: -80,
+                                opacity: 0,
+                            }}
+                            animate={{
+                                translateX: 360,
+                                opacity: 0.13,
+                            }}
+                            transition={{
+                                type: "timing",
+                                duration: 2600,
+                                loop: true,
+                            }}
+                            style={styles.shine}
+                        />
+                    )}
                 </View>
             </MotiView>
         </TouchableOpacity>
@@ -196,143 +510,247 @@ function SongItem({ song, index = 0, allArtists, albumId, isActive, isPlaying, o
 }
 
 const styles = StyleSheet.create({
-    container: {
-        marginBottom: 4,
+    touchable: {
+        marginBottom: 5,
     },
-    wrapper: {
+
+    disabledTouchable: {
+        opacity: 0.35,
+    },
+
+    cardShell: {
         position: "relative",
         borderRadius: 14,
         overflow: "hidden",
     },
-    gradientBorder: {
+
+    borderGradient: {
         padding: 1,
         borderRadius: 14,
     },
-    inner: {
+
+    card: {
+        minHeight: 57,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#141414",
-        paddingVertical: 12,
-        paddingHorizontal: 12,
+        paddingVertical: 6,
+        paddingLeft: 7,
+        paddingRight: 8,
         borderRadius: 13,
+        backgroundColor: "rgba(13,14,19,0.98)",
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.03)",
+        borderColor: "rgba(255,255,255,0.025)",
     },
+
+    activeCard: {
+        backgroundColor: "rgba(10,16,17,0.99)",
+        borderColor: "rgba(29,185,84,0.12)",
+    },
+
+    activeIndicator: {
+        position: "absolute",
+        top: 8,
+        bottom: 8,
+        left: 0,
+        width: 3,
+        borderTopRightRadius: 4,
+        borderBottomRightRadius: 4,
+    },
+
     numberContainer: {
-        marginRight: 12,
-    },
-    numberCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: "center",
+        width: 25,
         alignItems: "center",
-        borderWidth: 1,
-        borderColor: "rgba(29, 185, 84, 0.2)",
+        justifyContent: "center",
+        marginRight: 5,
     },
+
     trackNumber: {
-        color: "#1DB954",
-        fontSize: 13,
-        fontWeight: "900",
-        letterSpacing: -0.5,
+        color: "#707789",
+        fontSize: 10,
+        fontWeight: "800",
+        letterSpacing: -0.2,
     },
+
+    activeTrackNumber: {
+        color: "#1DB954",
+    },
+
+    coverContainer: {
+        position: "relative",
+        width: 42,
+        height: 42,
+        marginRight: 8,
+        borderRadius: 10,
+        backgroundColor: "#171920",
+    },
+
+    cover: {
+        width: 42,
+        height: 42,
+        borderRadius: 10,
+        backgroundColor: "#171920",
+    },
+
+    coverPlaceholder: {
+        width: 42,
+        height: 42,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    activeDotOuter: {
+        position: "absolute",
+        top: -2,
+        right: -2,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0d1711",
+    },
+
+    activeDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "#1DB954",
+    },
+
     info: {
         flex: 1,
-        marginRight: 8,
+        minWidth: 0,
+        justifyContent: "center",
     },
+
     titleRow: {
+        minHeight: 16,
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 4,
-        gap: 6,
-        flexShrink: 1,
+        gap: 5,
     },
+
     title: {
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: "700",
-        letterSpacing: -0.3,
+        flex: 1,
+        color: "#f4f6fb",
+        fontSize: 13,
+        lineHeight: 16,
+        fontWeight: "800",
+        letterSpacing: -0.25,
     },
+
+    activeTitle: {
+        color: "#ffffff",
+    },
+
     artistRow: {
+        height: 14,
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
+        overflow: "hidden",
     },
-    artist: {
-        color: "#888",
-        fontSize: 12,
+
+    artistLinks: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: "row",
+        overflow: "hidden",
+    },
+
+    artistLink: {
+        color: "#88cfa1",
+        fontSize: 10,
+        lineHeight: 13,
+        fontWeight: "600",
+    },
+
+    artistFallback: {
+        flex: 1,
+        color: "#858b9c",
+        fontSize: 10,
+        lineHeight: 13,
         fontWeight: "500",
     },
-    durationContainer: {
+
+    metadataRow: {
+        height: 13,
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        marginRight: 8,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        backgroundColor: "rgba(255, 255, 255, 0.03)",
-        borderRadius: 8,
     },
-    duration: {
-        color: "#bbb",
-        fontSize: 12,
-        fontWeight: "600",
-    },
-    streamContainer: {
+
+    metadataItem: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        backgroundColor: "rgba(255,255,255,0.03)",
-        borderRadius: 8,
-        marginRight: 8,
+        gap: 3,
     },
-    streamText: {
-        color: "#bbb",
-        fontSize: 12,
+
+    metadataText: {
+        color: "#8f96a8",
+        fontSize: 9,
+        lineHeight: 11,
         fontWeight: "600",
     },
 
-    playIconContainer: {
-        borderRadius: 14,
-        overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 4,
+    metadataDot: {
+        width: 2,
+        height: 2,
+        borderRadius: 1,
+        backgroundColor: "#555c6c",
     },
-    playIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        justifyContent: "center",
+
+    actionContainer: {
+        marginLeft: 7,
+    },
+
+    actionButton: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.055)",
     },
-    shineEffect: {
+
+    playIcon: {
+        marginLeft: 2,
+    },
+
+    shine: {
         position: "absolute",
         top: 0,
-        width: 40,
-        height: "100%",
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
-        transform: [{ skewX: "-20deg" }],
+        bottom: 0,
+        width: 26,
+        backgroundColor: "rgba(255,255,255,0.07)",
+        transform: [
+            {
+                skewX: "-18deg",
+            },
+        ],
     },
-    artistLink: {
-        color: "#1DB954",
-        fontSize: 12,
-        fontWeight: "600",
-        textDecorationLine: "underline",
-    },
-
 });
 
-export default React.memo(SongItem, (prev, next) => {
-    return (
-        prev.song.id === next.song.id &&
-        prev.isActive === next.isActive &&
-        prev.isPlaying === next.isPlaying &&
-        prev.albumId === next.albumId
-    );
-});
-
+export default React.memo(
+    SongItem,
+    (previousProps, nextProps) => {
+        return (
+            previousProps.song.id ===
+            nextProps.song.id &&
+            previousProps.song.title ===
+            nextProps.song.title &&
+            previousProps.song.stream ===
+            nextProps.song.stream &&
+            previousProps.song.coverURL ===
+            nextProps.song.coverURL &&
+            previousProps.isActive ===
+            nextProps.isActive &&
+            previousProps.isPlaying ===
+            nextProps.isPlaying &&
+            previousProps.albumId ===
+            nextProps.albumId
+        );
+    },
+);

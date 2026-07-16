@@ -1,61 +1,198 @@
-import React, { memo, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, {
+    memo,
+    useCallback,
+} from "react";
+import {
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type AlbumHeaderProps = {
     title: string;
     onGoBack: () => void;
 };
 
-const AlbumHeader = memo(function AlbumHeader({ title, onGoBack }: AlbumHeaderProps) {
-    const handleMore = useCallback(() => {
-        alert("Non ancora disponibile");
-    }, []);
+const AlbumHeader = memo(
+    function AlbumHeader({
+                             title,
+                             onGoBack,
+                         }: AlbumHeaderProps) {
+        const insets =
+            useSafeAreaInsets();
 
-    return (
-        <MotiView
-            from={{ opacity: 0, translateY: -50 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "spring", damping: 15 }}
-            style={styles.customHeader}
-        >
-            <BlurView intensity={40} tint="dark" style={styles.headerBlur}>
+        const handleMore =
+            useCallback(() => {
+                Alert.alert(
+                    "Album",
+                    "Altre opzioni non ancora disponibili.",
+                );
+            }, []);
+
+        return (
+            <MotiView
+                from={{
+                    opacity: 0,
+                    translateY: -24,
+                }}
+                animate={{
+                    opacity: 1,
+                    translateY: 0,
+                }}
+                transition={{
+                    type: "spring",
+                    damping: 17,
+                    stiffness: 145,
+                }}
+                style={
+                    styles.customHeader
+                }
+            >
+                <BlurView
+                    intensity={58}
+                    tint="dark"
+                    style={
+                        StyleSheet.absoluteFillObject
+                    }
+                />
+
                 <LinearGradient
                     colors={[
-                        "rgba(255, 255, 255, 0.08)",
-                        "rgba(255, 255, 255, 0.04)",
+                        "rgba(8,10,14,0.92)",
+                        "rgba(12,13,21,0.82)",
+                        "rgba(8,9,13,0.90)",
                     ]}
-                    style={styles.headerGradient}
+                    start={{
+                        x: 0,
+                        y: 0,
+                    }}
+                    end={{
+                        x: 1,
+                        y: 1,
+                    }}
+                    style={[
+                        styles.headerSurface,
+                        {
+                            paddingTop:
+                            insets.top,
+                        },
+                    ]}
                 >
-                    <TouchableOpacity
-                        onPress={onGoBack}
-                        style={styles.backButton}
-                        activeOpacity={0.7}
+                    <View
+                        style={
+                            styles.headerBar
+                        }
                     >
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Torna indietro"
+                            onPress={onGoBack}
+                            style={
+                                styles.actionButton
+                            }
+                            activeOpacity={0.72}
+                        >
+                            <LinearGradient
+                                colors={[
+                                    "rgba(255,255,255,0.12)",
+                                    "rgba(255,255,255,0.035)",
+                                ]}
+                                style={
+                                    styles.actionGradient
+                                }
+                            >
+                                <Ionicons
+                                    name="chevron-back"
+                                    size={19}
+                                    color="#F7F9FF"
+                                />
+                            </LinearGradient>
+                        </TouchableOpacity>
 
-                    <View style={styles.headerCenter}>
-                        <Text style={styles.headerTitle} numberOfLines={1}>
-                            {title}
-                        </Text>
+                        <View
+                            pointerEvents="none"
+                            style={
+                                styles.headerCenter
+                            }
+                        >
+                            <Text
+                                style={
+                                    styles.headerEyebrow
+                                }
+                            >
+                                NOW VIEWING
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.headerTitle
+                                }
+                                numberOfLines={1}
+                            >
+                                {title}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Altre opzioni"
+                            onPress={
+                                handleMore
+                            }
+                            style={
+                                styles.actionButton
+                            }
+                            activeOpacity={0.72}
+                        >
+                            <LinearGradient
+                                colors={[
+                                    "rgba(255,255,255,0.12)",
+                                    "rgba(255,255,255,0.035)",
+                                ]}
+                                style={
+                                    styles.actionGradient
+                                }
+                            >
+                                <Ionicons
+                                    name="ellipsis-horizontal"
+                                    size={18}
+                                    color="#F7F9FF"
+                                />
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity
-                        onPress={handleMore}
-                        style={styles.moreButton}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
-                    </TouchableOpacity>
+                    <LinearGradient
+                        colors={[
+                            "transparent",
+                            "rgba(29,185,84,0.48)",
+                            "rgba(122,91,255,0.42)",
+                            "transparent",
+                        ]}
+                        start={{
+                            x: 0,
+                            y: 0,
+                        }}
+                        end={{
+                            x: 1,
+                            y: 0,
+                        }}
+                        style={
+                            styles.bottomAccent
+                        }
+                    />
                 </LinearGradient>
-            </BlurView>
-        </MotiView>
-    );
-});
+            </MotiView>
+        );
+    },
+);
 
 export default AlbumHeader;
 
@@ -66,44 +203,81 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 100,
-    },
-    headerBlur: {
         overflow: "hidden",
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.22,
+        shadowRadius: 16,
+        elevation: 12,
     },
-    headerGradient: {
+
+    headerSurface: {
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        borderBottomWidth: 1,
+        borderBottomColor:
+            "rgba(255,255,255,0.06)",
+    },
+
+    headerBar: {
+        height: 54,
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255, 255, 255, 0.1)",
+        paddingHorizontal: 12,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        justifyContent: "center",
+
+    actionButton: {
+        width: 35,
+        height: 35,
+        borderRadius: 17.5,
+        overflow: "hidden",
+    },
+
+    actionGradient: {
+        flex: 1,
         alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 17.5,
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.07)",
     },
+
     headerCenter: {
         flex: 1,
-        marginHorizontal: 12,
-    },
-    headerTitle: {
-        color: "#fff",
-        fontSize: 16,
-        fontWeight: "700",
-        textAlign: "center",
-    },
-    moreButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        justifyContent: "center",
         alignItems: "center",
+        justifyContent: "center",
+        marginHorizontal: 10,
+        minWidth: 0,
+    },
+
+    headerEyebrow: {
+        color: "#687083",
+        fontSize: 7,
+        lineHeight: 9,
+        fontWeight: "900",
+        letterSpacing: 1.2,
+        marginBottom: 1,
+    },
+
+    headerTitle: {
+        width: "100%",
+        color: "#F6F8FF",
+        fontSize: 14,
+        lineHeight: 17,
+        fontWeight: "800",
+        textAlign: "center",
+        letterSpacing: -0.25,
+    },
+
+    bottomAccent: {
+        height: 1,
+        marginHorizontal: 36,
+        opacity: 0.7,
     },
 });
