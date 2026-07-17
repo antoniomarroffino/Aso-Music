@@ -38,6 +38,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import {BlurView} from "expo-blur";
 
 const APP_VERSION = "1.5.0";
 const IBAN = "LT413250025268467321";
@@ -92,7 +93,20 @@ const GlassCard = memo(function GlassCard({
                 style,
             ]}
         >
-            {/* ... */}
+            <BlurView
+                intensity={intensity}
+                tint="dark"
+                style={styles.glassBlur}
+            >
+                <View
+                    style={[
+                        styles.glassSurface,
+                        contentStyle,
+                    ]}
+                >
+                    {children}
+                </View>
+            </BlurView>
         </LinearGradient>
     );
 });

@@ -1,87 +1,265 @@
-import React from "react";
-import { TouchableOpacity, Text, StyleSheet, View, Dimensions } from "react-native";
+import React, {
+    memo,
+    useCallback,
+} from "react";
+import {
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
-import { ArtistDTO } from "@/types/music";
 import { useRouter } from "expo-router";
 
-const { width } = Dimensions.get("window");
-const CONTENT_WIDTH = width - 60;
-const CARD_WIDTH = (CONTENT_WIDTH - 48) / 2;
+import { ArtistDTO } from "@/types/music";
 
 type ArtistCardProps = ArtistDTO & {
     index?: number;
-    onPress?: () => void;
+    onPress?: (
+        artistId: string,
+    ) => void;
 };
 
-export function ArtistCard({ id, name, profileURL, index = 0, onPress }: ArtistCardProps) {
+function ArtistCardComponent({
+                                 id,
+                                 name,
+                                 profileURL,
+                                 index = 0,
+                                 onPress,
+                             }: ArtistCardProps) {
     const router = useRouter();
 
-    const imageSource =
-        profileURL?.trim()
-            ? { uri: profileURL }
-            : require("@/assets/images/placeholder-profile.png");
+    const hasProfileImage =
+        Boolean(profileURL?.trim());
 
-    const handlePress = () => {
-        if (onPress) return onPress();
-        router.push({
-            pathname: "/artistdetails",
-            params: { artistId: id },
-        });
-    };
+    const handlePress =
+        useCallback(() => {
+            if (onPress) {
+                onPress(id);
+                return;
+            }
+
+            router.push({
+                pathname:
+                    "/(tabs)/artistdetails",
+                params: {
+                    artistId: id,
+                },
+            });
+        }, [
+            id,
+            onPress,
+            router,
+        ]);
 
     return (
-        <TouchableOpacity style={styles.container} activeOpacity={0.85} onPress={handlePress}>
+        <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Apri l'artista ${name}`}
+            activeOpacity={0.86}
+            onPress={handlePress}
+            style={styles.container}
+        >
             <MotiView
-                from={{ scale: 0.85, opacity: 0, translateY: 20 }}
-                animate={{ scale: 1, opacity: 1, translateY: 0 }}
+                from={{
+                    opacity: 0,
+                    scale: 0.94,
+                    translateY: 14,
+                }}
+                animate={{
+                    opacity: 1,
+                    scale: 1,
+                    translateY: 0,
+                }}
                 transition={{
                     type: "spring",
                     damping: 16,
-                    delay: index * 45,
+                    stiffness: 145,
+                    delay: Math.min(
+                        index * 42,
+                        260,
+                    ),
                 }}
+                style={styles.animation}
             >
-                <View style={styles.card}>
+                <View style={styles.cardShell}>
                     <LinearGradient
                         colors={[
-                            "rgba(255,255,255,0.05)",
-                            "rgba(255,255,255,0.02)"
+                            "rgba(255,255,255,0.16)",
+                            "rgba(29,185,84,0.13)",
+                            "rgba(119,91,255,0.12)",
+                            "rgba(255,255,255,0.025)",
                         ]}
-                        style={styles.gradientBorder}
+                        start={{
+                            x: 0,
+                            y: 0,
+                        }}
+                        end={{
+                            x: 1,
+                            y: 1,
+                        }}
+                        style={
+                            styles.gradientBorder
+                        }
                     >
-                        <View style={styles.cardInner}>
+                        <View
+                            style={
+                                styles.cardInner
+                            }
+                        >
+                            <View
+                                style={
+                                    styles.imageWrapper
+                                }
+                            >
+                                {hasProfileImage ? (
+                                    <Image
+                                        source={{
+                                            uri: profileURL,
+                                        }}
+                                        style={
+                                            styles.image
+                                        }
+                                        contentFit="cover"
+                                        transition={220}
+                                        accessibilityLabel={`Foto di ${name}`}
+                                    />
+                                ) : (
+                                    <Image
+                                        source={require(
+                                            "@/assets/images/placeholder-profile.png",
+                                        )}
+                                        style={
+                                            styles.image
+                                        }
+                                        contentFit="cover"
+                                        transition={180}
+                                    />
+                                )}
 
-                            {/* FOTO ARTISTA — pulita */}
-                            <View style={styles.imageWrapper}>
-                                <Image
-                                    source={imageSource}
-                                    style={styles.image}
-                                    contentFit="cover"
-                                    transition={250}
+                                <LinearGradient
+                                    colors={[
+                                        "rgba(255,255,255,0.07)",
+                                        "transparent",
+                                        "rgba(0,0,0,0.60)",
+                                    ]}
+                                    locations={[
+                                        0,
+                                        0.48,
+                                        1,
+                                    ]}
+                                    style={
+                                        StyleSheet.absoluteFillObject
+                                    }
                                 />
 
-                                {/* Shine Effect soft */}
                                 <MotiView
-                                    from={{ translateX: -CARD_WIDTH }}
-                                    animate={{ translateX: CARD_WIDTH * 2 }}
+                                    pointerEvents="none"
+                                    from={{
+                                        translateX:
+                                            -90,
+                                        opacity: 0,
+                                    }}
+                                    animate={{
+                                        translateX:
+                                            330,
+                                        opacity: 0.14,
+                                    }}
                                     transition={{
                                         type: "timing",
-                                        duration: 3500,
-                                        loop: true,
-                                        delay: Math.random() * 2000,
+                                        duration: 2500,
+                                        delay:
+                                            450 +
+                                            index *
+                                            115,
                                     }}
-                                    style={styles.shineEffect}
+                                    style={
+                                        styles.shineEffect
+                                    }
                                 />
+
+                                <View
+                                    style={
+                                        styles.openIndicator
+                                    }
+                                >
+                                    <LinearGradient
+                                        colors={[
+                                            "rgba(255,255,255,0.18)",
+                                            "rgba(255,255,255,0.05)",
+                                        ]}
+                                        style={
+                                            styles.openIndicatorGradient
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="arrow-forward"
+                                            size={13}
+                                            color="#EDF0F7"
+                                        />
+                                    </LinearGradient>
+                                </View>
                             </View>
 
-                            {/* NOME ARTISTA */}
-                            <View style={styles.nameContainer}>
-                                <Text numberOfLines={1} style={styles.name}>
+                            <View
+                                style={
+                                    styles.infoContainer
+                                }
+                            >
+                                <Text
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                    minimumFontScale={
+                                        0.75
+                                    }
+                                    style={styles.name}
+                                >
                                     {name}
                                 </Text>
+
+                                <View
+                                    style={
+                                        styles.subtitleRow
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.liveDotOuter
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.liveDot
+                                            }
+                                        />
+                                    </View>
+
+                                </View>
                             </View>
+
+                            <LinearGradient
+                                pointerEvents="none"
+                                colors={[
+                                    "transparent",
+                                    "rgba(29,185,84,0.45)",
+                                    "rgba(119,91,255,0.38)",
+                                    "transparent",
+                                ]}
+                                start={{
+                                    x: 0,
+                                    y: 0,
+                                }}
+                                end={{
+                                    x: 1,
+                                    y: 0,
+                                }}
+                                style={
+                                    styles.bottomAccent
+                                }
+                            />
                         </View>
                     </LinearGradient>
                 </View>
@@ -90,83 +268,190 @@ export function ArtistCard({ id, name, profileURL, index = 0, onPress }: ArtistC
     );
 }
 
+export const ArtistCard = memo(
+    ArtistCardComponent,
+    (
+        previousProps,
+        nextProps,
+    ) =>
+        previousProps.id ===
+        nextProps.id &&
+        previousProps.name ===
+        nextProps.name &&
+        previousProps.profileURL ===
+        nextProps.profileURL &&
+        previousProps.index ===
+        nextProps.index &&
+        previousProps.onPress ===
+        nextProps.onPress,
+);
+
 const styles = StyleSheet.create({
     container: {
-        width: CARD_WIDTH,
+        width: "100%",
     },
 
-    card: {
-        borderRadius: 18,
+    animation: {
+        width: "100%",
+    },
+
+    cardShell: {
+        width: "100%",
         overflow: "hidden",
+        borderRadius: 18,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.28,
+        shadowRadius: 13,
+        elevation: 7,
     },
 
     gradientBorder: {
-        padding: 2,
+        padding: 1,
         borderRadius: 18,
     },
 
     cardInner: {
-        backgroundColor: "#0f0f0f",
-        borderRadius: 16,
+        position: "relative",
         overflow: "hidden",
+        borderRadius: 17,
+        backgroundColor:
+            "rgba(11,12,17,0.97)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.025)",
     },
 
     imageWrapper: {
+        position: "relative",
         width: "100%",
         aspectRatio: 1,
-        borderRadius: 16,
         overflow: "hidden",
-        backgroundColor: "#111",
-        position: "relative",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 14,
-        elevation: 6,
+        backgroundColor: "#15171F",
     },
 
     image: {
         width: "100%",
         height: "100%",
+        backgroundColor: "#15171F",
     },
 
     shineEffect: {
         position: "absolute",
-        top: 0,
-        width: 40,
-        height: "100%",
-        backgroundColor: "rgba(255,255,255,0.07)",
-        transform: [{ skewX: "-20deg" }],
+        top: -20,
+        width: 38,
+        height: "125%",
+        backgroundColor:
+            "rgba(255,255,255,0.12)",
+        transform: [
+            {
+                skewX: "-19deg",
+            },
+        ],
     },
 
-    nameContainer: {
-        padding: 12,
-        paddingTop: 10,
-        alignItems: "center",
-        gap: 6,
-    },
-
-    name: {
-        color: "#fff",
-        fontWeight: "800",
-        fontSize: 14,
-        letterSpacing: -0.3,
-    },
-
-    badge: {
+    artistBadge: {
+        position: "absolute",
+        left: 8,
+        bottom: 8,
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderRadius: 8,
+        paddingHorizontal: 7,
+        paddingVertical: 4,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.11)",
     },
 
-    badgeText: {
-        color: "#999",
-        fontSize: 9,
+    artistBadgeText: {
+        color: "#E8FFF0",
+        fontSize: 7,
+        lineHeight: 9,
+        fontWeight: "900",
+        letterSpacing: 0.75,
+    },
+
+    openIndicator: {
+        position: "absolute",
+        right: 8,
+        bottom: 8,
+        width: 27,
+        height: 27,
+        overflow: "hidden",
+        borderRadius: 13.5,
+    },
+
+    openIndicatorGradient: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 13.5,
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.10)",
+    },
+
+    infoContainer: {
+        height: 62,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+
+    name: {
+        width: "100%",
+        color: "#F5F6FB",
+        fontSize: 13,
+        lineHeight: 16,
+        fontWeight: "900",
+        textAlign: "center",
+        letterSpacing: -0.3,
+    },
+
+    subtitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 5,
+        marginTop: 5,
+    },
+
+    liveDotOuter: {
+        width: 8,
+        height: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 4,
+        backgroundColor:
+            "rgba(29,185,84,0.12)",
+    },
+
+    liveDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: "#1ED760",
+    },
+
+    subtitle: {
+        color: "#7F8799",
+        fontSize: 8,
+        lineHeight: 10,
         fontWeight: "700",
-        textTransform: "uppercase",
+    },
+
+    bottomAccent: {
+        position: "absolute",
+        left: 13,
+        right: 13,
+        bottom: 0,
+        height: 1,
+        opacity: 0.65,
     },
 });

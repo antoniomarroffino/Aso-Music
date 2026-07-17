@@ -1,781 +1,2290 @@
-import React, {memo, useCallback, useEffect, useMemo, useState} from "react";
-import {Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,} from "react-native";
-import {useLocalSearchParams, useRouter} from "expo-router";
-import {Image} from "expo-image";
-import {LinearGradient} from "expo-linear-gradient";
-import {Ionicons} from "@expo/vector-icons";
-import {MotiView} from "moti";
-import {BlurView} from "expo-blur";
-import {useArtists} from "@/hooks/useArtists";
+import React, {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+import {
+    ActivityIndicator,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+} from "react-native";
+import {
+    useLocalSearchParams,
+    useRouter,
+} from "expo-router";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { MotiView } from "moti";
+import { BlurView } from "expo-blur";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueries } from "@tanstack/react-query";
+
+import {
+    AlbumPreviewDTO,
+    ArtistDTO,
+    SongPreviewDTO,
+} from "@/types/music";
+import { useArtists } from "@/hooks/useArtists";
+import { useAlbums } from "@/hooks/useAlbums";
+import { usePlayer } from "@/context/PlayerContext";
+import { fetchSongsByAlbum } from "@/api/songs";
+
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
-import SafeScrollView from "@/components/ui/SafeScrollView";
-import {usePlayer} from "@/context/PlayerContext";
-import {AlbumPreviewDTO, ArtistDTO, SongDTO} from "@/types/music";
-import {useAlbums} from "@/hooks/useAlbums";
-import {useQueryClient} from "@tanstack/react-query";
 
-const {width, height} = Dimensions.get("window");
+const MAX_CONTENT_WIDTH = 760;
+const INITIAL_VISIBLE_SONGS = 5;
+const SONGS_INCREMENT = 5;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎨 PARTICLES (generate una sola volta, fuori dal componente)
-// ═══════════════════════════════════════════════════════════════════════════
+type ArtistSong = SongPreviewDTO & {
+    albumId: string;
+    albumName: string;
+    albumCover?: string;
+};
 
-const PARTICLES = Array.from({length: 15}, (_, i) => ({
-    id: i,
-    left: Math.random() * width,
-    width: 2 + Math.random() * 3,
-    height: 2 + Math.random() * 3,
-    duration: 8000 + Math.random() * 4000,
-    delay: Math.random() * 2000,
-}));
+type AlbumTrackState = {
+    count: number;
+    loading: boolean;
+};
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ✨ PARTICLES BACKGROUND (memoizzato)
-// ═══════════════════════════════════════════════════════════════════════════
+/* -------------------------------------------------------------------------- */
+/* Background                                                                 */
+/* -------------------------------------------------------------------------- */
 
-const ParticlesBackground = memo(function ParticlesBackground() {
-    return (
-        <View style={styles.particlesContainer}>
-            {PARTICLES.map((particle) => (
+const AmbientBackground = memo(
+    function AmbientBackground() {
+        return (
+            <View
+                pointerEvents="none"
+                style={StyleSheet.absoluteFillObject}
+            >
+                <LinearGradient
+                    colors={[
+                        "#050609",
+                        "#080A11",
+                        "#0D0B19",
+                        "#050506",
+                    ]}
+                    locations={[
+                        0,
+                        0.32,
+                        0.72,
+                        1,
+                    ]}
+                    style={
+                        StyleSheet.absoluteFillObject
+                    }
+                />
+
                 <MotiView
-                    key={particle.id}
                     from={{
-                        opacity: 0.1,
-                        translateY: 0,
+                        opacity: 0.2,
+                        scale: 0.94,
                     }}
                     animate={{
-                        opacity: [0.1, 0.3, 0.1],
-                        translateY: height,
+                        opacity: 0.43,
+                        scale: 1.06,
                     }}
                     transition={{
-                        loop: true,
                         type: "timing",
-                        duration: particle.duration,
-                        delay: particle.delay,
+                        duration: 7600,
+                        loop: true,
+                        repeatReverse: true,
                     }}
                     style={[
-                        styles.particle,
-                        {
-                            left: particle.left,
-                            width: particle.width,
-                            height: particle.height,
-                        },
+                        styles.ambientOrb,
+                        styles.greenOrb,
                     ]}
-                />
-            ))}
-        </View>
-    );
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ⏳ LOADING STATE
-// ═══════════════════════════════════════════════════════════════════════════
-
-const LoadingState = memo(function LoadingState() {
-    return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
-                locations={[0, 0.3, 0.7, 1]}
-                style={StyleSheet.absoluteFillObject}
-            />
-            <ParticlesBackground/>
-
-            <View style={styles.loadingContainer}>
-                <MotiView
-                    from={{opacity: 0, scale: 0.8}}
-                    animate={{opacity: 1, scale: 1}}
-                    transition={{type: "spring", damping: 15}}
                 >
-                    <MotiView
-                        from={{rotate: "0deg"}}
-                        animate={{rotate: "360deg"}}
-                        transition={{
-                            type: "timing",
-                            duration: 2000,
-                            loop: true,
-                        }}
-                        style={styles.loadingIcon}
-                    >
-                        <LinearGradient
-                            colors={["#1DB954", "#1ed760"]}
-                            style={styles.loadingIconGradient}
-                        >
-                            <Ionicons name="person" size={40} color="#000"/>
-                        </LinearGradient>
-                    </MotiView>
+                    <LinearGradient
+                        colors={[
+                            "rgba(29,185,84,0.27)",
+                            "rgba(29,185,84,0.02)",
+                            "transparent",
+                        ]}
+                        style={
+                            StyleSheet.absoluteFillObject
+                        }
+                    />
+                </MotiView>
 
-                    <MotiView
-                        from={{opacity: 0, translateY: 10}}
-                        animate={{opacity: 1, translateY: 0}}
-                        transition={{type: "timing", delay: 200}}
-                    >
-                        <Text style={styles.loadingText}>Caricamento artista...</Text>
-                    </MotiView>
-
-                    <View style={styles.loadingDotsContainer}>
-                        {[0, 1, 2].map((i) => (
-                            <MotiView
-                                key={i}
-                                from={{opacity: 0.3, scale: 0.8}}
-                                animate={{opacity: 1, scale: 1}}
-                                transition={{
-                                    type: "timing",
-                                    duration: 800,
-                                    loop: true,
-                                    delay: i * 200,
-                                    repeatReverse: true,
-                                }}
-                                style={styles.loadingDot}
-                            />
-                        ))}
-                    </View>
+                <MotiView
+                    from={{
+                        opacity: 0.17,
+                        scale: 1.05,
+                    }}
+                    animate={{
+                        opacity: 0.38,
+                        scale: 0.95,
+                    }}
+                    transition={{
+                        type: "timing",
+                        duration: 9000,
+                        loop: true,
+                        repeatReverse: true,
+                    }}
+                    style={[
+                        styles.ambientOrb,
+                        styles.purpleOrb,
+                    ]}
+                >
+                    <LinearGradient
+                        colors={[
+                            "rgba(119,89,255,0.24)",
+                            "rgba(119,89,255,0.02)",
+                            "transparent",
+                        ]}
+                        style={
+                            StyleSheet.absoluteFillObject
+                        }
+                    />
                 </MotiView>
             </View>
-        </View>
-    );
-});
+        );
+    },
+);
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ❌ ERROR STATE
-// ═══════════════════════════════════════════════════════════════════════════
+/* -------------------------------------------------------------------------- */
+/* Loading                                                                    */
+/* -------------------------------------------------------------------------- */
+
+type LoadingStateProps = {
+    topInset: number;
+};
+
+const LoadingState = memo(
+    function LoadingState({
+                              topInset,
+                          }: LoadingStateProps) {
+        return (
+            <View style={styles.container}>
+                <AmbientBackground />
+                <StatusBar style="light" />
+
+                <View
+                    style={[
+                        styles.loadingContainer,
+                        {
+                            paddingTop:
+                                Platform.OS === "web"
+                                    ? 40
+                                    : topInset,
+                        },
+                    ]}
+                >
+                    <MotiView
+                        from={{
+                            opacity: 0,
+                            scale: 0.9,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            scale: 1,
+                        }}
+                        transition={{
+                            type: "spring",
+                            damping: 17,
+                        }}
+                        style={styles.loadingContent}
+                    >
+                        <LinearGradient
+                            colors={[
+                                "#68F99D",
+                                "#1DB954",
+                                "#7560FF",
+                            ]}
+                            style={
+                                styles.loadingIconBorder
+                            }
+                        >
+                            <View
+                                style={
+                                    styles.loadingIcon
+                                }
+                            >
+                                <Ionicons
+                                    name="mic-outline"
+                                    size={28}
+                                    color="#65EE96"
+                                />
+                            </View>
+                        </LinearGradient>
+
+                        <Text
+                            style={
+                                styles.loadingEyebrow
+                            }
+                        >
+                            ASO MUSIC
+                        </Text>
+
+                        <Text
+                            style={
+                                styles.loadingTitle
+                            }
+                        >
+                            Caricamento artista
+                        </Text>
+
+                        <View
+                            style={
+                                styles.loadingIndicator
+                            }
+                        >
+                            <ActivityIndicator
+                                size="small"
+                                color="#1ED760"
+                            />
+
+                            <Text
+                                style={
+                                    styles.loadingIndicatorText
+                                }
+                            >
+                                Preparazione profilo
+                            </Text>
+                        </View>
+                    </MotiView>
+                </View>
+            </View>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Error                                                                      */
+/* -------------------------------------------------------------------------- */
 
 type ErrorStateProps = {
+    topInset: number;
     onGoBack: () => void;
 };
 
-const ErrorState = memo(function ErrorState({onGoBack}: ErrorStateProps) {
-    return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
-                locations={[0, 0.3, 0.7, 1]}
-                style={StyleSheet.absoluteFillObject}
-            />
-            <ParticlesBackground/>
+const ErrorState = memo(
+    function ErrorState({
+                            topInset,
+                            onGoBack,
+                        }: ErrorStateProps) {
+        return (
+            <View style={styles.container}>
+                <AmbientBackground />
+                <StatusBar style="light" />
 
-            <View style={styles.loadingContainer}>
-                <MotiView
-                    from={{opacity: 0, scale: 0.8}}
-                    animate={{opacity: 1, scale: 1}}
-                    transition={{type: "spring", damping: 15}}
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Torna indietro"
+                    activeOpacity={0.75}
+                    onPress={onGoBack}
+                    style={[
+                        styles.floatingBackButton,
+                        {
+                            top:
+                                Platform.OS === "web"
+                                    ? 24
+                                    : topInset + 8,
+                        },
+                    ]}
                 >
-                    <View style={styles.errorIcon}>
-                        <Ionicons name="alert-circle" size={60} color="#FF453A"/>
-                    </View>
-                    <Text style={styles.errorTextStyled}>Artista non trovato</Text>
-                    <Text style={styles.errorSubtext}>
-                        L&#39;artista che stai cercando non esiste o è stato rimosso 😢
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.backToHomeButton}
-                        onPress={onGoBack}
-                        activeOpacity={0.8}
+                    <BlurView
+                        intensity={58}
+                        tint="dark"
+                        style={
+                            styles.floatingBackBlur
+                        }
+                    >
+                        <Ionicons
+                            name="chevron-back"
+                            size={21}
+                            color="#F2F4F9"
+                        />
+                    </BlurView>
+                </TouchableOpacity>
+
+                <View
+                    style={
+                        styles.errorContainer
+                    }
+                >
+                    <MotiView
+                        from={{
+                            opacity: 0,
+                            scale: 0.9,
+                            translateY: 12,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            scale: 1,
+                            translateY: 0,
+                        }}
+                        transition={{
+                            type: "spring",
+                            damping: 17,
+                        }}
+                        style={styles.errorContent}
                     >
                         <LinearGradient
-                            colors={["#1DB954", "#1ed760"]}
-                            style={styles.backToHomeGradient}
+                            colors={[
+                                "rgba(255,82,101,0.30)",
+                                "rgba(255,82,101,0.05)",
+                            ]}
+                            style={
+                                styles.errorIcon
+                            }
                         >
-                            <Ionicons name="arrow-back" size={20} color="#000"/>
-                            <Text style={styles.backToHomeText}>Torna indietro</Text>
+                            <Ionicons
+                                name="alert-circle-outline"
+                                size={29}
+                                color="#FF6575"
+                            />
                         </LinearGradient>
-                    </TouchableOpacity>
-                </MotiView>
-            </View>
-        </View>
-    );
-});
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 📭 EMPTY SECTION
-// ═══════════════════════════════════════════════════════════════════════════
+                        <Text
+                            style={
+                                styles.errorTitle
+                            }
+                        >
+                            Artista non trovato
+                        </Text>
+
+                        <Text
+                            style={
+                                styles.errorDescription
+                            }
+                        >
+                            Il profilo potrebbe essere
+                            stato rimosso o non essere
+                            più disponibile.
+                        </Text>
+
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={onGoBack}
+                            style={
+                                styles.errorButton
+                            }
+                        >
+                            <LinearGradient
+                                colors={[
+                                    "#63F398",
+                                    "#1DB954",
+                                ]}
+                                style={
+                                    styles.errorButtonGradient
+                                }
+                            >
+                                <Ionicons
+                                    name="arrow-back"
+                                    size={16}
+                                    color="#041009"
+                                />
+
+                                <Text
+                                    style={
+                                        styles.errorButtonText
+                                    }
+                                >
+                                    Torna indietro
+                                </Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </MotiView>
+                </View>
+            </View>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Section header                                                             */
+/* -------------------------------------------------------------------------- */
+
+type SectionHeaderProps = {
+    eyebrow: string;
+    title: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    count?: number;
+};
+
+const SectionHeader = memo(
+    function SectionHeader({
+                               eyebrow,
+                               title,
+                               icon,
+                               count,
+                           }: SectionHeaderProps) {
+        return (
+            <View style={styles.sectionHeader}>
+                <LinearGradient
+                    colors={[
+                        "rgba(29,185,84,0.20)",
+                        "rgba(119,89,255,0.13)",
+                    ]}
+                    style={
+                        styles.sectionHeaderIcon
+                    }
+                >
+                    <Ionicons
+                        name={icon}
+                        size={16}
+                        color="#67EB95"
+                    />
+                </LinearGradient>
+
+                <View
+                    style={
+                        styles.sectionHeaderText
+                    }
+                >
+                    <Text
+                        style={
+                            styles.sectionEyebrow
+                        }
+                    >
+                        {eyebrow}
+                    </Text>
+
+                    <Text
+                        style={
+                            styles.sectionTitle
+                        }
+                    >
+                        {title}
+                    </Text>
+                </View>
+
+                {count !== undefined && (
+                    <View
+                        style={
+                            styles.sectionCountBadge
+                        }
+                    >
+                        <Text
+                            style={
+                                styles.sectionCountText
+                            }
+                        >
+                            {count}
+                        </Text>
+                    </View>
+                )}
+            </View>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Empty section                                                              */
+/* -------------------------------------------------------------------------- */
 
 type EmptySectionProps = {
     icon: keyof typeof Ionicons.glyphMap;
     title: string;
     subtitle: string;
-    delay?: number;
 };
 
-const EmptySection = memo(function EmptySection({
-                                                    icon,
-                                                    title,
-                                                    subtitle,
-                                                    delay = 0,
-                                                }: EmptySectionProps) {
-    return (
-        <MotiView
-            from={{opacity: 0, translateY: 20}}
-            animate={{opacity: 1, translateY: 0}}
-            transition={{type: "spring", damping: 15, delay}}
-            style={styles.emptyContainer}
-        >
-            <LinearGradient
-                colors={["rgba(255, 255, 255, 0.05)", "rgba(255, 255, 255, 0.02)"]}
-                style={styles.emptyGradient}
+const EmptySection = memo(
+    function EmptySection({
+                              icon,
+                              title,
+                              subtitle,
+                          }: EmptySectionProps) {
+        return (
+            <MotiView
+                from={{
+                    opacity: 0,
+                    translateY: 8,
+                }}
+                animate={{
+                    opacity: 1,
+                    translateY: 0,
+                }}
+                transition={{
+                    type: "spring",
+                    damping: 17,
+                }}
             >
-                <View style={styles.emptyIconContainer}>
-                    <Ionicons name={icon} size={48} color="#555"/>
-                </View>
-                <Text style={styles.emptyTitle}>{title}</Text>
-                <Text style={styles.emptySubtitle}>{subtitle}</Text>
-            </LinearGradient>
-        </MotiView>
-    );
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎵 SONG LIST SECTION
-// ═══════════════════════════════════════════════════════════════════════════
-
-type SongListSectionProps = {
-    songs: SongDTO[];
-    allArtists: ArtistDTO[];
-    visibleCount: number;
-    onShowMore: () => void;
-    onShowLess: () => void;
-    onPlaySong: (song: SongDTO, index: number) => void;
-};
-
-const SongListSection = memo(function SongListSection({
-                                                          songs,
-                                                          allArtists,
-                                                          visibleCount,
-                                                          onShowMore,
-                                                          onShowLess,
-                                                          onPlaySong,
-                                                      }: SongListSectionProps) {
-    if (songs.length === 0) {
-        return (
-            <EmptySection
-                icon="musical-notes-outline"
-                title="Nessuna canzone disponibile"
-                subtitle="Questo artista non ha ancora brani pubblicati"
-            />
-        );
-    }
-
-    return (
-        <>
-            {songs.slice(0, visibleCount).map((song, index) => (
-                <SongItemArtist
-                    key={song.id}
-                    song={song}
-                    rank={index + 1}
-                    index={index}
-                    albumId={song.albumId ?? "unknown"}
-                    onPress={onPlaySong}
-                />
-            ))}
-
-            {songs.length > 5 && (
-                <View style={styles.showMoreContainer}>
-                    {visibleCount < songs.length && (
-                        <TouchableOpacity
-                            onPress={onShowMore}
-                            style={styles.showMoreButton}
-                        >
-                            <Text style={styles.showMoreText}>Mostra altre 5</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {visibleCount > 5 && (
-                        <TouchableOpacity
-                            onPress={onShowLess}
-                            style={styles.showMoreButton}
-                        >
-                            <Text style={styles.showMoreText}>Mostra meno</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            )}
-        </>
-    );
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 💿 ALBUMS SECTION
-// ═══════════════════════════════════════════════════════════════════════════
-
-type AlbumsSectionProps = {
-    albums: AlbumPreviewDTO[];
-};
-
-const AlbumsSection = memo(function AlbumsSection({albums}: AlbumsSectionProps) {
-    const {latestAlbum, otherAlbums} = useMemo(() => {
-        if (albums.length === 0) {
-            return {latestAlbum: null, otherAlbums: []};
-        }
-
-        const sorted = [...albums].sort(
-            (a, b) =>
-                new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
-        );
-
-        return {
-            latestAlbum: sorted[0],
-            otherAlbums: sorted.slice(1),
-        };
-    }, [albums]);
-
-    if (!latestAlbum) {
-        return (
-            <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>💿 Albums</Text>
-                <EmptySection
-                    icon="disc-outline"
-                    title="Nessun album disponibile"
-                    subtitle="Questo artista non ha ancora album pubblicati"
-                    delay={200}
-                />
-            </View>
-        );
-    }
-
-    return (
-        <>
-            {/* 🎉 Latest Release */}
-            <View style={styles.subSection}>
-                <Text style={styles.subSectionTitle}>🕔 Latest Release</Text>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.albumsRow}
+                <LinearGradient
+                    colors={[
+                        "rgba(255,255,255,0.11)",
+                        "rgba(255,255,255,0.025)",
+                    ]}
+                    style={
+                        styles.emptySectionBorder
+                    }
                 >
-                    <AlbumCard album={latestAlbum} index={0}/>
-                </ScrollView>
-            </View>
-
-            {/* 🎧 Appears In */}
-            {otherAlbums.length > 0 && (
-                <View style={styles.subSection}>
-                    <Text style={styles.subSectionTitle}>🎧 Appears In</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.albumsRow}
+                    <View
+                        style={
+                            styles.emptySectionSurface
+                        }
                     >
-                        {otherAlbums.map((album, index) => (
-                            <AlbumCard key={album.id} album={album} index={index + 1}/>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
-        </>
-    );
-});
+                        <LinearGradient
+                            colors={[
+                                "rgba(29,185,84,0.14)",
+                                "rgba(119,89,255,0.08)",
+                            ]}
+                            style={
+                                styles.emptySectionIcon
+                            }
+                        >
+                            <Ionicons
+                                name={icon}
+                                size={22}
+                                color="#788093"
+                            />
+                        </LinearGradient>
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 🔝 HEADER
-// ═══════════════════════════════════════════════════════════════════════════
+                        <View
+                            style={
+                                styles.emptySectionText
+                            }
+                        >
+                            <Text
+                                style={
+                                    styles.emptySectionTitle
+                                }
+                            >
+                                {title}
+                            </Text>
 
-type HeaderProps = {
+                            <Text
+                                style={
+                                    styles.emptySectionSubtitle
+                                }
+                            >
+                                {subtitle}
+                            </Text>
+                        </View>
+                    </View>
+                </LinearGradient>
+            </MotiView>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Artist header                                                              */
+/* -------------------------------------------------------------------------- */
+
+type ArtistHeaderProps = {
     artist: ArtistDTO;
+    topInset: number;
+    imageSize: number;
+    songCount: number;
+    albumCount: number;
     onGoBack: () => void;
 };
 
-const Header = memo(function Header({artist, onGoBack}: HeaderProps) {
-    return (
-        <LinearGradient colors={["#1a1a1a", "#0a0a0a"]} style={styles.header}>
-            <BlurView
-                intensity={Platform.OS === "ios" ? 30 : 60}
-                tint="dark"
-                style={styles.backWrapper}
+const ArtistHeader = memo(
+    function ArtistHeader({
+                              artist,
+                              topInset,
+                              imageSize,
+                              songCount,
+                              albumCount,
+                              onGoBack,
+                          }: ArtistHeaderProps) {
+        const imageSource =
+            artist.profileURL?.trim()
+                ? {
+                    uri: artist.profileURL,
+                }
+                : require(
+                    "@/assets/images/placeholder-profile.png",
+                );
+
+        return (
+            <View
+                style={[
+                    styles.artistHeader,
+                    {
+                        paddingTop:
+                            Platform.OS === "web"
+                                ? 34
+                                : topInset + 12,
+                    },
+                ]}
             >
-                <TouchableOpacity onPress={onGoBack} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={26} color="#fff"/>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Torna indietro"
+                    activeOpacity={0.75}
+                    onPress={onGoBack}
+                    style={
+                        styles.headerBackButton
+                    }
+                >
+                    <BlurView
+                        intensity={58}
+                        tint="dark"
+                        style={
+                            styles.headerBackBlur
+                        }
+                    >
+                        <Ionicons
+                            name="chevron-back"
+                            size={21}
+                            color="#F2F4F9"
+                        />
+                    </BlurView>
                 </TouchableOpacity>
-            </BlurView>
 
-            <MotiView
-                from={{opacity: 0, translateY: -20}}
-                animate={{opacity: 1, translateY: 0}}
-                transition={{type: "timing", duration: 600}}
-            >
-                <View style={styles.imageWrapper}>
-                    <Image
-                        source={{uri: artist.profileURL}}
-                        style={styles.image}
-                        contentFit="cover"
-                        transition={300}
-                    />
+                <MotiView
+                    from={{
+                        opacity: 0,
+                        translateY: -12,
+                        scale: 0.96,
+                    }}
+                    animate={{
+                        opacity: 1,
+                        translateY: 0,
+                        scale: 1,
+                    }}
+                    transition={{
+                        type: "spring",
+                        damping: 17,
+                    }}
+                    style={
+                        styles.artistHeaderContent
+                    }
+                >
+                    <View
+                        style={
+                            styles.profileStage
+                        }
+                    >
+                        <MotiView
+                            from={{
+                                rotate: "0deg",
+                            }}
+                            animate={{
+                                rotate: "360deg",
+                            }}
+                            transition={{
+                                type: "timing",
+                                duration: 18000,
+                                loop: true,
+                            }}
+                            style={[
+                                styles.profileOrbit,
+                                {
+                                    width:
+                                        imageSize + 30,
+                                    height:
+                                        imageSize + 30,
+                                    borderRadius:
+                                        (imageSize +
+                                            30) /
+                                        2,
+                                },
+                            ]}
+                        />
+
+                        <LinearGradient
+                            colors={[
+                                "#62F197",
+                                "#1DB954",
+                                "#7560FF",
+                            ]}
+                            style={[
+                                styles.profileBorder,
+                                {
+                                    width:
+                                        imageSize + 6,
+                                    height:
+                                        imageSize + 6,
+                                    borderRadius:
+                                        (imageSize +
+                                            6) /
+                                        2,
+                                },
+                            ]}
+                        >
+                            <Image
+                                source={imageSource}
+                                style={[
+                                    styles.profileImage,
+                                    {
+                                        width: imageSize,
+                                        height:
+                                        imageSize,
+                                        borderRadius:
+                                            imageSize /
+                                            2,
+                                    },
+                                ]}
+                                contentFit="cover"
+                                transition={250}
+                                accessibilityLabel={`Foto di ${artist.name}`}
+                            />
+                        </LinearGradient>
+                    </View>
+
+                    <View
+                        style={
+                            styles.artistTypeBadge
+                        }
+                    >
+                        <Ionicons
+                            name="mic-outline"
+                            size={10}
+                            color="#65EB95"
+                        />
+
+                        <Text
+                            style={
+                                styles.artistTypeText
+                            }
+                        >
+                            ARTISTA
+                        </Text>
+                    </View>
+
+                    <Text
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.72}
+                        style={
+                            styles.artistName
+                        }
+                    >
+                        {artist.name}
+                    </Text>
+
+                    <View
+                        style={
+                            styles.artistMetrics
+                        }
+                    >
+                        <View
+                            style={
+                                styles.artistMetric
+                            }
+                        >
+                            <Ionicons
+                                name="musical-notes-outline"
+                                size={13}
+                                color="#66EA95"
+                            />
+
+                            <Text
+                                style={
+                                    styles.artistMetricValue
+                                }
+                            >
+                                {songCount}
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.artistMetricLabel
+                                }
+                            >
+                                brani
+                            </Text>
+                        </View>
+
+                        <View
+                            style={
+                                styles.metricDivider
+                            }
+                        />
+
+                        <View
+                            style={
+                                styles.artistMetric
+                            }
+                        >
+                            <Ionicons
+                                name="albums-outline"
+                                size={13}
+                                color="#A38CFF"
+                            />
+
+                            <Text
+                                style={
+                                    styles.artistMetricValue
+                                }
+                            >
+                                {albumCount}
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.artistMetricLabel
+                                }
+                            >
+                                album
+                            </Text>
+                        </View>
+                    </View>
+                </MotiView>
+            </View>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Song section                                                               */
+/* -------------------------------------------------------------------------- */
+
+type SongListSectionProps = {
+    songs: ArtistSong[];
+    visibleCount: number;
+    loading: boolean;
+    currentSongId: string | null;
+    isPlaying: boolean;
+    onShowMore: () => void;
+    onShowLess: () => void;
+    onPlaySong: (
+        song: SongPreviewDTO,
+        albumId: string,
+    ) => void;
+};
+
+const SongListSection = memo(
+    function SongListSection({
+                                 songs,
+                                 visibleCount,
+                                 loading,
+                                 currentSongId,
+                                 isPlaying,
+                                 onShowMore,
+                                 onShowLess,
+                                 onPlaySong,
+                             }: SongListSectionProps) {
+        if (loading && songs.length === 0) {
+            return (
+                <View style={styles.songSkeletonList}>
+                    {[0, 1, 2].map(
+                        (index) => (
+                            <MotiView
+                                key={index}
+                                from={{
+                                    opacity: 0.3,
+                                }}
+                                animate={{
+                                    opacity: 0.72,
+                                }}
+                                transition={{
+                                    type: "timing",
+                                    duration: 900,
+                                    delay:
+                                        index * 100,
+                                    loop: true,
+                                    repeatReverse: true,
+                                }}
+                                style={
+                                    styles.songSkeleton
+                                }
+                            >
+                                <View
+                                    style={
+                                        styles.songSkeletonCover
+                                    }
+                                />
+
+                                <View
+                                    style={
+                                        styles.songSkeletonInfo
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.songSkeletonTitle
+                                        }
+                                    />
+
+                                    <View
+                                        style={
+                                            styles.songSkeletonSubtitle
+                                        }
+                                    />
+                                </View>
+                            </MotiView>
+                        ),
+                    )}
                 </View>
-                <Text style={styles.artistName}>{artist.name}</Text>
-            </MotiView>
-        </LinearGradient>
-    );
-});
+            );
+        }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎤 ARTIST DETAILS SCREEN
-// ═══════════════════════════════════════════════════════════════════════════
+        if (songs.length === 0) {
+            return (
+                <EmptySection
+                    icon="musical-notes-outline"
+                    title="Nessun brano disponibile"
+                    subtitle="Questo artista non ha ancora pubblicato brani."
+                />
+            );
+        }
+
+        const visibleSongs =
+            songs.slice(0, visibleCount);
+
+        return (
+            <>
+                <View
+                    style={
+                        styles.songList
+                    }
+                >
+                    {visibleSongs.map(
+                        (song, index) => {
+                            const active =
+                                currentSongId ===
+                                song.id;
+
+                            return (
+                                <SongItemArtist
+                                    key={`${song.albumId}-${song.id}`}
+                                    song={song}
+                                    rank={
+                                        index + 1
+                                    }
+                                    index={index}
+                                    albumId={
+                                        song.albumId
+                                    }
+                                    albumName={
+                                        song.albumName
+                                    }
+                                    albumCover={
+                                        song.albumCover
+                                    }
+                                    isActive={
+                                        active
+                                    }
+                                    isPlaying={
+                                        active &&
+                                        isPlaying
+                                    }
+                                    onPress={
+                                        onPlaySong
+                                    }
+                                />
+                            );
+                        },
+                    )}
+                </View>
+
+                {songs.length >
+                    INITIAL_VISIBLE_SONGS && (
+                        <View
+                            style={
+                                styles.showMoreContainer
+                            }
+                        >
+                            {visibleCount <
+                                songs.length && (
+                                    <TouchableOpacity
+                                        accessibilityRole="button"
+                                        activeOpacity={
+                                            0.75
+                                        }
+                                        onPress={
+                                            onShowMore
+                                        }
+                                        style={
+                                            styles.showMoreButton
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="chevron-down"
+                                            size={13}
+                                            color="#62E992"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.showMoreText
+                                            }
+                                        >
+                                            Mostra altri
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+
+                            {visibleCount >
+                                INITIAL_VISIBLE_SONGS && (
+                                    <TouchableOpacity
+                                        accessibilityRole="button"
+                                        activeOpacity={
+                                            0.75
+                                        }
+                                        onPress={
+                                            onShowLess
+                                        }
+                                        style={
+                                            styles.showMoreButton
+                                        }
+                                    >
+                                        <Ionicons
+                                            name="chevron-up"
+                                            size={13}
+                                            color="#A58FFF"
+                                        />
+
+                                        <Text
+                                            style={[
+                                                styles.showMoreText,
+                                                styles.showLessText,
+                                            ]}
+                                        >
+                                            Riduci
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                        </View>
+                    )}
+            </>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Albums section                                                             */
+/* -------------------------------------------------------------------------- */
+
+type AlbumsSectionProps = {
+    albums: AlbumPreviewDTO[];
+    cardWidth: number;
+    trackState: Map<
+        string,
+        AlbumTrackState
+    >;
+};
+
+const AlbumsSection = memo(
+    function AlbumsSection({
+                               albums,
+                               cardWidth,
+                               trackState,
+                           }: AlbumsSectionProps) {
+        const sortedAlbums =
+            useMemo(() => {
+                return [...albums].sort(
+                    (
+                        firstAlbum,
+                        secondAlbum,
+                    ) =>
+                        new Date(
+                            secondAlbum.releaseDate,
+                        ).getTime() -
+                        new Date(
+                            firstAlbum.releaseDate,
+                        ).getTime(),
+                );
+            }, [albums]);
+
+        if (sortedAlbums.length === 0) {
+            return (
+                <EmptySection
+                    icon="disc-outline"
+                    title="Nessun album disponibile"
+                    subtitle="Questo artista non compare ancora in nessun album."
+                />
+            );
+        }
+
+        return (
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={
+                    false
+                }
+                contentContainerStyle={
+                    styles.albumsRow
+                }
+            >
+                {sortedAlbums.map(
+                    (album, index) => {
+                        const state =
+                            trackState.get(
+                                album.id,
+                            );
+
+                        return (
+                            <View
+                                key={album.id}
+                                style={[
+                                    styles.albumCardWrapper,
+                                    {
+                                        width:
+                                        cardWidth,
+                                    },
+                                ]}
+                            >
+                                <AlbumCard
+                                    album={album}
+                                    index={index}
+                                    trackCount={
+                                        state?.count ??
+                                        0
+                                    }
+                                    isTrackCountLoading={
+                                        state?.loading ??
+                                        false
+                                    }
+                                />
+                            </View>
+                        );
+                    },
+                )}
+            </ScrollView>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Screen                                                                     */
+/* -------------------------------------------------------------------------- */
 
 export default function ArtistDetailsScreen() {
     const router = useRouter();
-    const {artistId, from, albumId} = useLocalSearchParams<{
+    const insets = useSafeAreaInsets();
+
+    const {
+        width: windowWidth,
+    } = useWindowDimensions();
+
+    const {
+        artistId,
+        from,
+        albumId: sourceAlbumId,
+    } = useLocalSearchParams<{
         artistId?: string;
         from?: string;
         albumId?: string;
     }>();
 
-    const {data: artists, isLoading} = useArtists();
+    const {
+        data: artists = [],
+        isLoading: artistsLoading,
+    } = useArtists();
 
-    const [visibleCount, setVisibleCount] = useState(5);
-    const {playSong, togglePlayPause} = usePlayer();
+    const {
+        data: albumPreviews = [],
+        isLoading: albumsLoading,
+    } = useAlbums();
 
-    // Reset visible count when artist changes
-    useEffect(() => {
-        setVisibleCount(5);
-    }, [artistId]);
+    const {
+        playSong,
+        currentSong,
+        isPlaying,
+        togglePlayPause,
+    } = usePlayer();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔧 MEMOIZED DATA
-    // ═══════════════════════════════════════════════════════════════════════
-
-    const artist = useMemo(() => {
-        if (!artistId || !artists) return null;
-        return artists.find((a) => a.id === artistId) ?? null;
-    }, [artistId, artists]);
-    const {data: albumPreviews} = useAlbums();
-    const queryClient = useQueryClient();
-    const artistSongs = useMemo(() => {
-        if (!albumPreviews || !artist) return [];
-
-        const allSongs = albumPreviews.flatMap((album) => {
-            const songs = queryClient.getQueryData<any[]>(["songs", album.id]);
-            return songs ?? [];
-        });
-
-        return allSongs
-            .filter((song) =>
-                song.artists.some((a: ArtistDTO) => a.id === artist.id)
-            )
-            .sort((a, b) => b.stream - a.stream);
-    }, [albumPreviews, artist, queryClient]);
-
-    const artistAlbums = useMemo(() => {
-        if (!albumPreviews || !artist) return [];
-
-        return albumPreviews.filter((album) => {
-            const songs = queryClient.getQueryData<any[]>(["songs", album.id]);
-            return songs?.some((song) =>
-                song.artists.some((a: AlbumPreviewDTO) => a.id === artist.id)
-            );
-        });
-    }, [albumPreviews, artist, queryClient]);
-
-    // ✅ Memoize allArtists to avoid recreating on each render
-    const allArtists = useMemo(() => {
-        return artistSongs.flatMap((s) => s.artists);
-    }, [artistSongs]);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🎮 HANDLERS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    const handleGoBack = useCallback(() => {
-        if (from === "artists") {
-            router.replace("/(tabs)/artists");
-        } else if (from === "albumdetails" && albumId) {
-            router.replace({
-                pathname: "/(tabs)/albumdetails",
-                params: {id: albumId},
-            });
-        } else {
-            router.back();
-        }
-    }, [from, albumId, router]);
-
-    const handlePlaySong = useCallback(
-        (song: SongDTO) => {
-            const albumId = song.albumId;
-            if (!albumId) return;
-
-            const queue = queryClient.getQueryData<SongDTO[]>(["songs", albumId]);
-            if (!queue) return;
-
-            const index = queue.findIndex((s) => s.id === song.id);
-            if (index === -1) return;
-
-            playSong(queue[index], queue, index);
-        },
-        [playSong, queryClient]
+    const [
+        visibleCount,
+        setVisibleCount,
+    ] = useState(
+        INITIAL_VISIBLE_SONGS,
     );
 
+    useEffect(() => {
+        setVisibleCount(
+            INITIAL_VISIBLE_SONGS,
+        );
+    }, [artistId]);
 
-    const handleShowMore = useCallback(() => {
-        setVisibleCount((prev) => prev + 5);
-    }, []);
+    const artist = useMemo(() => {
+        if (!artistId) {
+            return null;
+        }
 
-    const handleShowLess = useCallback(() => {
-        setVisibleCount(5);
-    }, []);
+        return (
+            artists.find(
+                (item) =>
+                    item.id === artistId,
+            ) ?? null
+        );
+    }, [
+        artistId,
+        artists,
+    ]);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🎨 RENDER
-    // ═══════════════════════════════════════════════════════════════════════
+    const songQueries = useQueries({
+        queries: albumPreviews.map(
+            (album) => ({
+                queryKey: [
+                    "songs",
+                    album.id,
+                ],
+                queryFn: () =>
+                    fetchSongsByAlbum(
+                        album.id,
+                    ),
+                staleTime:
+                    1000 * 60 * 60,
+            }),
+        ),
+    });
 
-    if (isLoading) {
-        return <LoadingState/>;
+    const songsByAlbum =
+        useMemo(() => {
+            const map = new Map<
+                string,
+                SongPreviewDTO[]
+            >();
+
+            albumPreviews.forEach(
+                (
+                    album,
+                    albumIndex,
+                ) => {
+                    const songs =
+                        songQueries[
+                            albumIndex
+                            ]?.data ?? [];
+
+                    map.set(
+                        album.id,
+                        [...songs].sort(
+                            (
+                                firstSong,
+                                secondSong,
+                            ) =>
+                                firstSong.tracklistPosition -
+                                secondSong.tracklistPosition,
+                        ),
+                    );
+                },
+            );
+
+            return map;
+        }, [
+            albumPreviews,
+            songQueries,
+        ]);
+
+    const albumTrackState =
+        useMemo(() => {
+            const map = new Map<
+                string,
+                AlbumTrackState
+            >();
+
+            albumPreviews.forEach(
+                (
+                    album,
+                    albumIndex,
+                ) => {
+                    const query =
+                        songQueries[
+                            albumIndex
+                            ];
+
+                    map.set(album.id, {
+                        count:
+                            query?.data
+                                ?.length ?? 0,
+                        loading: Boolean(
+                            query?.isFetching &&
+                            !query.data,
+                        ),
+                    });
+                },
+            );
+
+            return map;
+        }, [
+            albumPreviews,
+            songQueries,
+        ]);
+
+    const songsLoading =
+        songQueries.some(
+            (query) =>
+                query.isFetching &&
+                !query.data,
+        );
+
+    const artistSongs =
+        useMemo<ArtistSong[]>(() => {
+            if (!artist) {
+                return [];
+            }
+
+            const results: ArtistSong[] =
+                [];
+
+            albumPreviews.forEach(
+                (album) => {
+                    const songs =
+                        songsByAlbum.get(
+                            album.id,
+                        ) ?? [];
+
+                    songs.forEach((song) => {
+                        const belongsToArtist =
+                            song.artists?.some(
+                                (
+                                    songArtist,
+                                ) =>
+                                    songArtist.id ===
+                                    artist.id,
+                            ) ?? false;
+
+                        if (
+                            !belongsToArtist
+                        ) {
+                            return;
+                        }
+
+                        results.push({
+                            ...song,
+                            albumId:
+                            album.id,
+                            albumName:
+                            album.name,
+                            albumCover:
+                                song.coverURL ||
+                                album.coverURL,
+                        });
+                    });
+                },
+            );
+
+            return results.sort(
+                (
+                    firstSong,
+                    secondSong,
+                ) =>
+                    (secondSong.stream ??
+                        0) -
+                    (firstSong.stream ??
+                        0),
+            );
+        }, [
+            albumPreviews,
+            artist,
+            songsByAlbum,
+        ]);
+
+    const artistAlbums =
+        useMemo(() => {
+            if (!artist) {
+                return [];
+            }
+
+            return albumPreviews.filter(
+                (album) => {
+                    const songs =
+                        songsByAlbum.get(
+                            album.id,
+                        ) ?? [];
+
+                    return songs.some(
+                        (song) =>
+                            song.artists?.some(
+                                (
+                                    songArtist,
+                                ) =>
+                                    songArtist.id ===
+                                    artist.id,
+                            ) ?? false,
+                    );
+                },
+            );
+        }, [
+            albumPreviews,
+            artist,
+            songsByAlbum,
+        ]);
+
+    const handleGoBack =
+        useCallback(() => {
+            if (from === "artists") {
+                router.replace(
+                    "/(tabs)/artists",
+                );
+                return;
+            }
+
+            if (
+                from === "albumdetails" &&
+                sourceAlbumId
+            ) {
+                router.replace({
+                    pathname:
+                        "/(tabs)/albumdetails",
+                    params: {
+                        id: sourceAlbumId,
+                    },
+                });
+                return;
+            }
+
+            router.back();
+        }, [
+            from,
+            router,
+            sourceAlbumId,
+        ]);
+
+    const handlePlaySong =
+        useCallback(
+            (
+                song: SongPreviewDTO,
+                songAlbumId: string,
+            ) => {
+                if (
+                    currentSong?.id ===
+                    song.id
+                ) {
+                    void togglePlayPause();
+                    return;
+                }
+
+                const queue =
+                    songsByAlbum.get(
+                        songAlbumId,
+                    );
+
+                if (!queue) {
+                    return;
+                }
+
+                const queueIndex =
+                    queue.findIndex(
+                        (queueSong) =>
+                            queueSong.id ===
+                            song.id,
+                    );
+
+                if (queueIndex < 0) {
+                    return;
+                }
+
+                void playSong(
+                    queue[queueIndex],
+                    queue,
+                    queueIndex,
+                );
+            },
+            [
+                currentSong?.id,
+                playSong,
+                songsByAlbum,
+                togglePlayPause,
+            ],
+        );
+
+    const handleShowMore =
+        useCallback(() => {
+            setVisibleCount(
+                (currentCount) =>
+                    Math.min(
+                        currentCount +
+                        SONGS_INCREMENT,
+                        artistSongs.length,
+                    ),
+            );
+        }, [artistSongs.length]);
+
+    const handleShowLess =
+        useCallback(() => {
+            setVisibleCount(
+                INITIAL_VISIBLE_SONGS,
+            );
+        }, []);
+
+    const contentWidth = Math.min(
+        windowWidth,
+        MAX_CONTENT_WIDTH,
+    );
+
+    const profileImageSize = Math.min(
+        210,
+        Math.max(
+            150,
+            contentWidth * 0.43,
+        ),
+    );
+
+    const albumCardWidth = Math.min(
+        172,
+        Math.max(
+            148,
+            contentWidth * 0.42,
+        ),
+    );
+
+    if (artistsLoading) {
+        return (
+            <LoadingState
+                topInset={insets.top}
+            />
+        );
     }
 
     if (!artist) {
-        return <ErrorState onGoBack={handleGoBack}/>;
+        return (
+            <ErrorState
+                topInset={insets.top}
+                onGoBack={handleGoBack}
+            />
+        );
     }
 
     return (
-        <SafeScrollView style={styles.container}>
-            {/* HEADER */}
-            <Header artist={artist} onGoBack={handleGoBack}/>
+        <View style={styles.container}>
+            <AmbientBackground />
+            <StatusBar style="light" />
 
-            {/* BIO */}
-            <View style={styles.bioContainer}>
-                <Text style={styles.bio}>
-                    {artist.bio ?? "Questo artista non ha ancora una biografia disponibile."}
-                </Text>
-            </View>
+            <ScrollView
+                showsVerticalScrollIndicator={
+                    false
+                }
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    {
+                        paddingBottom:
+                            insets.bottom +
+                            145,
+                    },
+                ]}
+            >
+                <View
+                    style={
+                        styles.contentWidth
+                    }
+                >
+                    <ArtistHeader
+                        artist={artist}
+                        topInset={insets.top}
+                        imageSize={
+                            profileImageSize
+                        }
+                        songCount={
+                            artistSongs.length
+                        }
+                        albumCount={
+                            artistAlbums.length
+                        }
+                        onGoBack={
+                            handleGoBack
+                        }
+                    />
 
-            {/* 🎵 TOP SONGS */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🔥 Top Songs</Text>
-                <SongListSection
-                    songs={artistSongs}
-                    allArtists={allArtists}
-                    visibleCount={visibleCount}
-                    onShowMore={handleShowMore}
-                    onShowLess={handleShowLess}
-                    onPlaySong={handlePlaySong}
-                />
-            </View>
+                    <MotiView
+                        from={{
+                            opacity: 0,
+                            translateY: 10,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            translateY: 0,
+                        }}
+                        transition={{
+                            type: "spring",
+                            damping: 17,
+                            delay: 100,
+                        }}
+                        style={
+                            styles.bioSection
+                        }
+                    >
+                        <LinearGradient
+                            colors={[
+                                "rgba(255,255,255,0.12)",
+                                "rgba(255,255,255,0.025)",
+                            ]}
+                            style={
+                                styles.bioBorder
+                            }
+                        >
+                            <View
+                                style={
+                                    styles.bioSurface
+                                }
+                            >
+                                <View
+                                    style={
+                                        styles.bioHeader
+                                    }
+                                >
+                                    <Ionicons
+                                        name="person-circle-outline"
+                                        size={16}
+                                        color="#66E995"
+                                    />
 
-            {/* 💿 ALBUMS */}
-            <View style={styles.section}>
-                <AlbumsSection albums={artistAlbums}/>
-            </View>
-        </SafeScrollView>
+                                    <Text
+                                        style={
+                                            styles.bioLabel
+                                        }
+                                    >
+                                        BIOGRAFIA
+                                    </Text>
+                                </View>
+
+                                <Text
+                                    style={
+                                        styles.bio
+                                    }
+                                >
+                                    {artist.bio?.trim() ||
+                                        "Questo artista non ha ancora una biografia disponibile."}
+                                </Text>
+                            </View>
+                        </LinearGradient>
+                    </MotiView>
+
+                    <MotiView
+                        from={{
+                            opacity: 0,
+                            translateY: 12,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            translateY: 0,
+                        }}
+                        transition={{
+                            type: "spring",
+                            damping: 17,
+                            delay: 170,
+                        }}
+                        style={styles.section}
+                    >
+                        <SectionHeader
+                            eyebrow="PIÙ ASCOLTATI"
+                            title="Top brani"
+                            icon="trending-up-outline"
+                            count={
+                                artistSongs.length
+                            }
+                        />
+
+                        <SongListSection
+                            songs={artistSongs}
+                            visibleCount={
+                                visibleCount
+                            }
+                            loading={
+                                albumsLoading ||
+                                songsLoading
+                            }
+                            currentSongId={
+                                currentSong?.id ??
+                                null
+                            }
+                            isPlaying={
+                                isPlaying
+                            }
+                            onShowMore={
+                                handleShowMore
+                            }
+                            onShowLess={
+                                handleShowLess
+                            }
+                            onPlaySong={
+                                handlePlaySong
+                            }
+                        />
+                    </MotiView>
+
+                    <MotiView
+                        from={{
+                            opacity: 0,
+                            translateY: 12,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            translateY: 0,
+                        }}
+                        transition={{
+                            type: "spring",
+                            damping: 17,
+                            delay: 240,
+                        }}
+                        style={styles.section}
+                    >
+                        <SectionHeader
+                            eyebrow="DISCOGRAFIA"
+                            title="Album"
+                            icon="albums-outline"
+                            count={
+                                artistAlbums.length
+                            }
+                        />
+
+                        <AlbumsSection
+                            albums={
+                                artistAlbums
+                            }
+                            cardWidth={
+                                albumCardWidth
+                            }
+                            trackState={
+                                albumTrackState
+                            }
+                        />
+                    </MotiView>
+                </View>
+            </ScrollView>
+        </View>
     );
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎨 STYLES
-// ═══════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#0a0a0a"
-    },
-    particlesContainer: {
-        ...StyleSheet.absoluteFillObject,
+        position: "relative",
         overflow: "hidden",
+        backgroundColor: "#050506",
     },
-    particle: {
+
+    ambientOrb: {
         position: "absolute",
-        backgroundColor: "#1DB954",
-        borderRadius: 50,
+        overflow: "hidden",
+        borderRadius: 999,
     },
+
+    greenOrb: {
+        width: 470,
+        height: 470,
+        top: -250,
+        right: -220,
+    },
+
+    purpleOrb: {
+        width: 440,
+        height: 440,
+        bottom: -230,
+        left: -245,
+    },
+
+    scrollContent: {
+        flexGrow: 1,
+    },
+
+    contentWidth: {
+        width: "100%",
+        maxWidth: MAX_CONTENT_WIDTH,
+        alignSelf: "center",
+    },
+
     loadingContainer: {
         flex: 1,
-        justifyContent: "center",
         alignItems: "center",
-        paddingHorizontal: 40,
+        justifyContent: "center",
+        paddingHorizontal: 24,
     },
+
+    loadingContent: {
+        alignItems: "center",
+    },
+
+    loadingIconBorder: {
+        width: 76,
+        height: 76,
+        padding: 2,
+        marginBottom: 15,
+        borderRadius: 25,
+    },
+
     loadingIcon: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        marginBottom: 24,
-        shadowColor: "#1DB954",
-        shadowOffset: {width: 0, height: 8},
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 12,
-    },
-    loadingIconGradient: {
-        width: "100%",
-        height: "100%",
-        borderRadius: 50,
-        justifyContent: "center",
+        flex: 1,
         alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 23,
+        backgroundColor:
+            "rgba(8,12,11,0.97)",
     },
-    loadingText: {
-        color: "#fff",
-        fontSize: 18,
+
+    loadingEyebrow: {
+        color: "#63EA94",
+        fontSize: 7,
+        fontWeight: "900",
+        letterSpacing: 1.6,
+        marginBottom: 4,
+    },
+
+    loadingTitle: {
+        color: "#F5F6FB",
+        fontSize: 19,
+        fontWeight: "900",
+    },
+
+    loadingIndicator: {
+        minHeight: 34,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 13,
+        marginTop: 14,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(255,255,255,0.045)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.055)",
+    },
+
+    loadingIndicatorText: {
+        color: "#8C94A6",
+        fontSize: 9,
         fontWeight: "700",
-        textAlign: "center",
-        marginBottom: 20,
-        letterSpacing: -0.3,
     },
-    loadingDotsContainer: {
-        flexDirection: "row",
-        gap: 10,
-        justifyContent: "center",
-    },
-    loadingDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: "#1DB954",
-    },
-    errorIcon: {
-        marginBottom: 24,
-    },
-    errorTextStyled: {
-        color: "#fff",
-        fontSize: 22,
-        fontWeight: "800",
-        textAlign: "center",
-        marginBottom: 12,
-    },
-    errorSubtext: {
-        color: "#888",
-        fontSize: 15,
-        fontWeight: "500",
-        textAlign: "center",
-        marginBottom: 32,
-        lineHeight: 22,
-        paddingHorizontal: 20,
-    },
-    backToHomeButton: {
-        borderRadius: 30,
-        overflow: "hidden",
-        shadowColor: "#1DB954",
-        shadowOffset: {width: 0, height: 4},
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
-    },
-    backToHomeGradient: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-    },
-    backToHomeText: {
-        color: "#000",
-        fontSize: 16,
-        fontWeight: "800",
-    },
-    header: {
-        paddingTop: 80,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingBottom: 40,
-    },
-    backWrapper: {
+
+    floatingBackButton: {
         position: "absolute",
-        top: 50,
-        left: 20,
-        borderRadius: 30,
+        left: 14,
+        width: 39,
+        height: 39,
+        zIndex: 20,
         overflow: "hidden",
+        borderRadius: 14,
     },
-    backButton: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+
+    floatingBackBlur: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.09)",
     },
-    imageWrapper: {
-        width: width * 0.5,
-        height: width * 0.5,
-        borderRadius: width * 0.25,
+
+    errorContainer: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+    },
+
+    errorContent: {
+        alignItems: "center",
+    },
+
+    errorIcon: {
+        width: 65,
+        height: 65,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 15,
+        borderRadius: 21,
+    },
+
+    errorTitle: {
+        color: "#F5F6FB",
+        fontSize: 20,
+        fontWeight: "900",
+    },
+
+    errorDescription: {
+        maxWidth: 290,
+        color: "#7B8395",
+        fontSize: 11,
+        lineHeight: 16,
+        textAlign: "center",
+        marginTop: 6,
+    },
+
+    errorButton: {
         overflow: "hidden",
-        marginBottom: 16,
-        borderWidth: 2,
-        borderColor: "#1DB95430",
+        marginTop: 18,
+        borderRadius: 999,
     },
-    image: {
+
+    errorButtonGradient: {
+        minHeight: 38,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+        paddingHorizontal: 15,
+    },
+
+    errorButtonText: {
+        color: "#041009",
+        fontSize: 10,
+        fontWeight: "900",
+    },
+
+    artistHeader: {
+        position: "relative",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingBottom: 17,
+    },
+
+    headerBackButton: {
+        position: "absolute",
+        top:
+            Platform.OS === "web"
+                ? 27
+                : 10,
+        left: 14,
+        width: 39,
+        height: 39,
+        zIndex: 10,
+        overflow: "hidden",
+        borderRadius: 14,
+    },
+
+    headerBackBlur: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.09)",
+    },
+
+    artistHeaderContent: {
         width: "100%",
-        height: "100%"
+        alignItems: "center",
     },
+
+    profileStage: {
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 13,
+    },
+
+    profileOrbit: {
+        position: "absolute",
+        borderWidth: 1,
+        borderStyle: "dashed",
+        borderColor:
+            "rgba(119,91,255,0.30)",
+    },
+
+    profileBorder: {
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 3,
+        shadowColor: "#1DB954",
+        shadowOffset: {
+            width: 0,
+            height: 9,
+        },
+        shadowOpacity: 0.24,
+        shadowRadius: 18,
+        elevation: 10,
+    },
+
+    profileImage: {
+        backgroundColor: "#15171F",
+    },
+
+    artistTypeBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginBottom: 6,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(29,185,84,0.08)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(29,185,84,0.13)",
+    },
+
+    artistTypeText: {
+        color: "#8CEBAE",
+        fontSize: 7,
+        fontWeight: "900",
+        letterSpacing: 0.9,
+    },
+
     artistName: {
-        color: "#fff",
-        fontSize: 30,
+        width: "100%",
+        color: "#F7F8FC",
+        fontSize: 29,
+        lineHeight: 35,
         fontWeight: "900",
         textAlign: "center",
+        letterSpacing: -0.9,
     },
-    bioContainer: {
-        paddingHorizontal: 20,
-        marginVertical: 20
+
+    artistMetrics: {
+        minHeight: 35,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 12,
+        marginTop: 10,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(255,255,255,0.04)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.055)",
     },
+
+    artistMetric: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 5,
+    },
+
+    artistMetricValue: {
+        color: "#EDEFF5",
+        fontSize: 10,
+        fontWeight: "900",
+    },
+
+    artistMetricLabel: {
+        color: "#777F91",
+        fontSize: 8,
+        fontWeight: "600",
+    },
+
+    metricDivider: {
+        width: 1,
+        height: 16,
+        marginHorizontal: 5,
+        backgroundColor:
+            "rgba(255,255,255,0.08)",
+    },
+
+    bioSection: {
+        paddingHorizontal: 14,
+        marginBottom: 23,
+    },
+
+    bioBorder: {
+        padding: 1,
+        borderRadius: 17,
+    },
+
+    bioSurface: {
+        padding: 14,
+        borderRadius: 16,
+        backgroundColor:
+            "rgba(10,12,18,0.92)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.025)",
+    },
+
+    bioHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        marginBottom: 8,
+    },
+
+    bioLabel: {
+        color: "#6BE898",
+        fontSize: 7,
+        fontWeight: "900",
+        letterSpacing: 1.1,
+    },
+
     bio: {
-        color: "#ddd",
-        fontSize: 15,
-        lineHeight: 22,
-        textAlign: "center"
+        color: "#A7ADBC",
+        fontSize: 11,
+        lineHeight: 17,
+        fontWeight: "500",
     },
+
     section: {
-        marginTop: 20,
-        paddingHorizontal: 20
+        marginBottom: 25,
+        paddingHorizontal: 14,
     },
+
+    sectionHeader: {
+        minHeight: 42,
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 10,
+    },
+
+    sectionHeaderIcon: {
+        width: 36,
+        height: 36,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 9,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.045)",
+    },
+
+    sectionHeaderText: {
+        flex: 1,
+        minWidth: 0,
+    },
+
+    sectionEyebrow: {
+        color: "#656D80",
+        fontSize: 6,
+        fontWeight: "900",
+        letterSpacing: 1.1,
+    },
+
     sectionTitle: {
-        color: "#fff",
-        fontSize: 20,
-        fontWeight: "800",
-        marginBottom: 12,
+        color: "#F2F4F9",
+        fontSize: 17,
+        lineHeight: 21,
+        fontWeight: "900",
+        letterSpacing: -0.4,
     },
+
+    sectionCountBadge: {
+        minWidth: 31,
+        height: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 7,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(255,255,255,0.045)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.055)",
+    },
+
+    sectionCountText: {
+        color: "#AAB0BF",
+        fontSize: 8,
+        fontWeight: "900",
+    },
+
+    songList: {
+        gap: 7,
+    },
+
     showMoreContainer: {
         flexDirection: "row",
         justifyContent: "center",
-        gap: 10,
-        marginTop: 10,
+        gap: 7,
+        marginTop: 11,
     },
+
     showMoreButton: {
-        alignSelf: "center",
-        marginTop: 10,
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-        backgroundColor: "#1DB95420",
-    },
-    showMoreText: {
-        color: "#1DB954",
-        fontWeight: "600"
-    },
-    subSection: {
-        marginBottom: 20,
-    },
-    subSectionTitle: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "700",
-        marginBottom: 10,
-    },
-    albumsRow: {
-        gap: 16,
-        paddingRight: 10,
-    },
-    emptyContainer: {
-        marginVertical: 16,
-    },
-    emptyGradient: {
-        padding: 32,
-        borderRadius: 20,
+        minHeight: 32,
+        flexDirection: "row",
         alignItems: "center",
-        borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.05)",
-    },
-    emptyIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: "rgba(255, 255, 255, 0.05)",
         justifyContent: "center",
+        gap: 5,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(255,255,255,0.04)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.055)",
+    },
+
+    showMoreText: {
+        color: "#76E9A0",
+        fontSize: 9,
+        fontWeight: "800",
+    },
+
+    showLessText: {
+        color: "#AA99F9",
+    },
+
+    songSkeletonList: {
+        gap: 7,
+    },
+
+    songSkeleton: {
+        height: 62,
+        flexDirection: "row",
         alignItems: "center",
-        marginBottom: 16,
+        paddingHorizontal: 8,
+        borderRadius: 15,
+        backgroundColor:
+            "rgba(255,255,255,0.035)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.04)",
     },
-    emptyTitle: {
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "700",
-        textAlign: "center",
-        marginBottom: 8,
+
+    songSkeletonCover: {
+        width: 44,
+        height: 44,
+        marginRight: 9,
+        borderRadius: 10,
+        backgroundColor:
+            "rgba(255,255,255,0.07)",
     },
-    emptySubtitle: {
-        color: "#888",
-        fontSize: 14,
-        fontWeight: "500",
-        textAlign: "center",
-        lineHeight: 20,
+
+    songSkeletonInfo: {
+        flex: 1,
+        gap: 7,
+    },
+
+    songSkeletonTitle: {
+        width: "57%",
+        height: 8,
+        borderRadius: 4,
+        backgroundColor:
+            "rgba(255,255,255,0.08)",
+    },
+
+    songSkeletonSubtitle: {
+        width: "38%",
+        height: 6,
+        borderRadius: 3,
+        backgroundColor:
+            "rgba(255,255,255,0.05)",
+    },
+
+    albumsRow: {
+        gap: 10,
+        paddingRight: 14,
+    },
+
+    albumCardWrapper: {
+        flexShrink: 0,
+    },
+
+    emptySectionBorder: {
+        padding: 1,
+        borderRadius: 17,
+    },
+
+    emptySectionSurface: {
+        minHeight: 76,
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 12,
+        borderRadius: 16,
+        backgroundColor:
+            "rgba(10,12,18,0.93)",
+    },
+
+    emptySectionIcon: {
+        width: 43,
+        height: 43,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 11,
+        borderRadius: 14,
+    },
+
+    emptySectionText: {
+        flex: 1,
+    },
+
+    emptySectionTitle: {
+        color: "#EDEFF5",
+        fontSize: 12,
+        fontWeight: "800",
+    },
+
+    emptySectionSubtitle: {
+        color: "#767E90",
+        fontSize: 9,
+        lineHeight: 13,
+        marginTop: 3,
     },
 });

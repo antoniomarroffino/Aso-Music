@@ -1,148 +1,253 @@
-import React, { useMemo } from "react";
-import { TouchableOpacity, Text, View, StyleSheet, Dimensions } from "react-native";
+import React, {
+    memo,
+    useCallback,
+} from "react";
+import {
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
 
-import { AlbumPreviewDTO, SongDTO } from "@/types/music";
-
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = width / 2.3;
+import {
+    AlbumPreviewDTO,
+} from "@/types/music";
 
 type AlbumCardProps = {
     album: AlbumPreviewDTO;
     index?: number;
+    trackCount?: number;
+    isTrackCountLoading?: boolean;
 };
 
-export default function AlbumCard({ album, index = 0 }: AlbumCardProps) {
+function AlbumCardComponent({
+                                album,
+                                index = 0,
+                                trackCount = 0,
+                                isTrackCountLoading = false,
+                            }: AlbumCardProps) {
     const router = useRouter();
-    const queryClient = useQueryClient();
 
-    // ✅ Legge le songs dalla cache (prefetchate)
-    const songs = useMemo(() => {
-        return queryClient.getQueryData<SongDTO[]>(["songs", album.id]) ?? [];
-    }, [queryClient, album.id]);
-
-    const handlePress = () => {
-        router.push({
-            pathname: "/albumdetails",
-            params: { id: album.id },
-        });
-    };
+    const handlePress =
+        useCallback(() => {
+            router.push({
+                pathname:
+                    "/(tabs)/albumdetails",
+                params: {
+                    id: album.id,
+                },
+            });
+        }, [
+            album.id,
+            router,
+        ]);
 
     return (
-        <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.85}>
+        <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Apri l'album ${album.name}`}
+            activeOpacity={0.86}
+            onPress={handlePress}
+            style={styles.container}
+        >
             <MotiView
-                from={{ scale: 0.85, opacity: 0, translateY: 20 }}
-                animate={{ scale: 1, opacity: 1, translateY: 0 }}
-                transition={{ type: "spring", damping: 14, delay: index * 50 }}
+                from={{
+                    opacity: 0,
+                    translateY: 12,
+                    scale: 0.96,
+                }}
+                animate={{
+                    opacity: 1,
+                    translateY: 0,
+                    scale: 1,
+                }}
+                transition={{
+                    type: "spring",
+                    damping: 17,
+                    delay: Math.min(
+                        index * 40,
+                        240,
+                    ),
+                }}
+                style={styles.animation}
             >
-                <View style={styles.card}>
-                    <LinearGradient
-                        colors={[
-                            "rgba(255,255,255,0.05)",
-                            "rgba(255,255,255,0.02)",
-                        ]}
-                        style={styles.gradientBorder}
-                    >
-                        <View style={styles.cardInner}>
-
-                            {/* COVER */}
-                            <View style={styles.coverWrapper}>
-                                <Image
-                                    source={{ uri: album.coverURL }}
-                                    style={styles.cover}
-                                    contentFit="cover"
-                                    transition={200}
-                                    placeholder={require("@/assets/images/placeholder-album.png")}
-                                />
-
-                                {/* Shine effect */}
-                                <MotiView
-                                    from={{ translateX: -CARD_WIDTH }}
-                                    animate={{ translateX: CARD_WIDTH * 2 }}
-                                    transition={{
-                                        type: "timing",
-                                        duration: 3500,
-                                        loop: true,
-                                        delay: Math.random() * 2000,
-                                    }}
-                                    style={styles.shineEffect}
-                                />
-                            </View>
-
-                            {/* INFO */}
-                            <View style={styles.infoContainer}>
-                                <Text numberOfLines={1} style={styles.name}>
-                                    {album.name}
-                                </Text>
-
-                                <View style={styles.artistRow}>
-                                    <Ionicons name="person" size={11} color="#aaa" />
-                                    <Text numberOfLines={1} style={styles.artist}>
-                                        {album.artist}
-                                    </Text>
-                                </View>
-
-                                {/* 🎵 Numero brani (da cache) */}
-                                {songs.length > 0 && (
-                                    <View style={styles.trackBadge}>
-                                        <Ionicons
-                                            name="musical-notes"
-                                            size={10}
-                                            color="#1DB954"
-                                        />
-                                        <Text style={styles.trackCount}>
-                                            {songs.length} brani
-                                        </Text>
-                                    </View>
+                <LinearGradient
+                    colors={[
+                        "rgba(255,255,255,0.14)",
+                        "rgba(29,185,84,0.10)",
+                        "rgba(119,89,255,0.08)",
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.border}
+                >
+                    <View style={styles.surface}>
+                        <View
+                            style={
+                                styles.coverContainer
+                            }
+                        >
+                            <Image
+                                source={{
+                                    uri: album.coverURL,
+                                }}
+                                placeholder={require(
+                                    "@/assets/images/placeholder-album.png",
                                 )}
-                            </View>
+                                style={styles.cover}
+                                contentFit="cover"
+                                transition={200}
+                            />
 
+                            <LinearGradient
+                                colors={[
+                                    "transparent",
+                                    "rgba(0,0,0,0.48)",
+                                ]}
+                                style={
+                                    StyleSheet.absoluteFillObject
+                                }
+                            />
+
+                            <View
+                                style={
+                                    styles.openButton
+                                }
+                            >
+                                <Ionicons
+                                    name="arrow-forward"
+                                    size={13}
+                                    color="#F1F3F8"
+                                />
+                            </View>
                         </View>
-                    </LinearGradient>
-                </View>
+
+                        <View style={styles.info}>
+                            <Text
+                                numberOfLines={1}
+                                style={styles.name}
+                            >
+                                {album.name}
+                            </Text>
+
+                            <Text
+                                numberOfLines={1}
+                                style={styles.artist}
+                            >
+                                {album.artist ||
+                                    "Artista sconosciuto"}
+                            </Text>
+
+                            <View
+                                style={
+                                    styles.trackRow
+                                }
+                            >
+                                {isTrackCountLoading ? (
+                                    <MotiView
+                                        from={{
+                                            opacity: 0.3,
+                                        }}
+                                        animate={{
+                                            opacity: 1,
+                                        }}
+                                        transition={{
+                                            type: "timing",
+                                            duration: 700,
+                                            loop: true,
+                                            repeatReverse:
+                                                true,
+                                        }}
+                                        style={
+                                            styles.loadingDot
+                                        }
+                                    />
+                                ) : (
+                                    <Ionicons
+                                        name="musical-note-outline"
+                                        size={9}
+                                        color="#5EEA91"
+                                    />
+                                )}
+
+                                <Text
+                                    style={
+                                        styles.trackText
+                                    }
+                                >
+                                    {isTrackCountLoading
+                                        ? "Caricamento"
+                                        : `${trackCount} ${
+                                            trackCount ===
+                                            1
+                                                ? "brano"
+                                                : "brani"
+                                        }`}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </LinearGradient>
             </MotiView>
         </TouchableOpacity>
     );
 }
 
+export default memo(
+    AlbumCardComponent,
+    (
+        previousProps,
+        nextProps,
+    ) =>
+        previousProps.album.id ===
+        nextProps.album.id &&
+        previousProps.album.name ===
+        nextProps.album.name &&
+        previousProps.album.artist ===
+        nextProps.album.artist &&
+        previousProps.album.coverURL ===
+        nextProps.album.coverURL &&
+        previousProps.trackCount ===
+        nextProps.trackCount &&
+        previousProps.isTrackCountLoading ===
+        nextProps.isTrackCountLoading,
+);
+
 const styles = StyleSheet.create({
     container: {
-        width: CARD_WIDTH,
+        width: "100%",
     },
 
-    card: {
+    animation: {
+        width: "100%",
+    },
+
+    border: {
+        padding: 1,
         borderRadius: 18,
+    },
+
+    surface: {
         overflow: "hidden",
+        borderRadius: 17,
+        backgroundColor:
+            "rgba(11,12,17,0.97)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.025)",
     },
 
-    gradientBorder: {
-        padding: 2,
-        borderRadius: 18,
-    },
-
-    cardInner: {
-        backgroundColor: "#0f0f0f",
-        borderRadius: 16,
-        overflow: "hidden",
-    },
-
-    coverWrapper: {
+    coverContainer: {
+        position: "relative",
         width: "100%",
         aspectRatio: 1,
-        borderRadius: 16,
         overflow: "hidden",
-        backgroundColor: "#111",
-        position: "relative",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 14,
-        elevation: 6,
+        backgroundColor: "#15171F",
     },
 
     cover: {
@@ -150,56 +255,72 @@ const styles = StyleSheet.create({
         height: "100%",
     },
 
-    infoContainer: {
-        padding: 12,
-        paddingTop: 10,
-        gap: 6,
+    openButton: {
+        position: "absolute",
+        right: 8,
+        bottom: 8,
+        width: 27,
+        height: 27,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 13.5,
+        backgroundColor:
+            "rgba(8,10,14,0.68)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.13)",
+    },
+
+    info: {
+        height: 76,
+        justifyContent: "center",
+        paddingHorizontal: 10,
+        paddingVertical: 8,
     },
 
     name: {
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: "800",
-        letterSpacing: -0.3,
-    },
-
-    artistRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
+        color: "#F4F6FB",
+        fontSize: 13,
+        lineHeight: 16,
+        fontWeight: "900",
+        letterSpacing: -0.25,
     },
 
     artist: {
-        color: "#aaa",
-        fontSize: 12,
+        color: "#858D9F",
+        fontSize: 9,
+        lineHeight: 12,
         fontWeight: "600",
+        marginTop: 2,
     },
 
-    trackBadge: {
+    trackRow: {
+        alignSelf: "flex-start",
+        minHeight: 20,
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        alignSelf: "flex-start",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        backgroundColor: "rgba(29, 185, 84, 0.1)",
-        borderRadius: 8,
+        paddingHorizontal: 7,
+        marginTop: 6,
+        borderRadius: 999,
+        backgroundColor:
+            "rgba(29,185,84,0.075)",
         borderWidth: 1,
-        borderColor: "rgba(29, 185, 84, 0.2)",
+        borderColor:
+            "rgba(29,185,84,0.11)",
     },
 
-    trackCount: {
-        color: "#1DB954",
-        fontSize: 10,
-        fontWeight: "700",
+    trackText: {
+        color: "#87EBAA",
+        fontSize: 8,
+        lineHeight: 10,
+        fontWeight: "800",
     },
 
-    shineEffect: {
-        position: "absolute",
-        top: 0,
-        width: 40,
-        height: "100%",
-        backgroundColor: "rgba(255,255,255,0.07)",
-        transform: [{ skewX: "-20deg" }],
+    loadingDot: {
+        width: 5,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: "#58EA8E",
     },
 });
