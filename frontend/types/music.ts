@@ -5,19 +5,6 @@ export type ArtistDTO = {
     profileURL: string;
 };
 
-export type SongDTO = {
-    id: string;
-    title: string;
-    duration: string;
-    audioURL: string;
-    coverURL: string;
-    stream: number;
-    tracklistPosition: number;
-    artists: ArtistDTO[];
-    albumId: string;
-    albumName: string;
-};
-
 export type AlbumDTO = {
     id: string;
     name: string;
@@ -56,4 +43,10 @@ export interface SongPreviewDTO {
 export interface SongPlaybackUrlDTO {
     url: string;
     expiresAt: string;
+}
+
+export interface ArtistSongsDTO {
+    artistId: string;
+    total: number;
+    songs: SongPreviewDTO[];
 }

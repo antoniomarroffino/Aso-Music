@@ -1,7 +1,7 @@
 package com.asomusic.backend.service.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
-import com.asomusic.backend.model.dto.SongDTO;
+import com.asomusic.backend.model.dto.ArtistDTO;
 import com.asomusic.backend.model.dto.SongPlaybackUrlDTO;
 import com.asomusic.backend.model.dto.SongPreviewDTO;
 import com.asomusic.backend.repository.song.ISongRepository;
@@ -12,10 +12,11 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class SongService implements ISongService {
@@ -34,49 +35,76 @@ public class SongService implements ISongService {
 
     @Override
     public List<AlbumDTO> fetchAllSongs() {
-        try {
-            List<AlbumDTO> albums = songRepository.fetchAllAlbumsWithSongs();
+        List<AlbumDTO> albums =
+                executeRepositoryRead(
+                        "Errore durante il recupero degli album e dei brani",
+                        songRepository::fetchAllAlbumsWithSongs
+                );
 
-            return albums.stream()
-                    .map(this::convertAlbumStorageUrlsSafe)
-                    .collect(Collectors.toList());
+        /*
+         * Una singola cache per tutta la risposta:
+         * la copertina dell'album può essere usata anche
+         * da più canzoni dello stesso album.
+         */
+        Map<String, String> signedUrls =
+                new HashMap<>();
 
-        } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException("❌ Errore durante il recupero dei brani", e);
-        }
+        return albums.stream()
+                .map(
+                        album -> signAlbumUrls(
+                                album,
+                                signedUrls
+                        )
+                )
+                .toList();
     }
 
     @Override
-    public void incrementListenCount(String albumId, String songId) {
-        try {
-            songRepository.incrementListenCount(albumId, songId);
-        } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException("❌ Errore durante l'incremento degli ascolti", e);
-        }
+    public List<SongPreviewDTO> fetchSongsByAlbum(
+            String albumId
+    ) {
+        List<SongPreviewDTO> songs =
+                executeRepositoryRead(
+                        "Errore durante il recupero delle canzoni dell'album: "
+                                + albumId,
+                        () -> songRepository.fetchSongsByAlbum(
+                                albumId
+                        )
+                );
+
+        return signSongPreviewUrls(songs);
     }
 
     @Override
-    public List<SongPreviewDTO> fetchSongsByAlbum(String albumId) {
-        try {
-            return songRepository.fetchSongsByAlbum(albumId)
-                    .stream()
-                    .map(this::convertToSongPreview)
-                    .toList();
+    public List<SongPreviewDTO> fetchSongsByArtist(
+            String artistId
+    ) {
+        List<SongPreviewDTO> songs =
+                executeRepositoryRead(
+                        "Errore durante il recupero delle canzoni dell'artista: "
+                                + artistId,
+                        () -> songRepository.fetchSongsByArtist(
+                                artistId
+                        )
+                );
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        return signSongPreviewUrls(songs);
+    }
 
-            throw new RuntimeException(
-                    "Thread interrotto durante il recupero delle canzoni dell'album",
-                    e
-            );
-
-        } catch (ExecutionException e) {
-            throw new RuntimeException(
-                    "Errore durante il recupero delle canzoni dell'album",
-                    e
-            );
-        }
+    @Override
+    public void incrementListenCount(
+            String albumId,
+            String songId
+    ) {
+        executeRepositoryWrite(
+                "Errore durante l'incremento degli ascolti "
+                        + "della canzone: "
+                        + songId,
+                () -> songRepository.incrementListenCount(
+                        albumId,
+                        songId
+                )
+        );
     }
 
     @Override
@@ -84,108 +112,279 @@ public class SongService implements ISongService {
             String albumId,
             String songId
     ) {
-        try {
-            String audioStoragePath = songRepository
-                    .fetchSongAudioStoragePath(albumId, songId)
-                    .orElseThrow(() -> new NoSuchElementException(
-                            "Song not found or missing audio URL: " + songId
-                    ));
-
-            OffsetDateTime expiresAt = OffsetDateTime
-                    .now(ZoneOffset.UTC)
-                    .plusHours(urlExpirationHours);
-
-            String signedUrl =
-                    firebaseStorageService.generateSignedUrl(
-                            audioStoragePath
-                    );
-
-            /*
-             * FirebaseStorageService attualmente restituisce il gsPath
-             * originale quando la firma fallisce. Evitiamo quindi di
-             * restituire una risposta 200 con una URL inutilizzabile.
-             */
-            if (signedUrl == null
-                    || signedUrl.isBlank()
-                    || signedUrl.startsWith("gs://")) {
-                throw new IllegalStateException(
-                        "Unable to generate playback URL for song: "
-                                + songId
+        String audioStoragePath =
+                executeRepositoryRead(
+                        "Errore durante il recupero delle informazioni "
+                                + "di riproduzione della canzone: "
+                                + songId,
+                        () -> songRepository
+                                .fetchSongAudioStoragePath(
+                                        albumId,
+                                        songId
+                                )
+                                .orElseThrow(
+                                        () -> new NoSuchElementException(
+                                                "Canzone non trovata "
+                                                        + "o audioURL mancante: "
+                                                        + songId
+                                        )
+                                )
                 );
-            }
 
-            return SongPlaybackUrlDTO.builder()
-                    .url(signedUrl)
-                    .expiresAt(expiresAt)
-                    .build();
+        String signedUrl =
+                firebaseStorageService.generateSignedUrl(
+                        audioStoragePath
+                );
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException(
-                    "Thread interrupted while generating playback URL",
-                    e
-            );
-
-        } catch (ExecutionException e) {
-            throw new RuntimeException(
-                    "Error retrieving song playback information",
-                    e
+        if (!isValidPlaybackUrl(signedUrl)) {
+            throw new IllegalStateException(
+                    "Impossibile generare l'URL di riproduzione "
+                            + "per la canzone: "
+                            + songId
             );
         }
+
+        OffsetDateTime expiresAt =
+                OffsetDateTime
+                        .now(ZoneOffset.UTC)
+                        .plusHours(
+                                urlExpirationHours
+                        );
+
+        return SongPlaybackUrlDTO.builder()
+                .url(signedUrl)
+                .expiresAt(expiresAt)
+                .build();
     }
 
-    private AlbumDTO convertAlbumStorageUrlsSafe(AlbumDTO album) {
+    private List<SongPreviewDTO> signSongPreviewUrls(
+            List<SongPreviewDTO> songs
+    ) {
+        if (songs.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, String> signedUrls =
+                new HashMap<>();
+
+        return songs.stream()
+                .map(
+                        song -> signSongPreviewUrls(
+                                song,
+                                signedUrls
+                        )
+                )
+                .toList();
+    }
+
+    private AlbumDTO signAlbumUrls(
+            AlbumDTO album,
+            Map<String, String> signedUrls
+    ) {
+        List<SongPreviewDTO> songs =
+                album.getSongs() == null
+                        ? List.of()
+                        : album.getSongs()
+                        .stream()
+                        .map(
+                                song -> signSongPreviewUrls(
+                                        song,
+                                        signedUrls
+                                )
+                        )
+                        .toList();
+
         return AlbumDTO.builder()
                 .id(album.getId())
                 .name(album.getName())
                 .artist(album.getArtist())
                 .description(album.getDescription())
-                .coverURL(firebaseStorageService.generateSignedUrl(album.getCoverURL()))
-                .releaseDate(album.getReleaseDate())
-                .songs(album.getSongs() == null ? List.of() :
-                        album.getSongs().stream()
-                                .map(song ->
-                                        convertSongStorageUrlsSafe(
-                                                song,
-                                                album.getId(),
-                                                album.getName()
-                                        )
+                .coverURL(
+                        generateSignedUrlCached(
+                                album.getCoverURL(),
+                                signedUrls
+                        )
+                )
+                .releaseDate(
+                        album.getReleaseDate()
+                )
+                .songs(songs)
+                .build();
+    }
+
+    private SongPreviewDTO signSongPreviewUrls(
+            SongPreviewDTO song,
+            Map<String, String> signedUrls
+    ) {
+        List<ArtistDTO> artists =
+                song.getArtists() == null
+                        ? List.of()
+                        : song.getArtists()
+                        .stream()
+                        .map(
+                                artist -> signArtistUrls(
+                                        artist,
+                                        signedUrls
                                 )
-                                .collect(Collectors.toList()))
-                .build();
-    }
+                        )
+                        .toList();
 
-    private SongDTO convertSongStorageUrlsSafe(SongDTO song, String albumId, String albumName) {
-        return SongDTO.builder()
-                .id(song.getId())
-                .title(song.getTitle())
-                .duration(song.getDuration())
-                .audioURL(firebaseStorageService.generateSignedUrl(song.getAudioURL()))
-                .coverURL(firebaseStorageService.generateSignedUrl(song.getCoverURL()))
-                .stream(song.getStream())
-                .tracklistPosition(song.getTracklistPosition())
-                .artists(song.getArtists())
-                .albumId(albumId)
-                .albumName(albumName)
-                .build();
-    }
-
-    private SongPreviewDTO convertToSongPreview(SongDTO song) {
         return SongPreviewDTO.builder()
                 .id(song.getId())
                 .title(song.getTitle())
                 .duration(song.getDuration())
                 .coverURL(
-                        firebaseStorageService.generateSignedUrl(
-                                song.getCoverURL()
+                        generateSignedUrlCached(
+                                song.getCoverURL(),
+                                signedUrls
                         )
                 )
                 .stream(song.getStream())
-                .tracklistPosition(song.getTracklistPosition())
-                .artists(song.getArtists())
+                .tracklistPosition(
+                        song.getTracklistPosition()
+                )
+                .artists(artists)
                 .albumId(song.getAlbumId())
                 .albumName(song.getAlbumName())
                 .build();
+    }
+
+    private ArtistDTO signArtistUrls(
+            ArtistDTO artist,
+            Map<String, String> signedUrls
+    ) {
+        return ArtistDTO.builder()
+                .id(artist.getId())
+                .name(artist.getName())
+                .bio(artist.getBio())
+                .profileURL(
+                        generateSignedUrlCached(
+                                artist.getProfileURL(),
+                                signedUrls
+                        )
+                )
+                .build();
+    }
+
+    /**
+     * Firma ogni storage path una sola volta
+     * durante la costruzione della risposta.
+     */
+    private String generateSignedUrlCached(
+            String storagePath,
+            Map<String, String> signedUrls
+    ) {
+        if (!hasText(storagePath)) {
+            return null;
+        }
+
+        /*
+         * Evita di provare a firmare nuovamente
+         * un URL già utilizzabile.
+         */
+        if (isHttpUrl(storagePath)) {
+            return storagePath;
+        }
+
+        if (signedUrls.containsKey(storagePath)) {
+            return signedUrls.get(storagePath);
+        }
+
+        String signedUrl =
+                firebaseStorageService.generateSignedUrl(
+                        storagePath
+                );
+
+        signedUrls.put(
+                storagePath,
+                signedUrl
+        );
+
+        return signedUrl;
+    }
+
+    private boolean isHttpUrl(
+            String value
+    ) {
+        return value.startsWith("https://")
+                || value.startsWith("http://");
+    }
+
+    private boolean isValidPlaybackUrl(
+            String url
+    ) {
+        return hasText(url)
+                && !url.startsWith("gs://");
+    }
+
+    private boolean hasText(
+            String value
+    ) {
+        return value != null
+                && !value.isBlank();
+    }
+
+    private <T> T executeRepositoryRead(
+            String errorMessage,
+            RepositorySupplier<T> operation
+    ) {
+        try {
+            return operation.execute();
+
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    errorMessage
+                            + ": thread interrotto",
+                    exception
+            );
+
+        } catch (ExecutionException exception) {
+            throw new IllegalStateException(
+                    errorMessage,
+                    exception
+            );
+        }
+    }
+
+    private void executeRepositoryWrite(
+            String errorMessage,
+            RepositoryAction operation
+    ) {
+        try {
+            operation.execute();
+
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    errorMessage
+                            + ": thread interrotto",
+                    exception
+            );
+
+        } catch (ExecutionException exception) {
+            throw new IllegalStateException(
+                    errorMessage,
+                    exception
+            );
+        }
+    }
+
+    @FunctionalInterface
+    private interface RepositorySupplier<T> {
+
+        T execute()
+                throws ExecutionException,
+                InterruptedException;
+    }
+
+    @FunctionalInterface
+    private interface RepositoryAction {
+
+        void execute()
+                throws ExecutionException,
+                InterruptedException;
     }
 }

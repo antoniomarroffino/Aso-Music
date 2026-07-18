@@ -26,8 +26,6 @@ import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQueries } from "@tanstack/react-query";
-
 import {
     AlbumPreviewDTO,
     ArtistDTO,
@@ -35,8 +33,8 @@ import {
 } from "@/types/music";
 import { useArtists } from "@/hooks/useArtists";
 import { useAlbums } from "@/hooks/useAlbums";
+import { useArtistSongs } from "@/hooks/useArtistSongs";
 import { usePlayer } from "@/context/PlayerContext";
-import { fetchSongsByAlbum } from "@/api/songs";
 
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
@@ -45,11 +43,7 @@ const MAX_CONTENT_WIDTH = 760;
 const INITIAL_VISIBLE_SONGS = 5;
 const SONGS_INCREMENT = 5;
 
-type ArtistSong = SongPreviewDTO & {
-    albumId: string;
-    albumName: string;
-    albumCover?: string;
-};
+const EMPTY_SONGS: SongPreviewDTO[] = [];
 
 type AlbumTrackState = {
     count: number;
@@ -837,7 +831,7 @@ const ArtistHeader = memo(
 /* -------------------------------------------------------------------------- */
 
 type SongListSectionProps = {
-    songs: ArtistSong[];
+    songs: SongPreviewDTO[];
     visibleCount: number;
     loading: boolean;
     currentSongId: string | null;
@@ -957,7 +951,7 @@ const SongListSection = memo(
                                         song.albumName
                                     }
                                     albumCover={
-                                        song.albumCover
+                                        song.coverURL
                                     }
                                     isActive={
                                         active
@@ -1056,6 +1050,7 @@ const SongListSection = memo(
 type AlbumsSectionProps = {
     albums: AlbumPreviewDTO[];
     cardWidth: number;
+    loading: boolean;
     trackState: Map<
         string,
         AlbumTrackState
@@ -1066,6 +1061,7 @@ const AlbumsSection = memo(
     function AlbumsSection({
                                albums,
                                cardWidth,
+                               loading,
                                trackState,
                            }: AlbumsSectionProps) {
         const sortedAlbums =
@@ -1083,6 +1079,74 @@ const AlbumsSection = memo(
                         ).getTime(),
                 );
             }, [albums]);
+
+        if (loading) {
+            return (
+                <ScrollView
+                    horizontal
+                    scrollEnabled={false}
+                    showsHorizontalScrollIndicator={
+                        false
+                    }
+                    contentContainerStyle={
+                        styles.albumSkeletonRow
+                    }
+                >
+                    {[0, 1, 2].map(
+                        (index) => (
+                            <MotiView
+                                key={index}
+                                from={{
+                                    opacity: 0.3,
+                                }}
+                                animate={{
+                                    opacity: 0.72,
+                                }}
+                                transition={{
+                                    type: "timing",
+                                    duration: 900,
+                                    delay:
+                                        index * 100,
+                                    loop: true,
+                                    repeatReverse: true,
+                                }}
+                                style={[
+                                    styles.albumSkeletonCard,
+                                    {
+                                        width:
+                                        cardWidth,
+                                    },
+                                ]}
+                            >
+                                <View
+                                    style={
+                                        styles.albumSkeletonCover
+                                    }
+                                />
+
+                                <View
+                                    style={
+                                        styles.albumSkeletonInfo
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.albumSkeletonTitle
+                                        }
+                                    />
+
+                                    <View
+                                        style={
+                                            styles.albumSkeletonSubtitle
+                                        }
+                                    />
+                                </View>
+                            </MotiView>
+                        ),
+                    )}
+                </ScrollView>
+            );
+        }
 
         if (sortedAlbums.length === 0) {
             return (
@@ -1143,6 +1207,7 @@ const AlbumsSection = memo(
     },
 );
 
+
 /* -------------------------------------------------------------------------- */
 /* Screen                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -1155,15 +1220,33 @@ export default function ArtistDetailsScreen() {
         width: windowWidth,
     } = useWindowDimensions();
 
-    const {
-        artistId,
-        from,
-        albumId: sourceAlbumId,
-    } = useLocalSearchParams<{
-        artistId?: string;
-        from?: string;
-        albumId?: string;
-    }>();
+    const params =
+        useLocalSearchParams<{
+            artistId?:
+                | string
+                | string[];
+            from?:
+                | string
+                | string[];
+            albumId?:
+                | string
+                | string[];
+        }>();
+
+    const artistId =
+        Array.isArray(params.artistId)
+            ? params.artistId[0]
+            : params.artistId;
+
+    const from =
+        Array.isArray(params.from)
+            ? params.from[0]
+            : params.from;
+
+    const sourceAlbumId =
+        Array.isArray(params.albumId)
+            ? params.albumId[0]
+            : params.albumId;
 
     const {
         data: artists = [],
@@ -1174,6 +1257,12 @@ export default function ArtistDetailsScreen() {
         data: albumPreviews = [],
         isLoading: albumsLoading,
     } = useAlbums();
+
+    const {
+        data: artistSongsResponse,
+        isLoading: artistSongsLoading,
+        isFetching: artistSongsFetching,
+    } = useArtistSongs(artistId);
 
     const {
         playSong,
@@ -1211,60 +1300,60 @@ export default function ArtistDetailsScreen() {
         artists,
     ]);
 
-    const songQueries = useQueries({
-        queries: albumPreviews.map(
-            (album) => ({
-                queryKey: [
-                    "songs",
-                    album.id,
-                ],
-                queryFn: () =>
-                    fetchSongsByAlbum(
+    /*
+     * L'endpoint restituisce già i brani dell'artista
+     * ordinati per numero di ascolti decrescente.
+     *
+     * Non servono più:
+     * - una query per ogni album;
+     * - flatMap e filtri su tutto il catalogo;
+     * - ordinamento nel frontend.
+     */
+    const artistSongs =
+        artistSongsResponse?.songs ??
+        EMPTY_SONGS;
+
+    const totalArtistSongs =
+        artistSongsResponse?.total ??
+        artistSongs.length;
+
+    const artistAlbumIds =
+        useMemo(() => {
+            return new Set(
+                artistSongs
+                    .map(
+                        (song) =>
+                            song.albumId,
+                    )
+                    .filter(Boolean),
+            );
+        }, [artistSongs]);
+
+    const artistAlbums =
+        useMemo(() => {
+            if (
+                artistAlbumIds.size ===
+                0
+            ) {
+                return [];
+            }
+
+            return albumPreviews.filter(
+                (album) =>
+                    artistAlbumIds.has(
                         album.id,
                     ),
-                staleTime:
-                    1000 * 60 * 60,
-            }),
-        ),
-    });
-
-    const songsByAlbum =
-        useMemo(() => {
-            const map = new Map<
-                string,
-                SongPreviewDTO[]
-            >();
-
-            albumPreviews.forEach(
-                (
-                    album,
-                    albumIndex,
-                ) => {
-                    const songs =
-                        songQueries[
-                            albumIndex
-                            ]?.data ?? [];
-
-                    map.set(
-                        album.id,
-                        [...songs].sort(
-                            (
-                                firstSong,
-                                secondSong,
-                            ) =>
-                                firstSong.tracklistPosition -
-                                secondSong.tracklistPosition,
-                        ),
-                    );
-                },
             );
-
-            return map;
         }, [
             albumPreviews,
-            songQueries,
+            artistAlbumIds,
         ]);
 
+    /*
+     * Nella pagina artista il numero mostrato sulla card
+     * indica quanti brani di quell'artista appartengono
+     * all'album.
+     */
     const albumTrackState =
         useMemo(() => {
             const map = new Map<
@@ -1272,133 +1361,27 @@ export default function ArtistDetailsScreen() {
                 AlbumTrackState
             >();
 
-            albumPreviews.forEach(
-                (
-                    album,
-                    albumIndex,
-                ) => {
-                    const query =
-                        songQueries[
-                            albumIndex
-                            ];
+            artistSongs.forEach(
+                (song) => {
+                    const current =
+                        map.get(
+                            song.albumId,
+                        );
 
-                    map.set(album.id, {
-                        count:
-                            query?.data
-                                ?.length ?? 0,
-                        loading: Boolean(
-                            query?.isFetching &&
-                            !query.data,
-                        ),
-                    });
+                    map.set(
+                        song.albumId,
+                        {
+                            count:
+                                (current?.count ??
+                                    0) + 1,
+                            loading: false,
+                        },
+                    );
                 },
             );
 
             return map;
-        }, [
-            albumPreviews,
-            songQueries,
-        ]);
-
-    const songsLoading =
-        songQueries.some(
-            (query) =>
-                query.isFetching &&
-                !query.data,
-        );
-
-    const artistSongs =
-        useMemo<ArtistSong[]>(() => {
-            if (!artist) {
-                return [];
-            }
-
-            const results: ArtistSong[] =
-                [];
-
-            albumPreviews.forEach(
-                (album) => {
-                    const songs =
-                        songsByAlbum.get(
-                            album.id,
-                        ) ?? [];
-
-                    songs.forEach((song) => {
-                        const belongsToArtist =
-                            song.artists?.some(
-                                (
-                                    songArtist,
-                                ) =>
-                                    songArtist.id ===
-                                    artist.id,
-                            ) ?? false;
-
-                        if (
-                            !belongsToArtist
-                        ) {
-                            return;
-                        }
-
-                        results.push({
-                            ...song,
-                            albumId:
-                            album.id,
-                            albumName:
-                            album.name,
-                            albumCover:
-                                song.coverURL ||
-                                album.coverURL,
-                        });
-                    });
-                },
-            );
-
-            return results.sort(
-                (
-                    firstSong,
-                    secondSong,
-                ) =>
-                    (secondSong.stream ??
-                        0) -
-                    (firstSong.stream ??
-                        0),
-            );
-        }, [
-            albumPreviews,
-            artist,
-            songsByAlbum,
-        ]);
-
-    const artistAlbums =
-        useMemo(() => {
-            if (!artist) {
-                return [];
-            }
-
-            return albumPreviews.filter(
-                (album) => {
-                    const songs =
-                        songsByAlbum.get(
-                            album.id,
-                        ) ?? [];
-
-                    return songs.some(
-                        (song) =>
-                            song.artists?.some(
-                                (
-                                    songArtist,
-                                ) =>
-                                    songArtist.id ===
-                                    artist.id,
-                            ) ?? false,
-                    );
-                },
-            );
-        }, [
-            albumPreviews,
-            artist,
-            songsByAlbum,
-        ]);
+        }, [artistSongs]);
 
     const handleGoBack =
         useCallback(() => {
@@ -1434,7 +1417,7 @@ export default function ArtistDetailsScreen() {
         useCallback(
             (
                 song: SongPreviewDTO,
-                songAlbumId: string,
+                _songAlbumId: string,
             ) => {
                 if (
                     currentSong?.id ===
@@ -1444,36 +1427,35 @@ export default function ArtistDetailsScreen() {
                     return;
                 }
 
-                const queue =
-                    songsByAlbum.get(
-                        songAlbumId,
-                    );
-
-                if (!queue) {
-                    return;
-                }
-
                 const queueIndex =
-                    queue.findIndex(
+                    artistSongs.findIndex(
                         (queueSong) =>
                             queueSong.id ===
-                            song.id,
+                            song.id &&
+                            queueSong.albumId ===
+                            song.albumId,
                     );
 
                 if (queueIndex < 0) {
                     return;
                 }
 
+                /*
+                 * Dal profilo artista la queue è la classifica
+                 * completa dell'artista, già ordinata dal backend.
+                 */
                 void playSong(
-                    queue[queueIndex],
-                    queue,
+                    artistSongs[
+                        queueIndex
+                        ],
+                    artistSongs,
                     queueIndex,
                 );
             },
             [
+                artistSongs,
                 currentSong?.id,
                 playSong,
-                songsByAlbum,
                 togglePlayPause,
             ],
         );
@@ -1565,10 +1547,15 @@ export default function ArtistDetailsScreen() {
                             profileImageSize
                         }
                         songCount={
-                            artistSongs.length
+                            artistSongsLoading
+                                ? 0
+                                : totalArtistSongs
                         }
                         albumCount={
-                            artistAlbums.length
+                            artistSongsLoading ||
+                            albumsLoading
+                                ? 0
+                                : artistAlbums.length
                         }
                         onGoBack={
                             handleGoBack
@@ -1660,7 +1647,9 @@ export default function ArtistDetailsScreen() {
                             title="Top brani"
                             icon="trending-up-outline"
                             count={
-                                artistSongs.length
+                                artistSongsLoading
+                                    ? undefined
+                                    : totalArtistSongs
                             }
                         />
 
@@ -1670,8 +1659,10 @@ export default function ArtistDetailsScreen() {
                                 visibleCount
                             }
                             loading={
-                                albumsLoading ||
-                                songsLoading
+                                artistSongsLoading ||
+                                (artistSongsFetching &&
+                                    artistSongs.length ===
+                                    0)
                             }
                             currentSongId={
                                 currentSong?.id ??
@@ -1713,7 +1704,10 @@ export default function ArtistDetailsScreen() {
                             title="Album"
                             icon="albums-outline"
                             count={
-                                artistAlbums.length
+                                artistSongsLoading ||
+                                albumsLoading
+                                    ? undefined
+                                    : artistAlbums.length
                             }
                         />
 
@@ -1723,6 +1717,10 @@ export default function ArtistDetailsScreen() {
                             }
                             cardWidth={
                                 albumCardWidth
+                            }
+                            loading={
+                                artistSongsLoading ||
+                                albumsLoading
                             }
                             trackState={
                                 albumTrackState
@@ -2232,6 +2230,51 @@ const styles = StyleSheet.create({
 
     songSkeletonSubtitle: {
         width: "38%",
+        height: 6,
+        borderRadius: 3,
+        backgroundColor:
+            "rgba(255,255,255,0.05)",
+    },
+
+    albumSkeletonRow: {
+        gap: 10,
+        paddingRight: 14,
+    },
+
+    albumSkeletonCard: {
+        flexShrink: 0,
+        overflow: "hidden",
+        borderRadius: 18,
+        backgroundColor:
+            "rgba(255,255,255,0.035)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(255,255,255,0.04)",
+    },
+
+    albumSkeletonCover: {
+        width: "100%",
+        aspectRatio: 1,
+        backgroundColor:
+            "rgba(255,255,255,0.07)",
+    },
+
+    albumSkeletonInfo: {
+        gap: 7,
+        paddingHorizontal: 10,
+        paddingVertical: 12,
+    },
+
+    albumSkeletonTitle: {
+        width: "72%",
+        height: 8,
+        borderRadius: 4,
+        backgroundColor:
+            "rgba(255,255,255,0.08)",
+    },
+
+    albumSkeletonSubtitle: {
+        width: "45%",
         height: 6,
         borderRadius: 3,
         backgroundColor:

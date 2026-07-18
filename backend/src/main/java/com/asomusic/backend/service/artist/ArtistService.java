@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -90,10 +91,9 @@ public class ArtistService implements IArtistService {
 
     private String encodeFirebaseStoragePath(String path) {
         String[] parts = path.split("/");
-        return String.join("%2F",
-                java.util.Arrays.stream(parts)
-                        .map(part -> URLEncoder.encode(part, StandardCharsets.UTF_8)
-                                .replace("+", "%20"))
-                        .collect(Collectors.toList()));
+        return Arrays.stream(parts)
+                .map(part -> URLEncoder.encode(part, StandardCharsets.UTF_8)
+                        .replace("+", "%20"))
+                .collect(Collectors.joining("%2F"));
     }
 }

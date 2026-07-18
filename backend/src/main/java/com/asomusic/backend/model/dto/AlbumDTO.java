@@ -38,6 +38,6 @@ public class AlbumDTO {
     private OffsetDateTime releaseDate;
 
     @Schema(description = "Lista dei brani dell'album")
-    private List<SongDTO> songs;
+    private List<SongPreviewDTO> songs;
 }
 

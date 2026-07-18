@@ -1,35 +1,102 @@
-import { ArtistDTO } from "@/types/music";
+import {
+    ArtistDTO,
+    ArtistSongsDTO,
+} from "@/types/music";
 
-const BASE_URL =  process.env.EXPO_PUBLIC_API_URL;
+const rawBaseUrl =
+    process.env.EXPO_PUBLIC_API_URL;
 
-export async function fetchAllArtists(): Promise<ArtistDTO[]> {
-    try {
-        const res = await fetch(`${BASE_URL}/artists/all`);
+const BASE_URL =
+    rawBaseUrl?.replace(/\/+$/, "");
 
-        if (!res.ok) {
-            throw new Error(`Errore nel recupero artisti: ${res.status}`);
-        }
-
-        const data: ArtistDTO[] = await res.json();
-        return data;
-    } catch (err) {
-        console.error("❌ Errore fetchAllArtists:", err);
-        throw err;
+function buildApiUrl(
+    path: string,
+): string {
+    if (!BASE_URL) {
+        throw new Error(
+            "EXPO_PUBLIC_API_URL non è configurata",
+        );
     }
+
+    return `${BASE_URL}${path}`;
 }
 
-export async function fetchArtistById(id: string): Promise<ArtistDTO> {
-    try {
-        const res = await fetch(`${BASE_URL}/artists/${id}`);
-
-        if (!res.ok) {
-            throw new Error(`Errore nel recupero artista ${id}: ${res.status}`);
-        }
-
-        const data: ArtistDTO = await res.json();
-        return data;
-    } catch (err) {
-        console.error("❌ Errore fetchArtistById:", err);
-        throw err;
+async function parseJsonResponse<T>(
+    response: Response,
+    fallbackMessage: string,
+): Promise<T> {
+    if (response.ok) {
+        return await response.json() as Promise<T>;
     }
+
+    let responseMessage = "";
+
+    try {
+        responseMessage =
+            await response.text();
+    } catch {
+        responseMessage = "";
+    }
+
+    throw new Error(
+        responseMessage.trim() ||
+        `${fallbackMessage}: ${response.status}`,
+    );
+}
+
+export async function fetchAllArtists(
+    signal?: AbortSignal,
+): Promise<ArtistDTO[]> {
+    const response = await fetch(
+        buildApiUrl("/artists/all"),
+        {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+            },
+            signal,
+        },
+    );
+
+    return parseJsonResponse<ArtistDTO[]>(
+        response,
+        "Errore nel recupero degli artisti",
+    );
+}
+
+export async function fetchArtistSongs(
+    artistId: string,
+    signal?: AbortSignal,
+): Promise<ArtistSongsDTO> {
+    const normalizedArtistId =
+        artistId.trim();
+
+    if (!normalizedArtistId) {
+        throw new Error(
+            "L'ID dell'artista è obbligatorio",
+        );
+    }
+
+    const encodedArtistId =
+        encodeURIComponent(
+            normalizedArtistId,
+        );
+
+    const response = await fetch(
+        buildApiUrl(
+            `/artists/${encodedArtistId}/songs`,
+        ),
+        {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+            },
+            signal,
+        },
+    );
+
+    return parseJsonResponse<ArtistSongsDTO>(
+        response,
+        "Errore nel recupero delle canzoni dell'artista",
+    );
 }

@@ -1,14 +1,37 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchAllArtists} from "@/api/artists";
-import { ArtistDTO } from "@/types/music";
+import {
+    useQuery,
+    type UseQueryResult,
+} from "@tanstack/react-query";
 
-export function useArtists() {
-    return useQuery<ArtistDTO[]>({
-        queryKey: ["artists"],
-        queryFn: fetchAllArtists,
-        staleTime: 1000 * 60 * 5, // 5 minuti: considerata "fresca"
-        refetchOnMount: false, // 👈 evita refetch su rimontaggio
-        refetchOnWindowFocus: false, // 👈 evita refetch tornando sull’app
-        refetchOnReconnect: false, // 👈 evita refetch se la connessione torna
+import { fetchAllArtists } from "@/api/artists";
+import type { ArtistDTO } from "@/types/music";
+import {queryKeys} from "@/hooks/queryKeys";
+
+const HOUR = 1000 * 60 * 60;
+
+export function useArtists(): UseQueryResult<
+    ArtistDTO[],
+    Error
+> {
+    return useQuery<
+        ArtistDTO[],
+        Error
+    >({
+        queryKey:
+        queryKeys.artists.all,
+
+        queryFn: ({ signal }) =>
+            fetchAllArtists(signal),
+
+        staleTime:
+        HOUR,
+
+        gcTime:
+            HOUR * 24,
+
+        retry: 2,
+
+        refetchOnWindowFocus:
+            false,
     });
 }

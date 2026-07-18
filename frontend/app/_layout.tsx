@@ -43,7 +43,7 @@ import {
 } from "@/context/PlayerContext";
 import { useAlbums } from "@/hooks/useAlbums";
 import {
-    usePrefetchAllSongs,
+    usePrefetchSongs,
 } from "@/hooks/usePrefetchAllSongs";
 
 /* -------------------------------------------------------------------------- */
@@ -477,7 +477,7 @@ function AuthenticatedAppLayout() {
      * Il prefetch parte soltanto dopo che
      * l'utente è stato autenticato.
      */
-    usePrefetchAllSongs(
+    usePrefetchSongs(
         albumPreviews,
     );
 
