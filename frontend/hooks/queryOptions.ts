@@ -34,7 +34,6 @@ const NEWS_GC_TIME = HOUR;
 
 /*
  * I brani possono occupare più memoria degli album.
- * Evitiamo quindi di conservarli tutti per 24 ore.
  */
 const SONGS_STALE_TIME = HOUR;
 const SONGS_GC_TIME = HOUR * 4;
@@ -55,10 +54,6 @@ export function albumsQueryOptions() {
 
         retry: 2,
 
-        /*
-         * Non aggiorniamo il catalogo semplicemente
-         * passando da browser/devtools all'app.
-         */
         refetchOnWindowFocus:
             false,
     });
@@ -69,8 +64,8 @@ export function artistsQueryOptions() {
         queryKey:
         queryKeys.artists.all,
 
-        queryFn:
-        fetchAllArtists,
+        queryFn: ({ signal }) =>
+            fetchAllArtists(signal),
 
         staleTime:
         CATALOG_STALE_TIME,
@@ -101,10 +96,6 @@ export function newsQueryOptions() {
 
         retry: 2,
 
-        /*
-         * Per le news ha senso aggiornarle quando
-         * l'utente torna nell'app, se sono stale.
-         */
         refetchOnWindowFocus:
             true,
     });
