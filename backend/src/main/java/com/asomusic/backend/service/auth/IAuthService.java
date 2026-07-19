@@ -6,6 +6,8 @@ import com.asomusic.backend.model.dto.SignupRequestDTO;
 import com.asomusic.backend.model.dto.SignupResponseDTO;
 
 public interface IAuthService {
+
     LoginResponseDTO login(LoginRequestDTO request);
+
     SignupResponseDTO signup(SignupRequestDTO request);
 }

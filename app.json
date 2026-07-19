@@ -3,6 +3,23 @@
     "name": "ASO Music",
     "slug": "aso-music",
     "scheme": "asomusic",
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router"
+    ],
+    "ios": {
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    }
   }
 }

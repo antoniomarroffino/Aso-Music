@@ -9,34 +9,64 @@ import {
     fetchAllArtists,
 } from "@/api/artists";
 import {
+    ApiError,
+} from "@/api/http";
+import {
     fetchAllNews,
+    fetchUnreadNewsCount,
 } from "@/api/news";
 import {
     fetchSongsByAlbum,
 } from "@/api/songs";
 
-import { queryKeys } from "./queryKeys";
+import {
+    queryKeys,
+} from "./queryKeys";
 
-const MINUTE = 1000 * 60;
-const HOUR = MINUTE * 60;
+const MINUTE =
+    1000 * 60;
+
+const HOUR =
+    MINUTE * 60;
 
 /*
  * Album e artisti cambiano raramente.
  */
-const CATALOG_STALE_TIME = HOUR;
-const CATALOG_GC_TIME = HOUR * 24;
+const CATALOG_STALE_TIME =
+    HOUR;
+
+const CATALOG_GC_TIME =
+    HOUR * 24;
 
 /*
- * Le news devono aggiornarsi più spesso.
+ * La lista completa delle news può rimanere
+ * valida per alcuni minuti.
  */
-const NEWS_STALE_TIME = MINUTE * 5;
-const NEWS_GC_TIME = HOUR;
+const NEWS_STALE_TIME =
+    MINUTE * 5;
+
+const NEWS_GC_TIME =
+    HOUR;
 
 /*
- * I brani possono occupare più memoria degli album.
+ * Il badge deve aggiornarsi più rapidamente
+ * rispetto alla lista completa.
  */
-const SONGS_STALE_TIME = HOUR;
-const SONGS_GC_TIME = HOUR * 4;
+const UNREAD_NEWS_STALE_TIME =
+    MINUTE;
+
+const UNREAD_NEWS_GC_TIME =
+    HOUR;
+
+/*
+ * I brani possono occupare più memoria
+ * degli album.
+ */
+const SONGS_STALE_TIME =
+    HOUR;
+
+const SONGS_GC_TIME =
+    HOUR * 4;
 
 export function albumsQueryOptions() {
     return queryOptions({
@@ -65,7 +95,9 @@ export function artistsQueryOptions() {
         queryKeys.artists.all,
 
         queryFn: ({ signal }) =>
-            fetchAllArtists(signal),
+            fetchAllArtists(
+                signal,
+            ),
 
         staleTime:
         CATALOG_STALE_TIME,
@@ -85,8 +117,10 @@ export function newsQueryOptions() {
         queryKey:
         queryKeys.news.all,
 
-        queryFn:
-        fetchAllNews,
+        queryFn: ({ signal }) =>
+            fetchAllNews(
+                signal,
+            ),
 
         staleTime:
         NEWS_STALE_TIME,
@@ -94,7 +128,32 @@ export function newsQueryOptions() {
         gcTime:
         NEWS_GC_TIME,
 
-        retry: 2,
+        retry:
+        retryAuthenticatedQuery,
+
+        refetchOnWindowFocus:
+            true,
+    });
+}
+
+export function unreadNewsCountQueryOptions() {
+    return queryOptions({
+        queryKey:
+        queryKeys.news.unreadCount,
+
+        queryFn: ({ signal }) =>
+            fetchUnreadNewsCount(
+                signal,
+            ),
+
+        staleTime:
+        UNREAD_NEWS_STALE_TIME,
+
+        gcTime:
+        UNREAD_NEWS_GC_TIME,
+
+        retry:
+        retryAuthenticatedQuery,
 
         refetchOnWindowFocus:
             true,
@@ -126,4 +185,21 @@ export function albumSongsQueryOptions(
         refetchOnWindowFocus:
             false,
     });
+}
+
+function retryAuthenticatedQuery(
+    failureCount: number,
+    error: Error,
+): boolean {
+    if (
+        error instanceof ApiError &&
+        (
+            error.status === 401 ||
+            error.status === 403
+        )
+    ) {
+        return false;
+    }
+
+    return failureCount < 2;
 }

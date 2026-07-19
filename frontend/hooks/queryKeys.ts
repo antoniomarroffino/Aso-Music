@@ -14,9 +14,16 @@ export const queryKeys = {
     },
 
     news: {
-        all: ["news"] as const,
-    },
+        all: [
+            "news",
+            "all",
+        ] as const,
 
+        unreadCount: [
+            "news",
+            "unread-count",
+        ] as const,
+    },
     songs: {
         all: ["songs"] as const,
 

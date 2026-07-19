@@ -2,6 +2,7 @@ package com.asomusic.backend.repository.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.ArtistDTO;
+import com.asomusic.backend.model.dto.SongListenIncrementResult;
 import com.asomusic.backend.model.dto.SongPreviewDTO;
 import com.asomusic.backend.util.SongUtils;
 import com.google.cloud.Timestamp;
@@ -50,11 +51,9 @@ public class SongRepository implements ISongRepository {
 
     /**
      * Recupera album e canzoni con:
-     *
      * 1 query per tutti gli album;
      * 1 collection-group query per tutte le canzoni;
      * N batch per tutti gli artisti distinti.
-     *
      * Non viene mai letto audioURL.
      */
     @Override
@@ -160,7 +159,6 @@ public class SongRepository implements ISongRepository {
     /**
      * Recupera soltanto le anteprime delle canzoni
      * dell'album richiesto.
-     *
      * audioURL non viene letto.
      */
     @Override
@@ -225,9 +223,7 @@ public class SongRepository implements ISongRepository {
     /**
      * Recupera le canzoni dell'artista già ordinate
      * per numero di ascolti decrescente.
-     *
      * Richiede un indice Firestore collection-group:
-     *
      * artist: array
      * stream: descending
      */
@@ -306,7 +302,6 @@ public class SongRepository implements ISongRepository {
 
     /**
      * Legge esclusivamente audioURL.
-     *
      * Questo è l'unico metodo del repository che deve
      * conoscere il campo audioURL.
      */
@@ -342,16 +337,13 @@ public class SongRepository implements ISongRepository {
 
     /**
      * Incremento atomico del contatore.
-     *
      * La precedente implementazione eseguiva:
-     *
      * read -> current + 1 -> update
-     *
      * Due richieste concorrenti potevano quindi scrivere
      * lo stesso valore. La transazione evita aggiornamenti persi.
      */
     @Override
-    public void incrementListenCount(
+    public SongListenIncrementResult incrementListenCount(
             String albumId,
             String songId
     ) throws ExecutionException, InterruptedException {
@@ -362,7 +354,7 @@ public class SongRepository implements ISongRepository {
                         .collection(SONGS_COLLECTION)
                         .document(songId);
 
-        ListenIncrementResult result =
+        ListenIncrementPersistenceResult incrementResult =
                 db.runTransaction(transaction -> {
                             DocumentSnapshot songSnapshot =
                                     transaction
@@ -386,7 +378,10 @@ public class SongRepository implements ISongRepository {
                                     );
 
                             long newCount =
-                                    currentCount + 1;
+                                    Math.addExact(
+                                            currentCount,
+                                            1L
+                                    );
 
                             transaction.update(
                                     songReference,
@@ -394,20 +389,25 @@ public class SongRepository implements ISongRepository {
                                     newCount
                             );
 
-                            return new ListenIncrementResult(
+                            return new ListenIncrementPersistenceResult(
                                     songSnapshot,
                                     newCount
                             );
                         })
                         .get();
 
-        /*
-         * La creazione della news viene eseguita dopo il commit.
-         * Un errore nella news non annulla l'ascolto.
-         */
-        checkAndCreateCertificationNews(
-                result.songSnapshot,
-                result.newCount
+        List<String> artistNames =
+                resolveArtistNames(
+                        incrementResult.songSnapshot()
+                );
+
+        return new SongListenIncrementResult(
+                songId,
+                incrementResult
+                        .songSnapshot()
+                        .getString("title"),
+                incrementResult.newCount(),
+                artistNames
         );
     }
 
@@ -453,7 +453,6 @@ public class SongRepository implements ISongRepository {
 
     /**
      * Mapper unico usato da:
-     *
      * - fetchAllAlbumsWithSongs;
      * - fetchSongsByAlbum;
      * - fetchSongsByArtist.
@@ -529,6 +528,25 @@ public class SongRepository implements ISongRepository {
                 .build();
     }
 
+    private List<String> resolveArtistNames(
+            DocumentSnapshot songSnapshot
+    ) throws ExecutionException, InterruptedException {
+
+        Map<String, ArtistDTO> artistsByPath =
+                fetchArtistsForSongs(
+                        List.of(songSnapshot)
+                );
+
+        return mapArtists(
+                songSnapshot,
+                artistsByPath
+        )
+                .stream()
+                .map(ArtistDTO::getName)
+                .filter(this::hasText)
+                .toList();
+    }
+
     private Map<String, QueryDocumentSnapshot> indexAlbumsById(
             List<QueryDocumentSnapshot> albumDocuments
     ) {
@@ -585,7 +603,6 @@ public class SongRepository implements ISongRepository {
     /**
      * Recupera tutti gli artisti distinti necessari
      * alle canzoni con letture batch.
-     *
      * Evita una richiesta Firestore per ogni artista
      * di ogni canzone.
      */
@@ -745,7 +762,6 @@ public class SongRepository implements ISongRepository {
 
     /**
      * Firestore getAll in batch.
-     *
      * La mappa è indicizzata con il path completo del documento,
      * non soltanto con l'ID.
      */
@@ -965,17 +981,9 @@ public class SongRepository implements ISongRepository {
                 .get();
     }
 
-    private static final class ListenIncrementResult {
-
-        private final DocumentSnapshot songSnapshot;
-        private final long newCount;
-
-        private ListenIncrementResult(
-                DocumentSnapshot songSnapshot,
-                long newCount
-        ) {
-            this.songSnapshot = songSnapshot;
-            this.newCount = newCount;
-        }
+    private record ListenIncrementPersistenceResult(
+            DocumentSnapshot songSnapshot,
+            long newCount
+    ) {
     }
 }

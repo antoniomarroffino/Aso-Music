@@ -1,6 +1,7 @@
 package com.asomusic.backend.repository.song;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
+import com.asomusic.backend.model.dto.SongListenIncrementResult;
 import com.asomusic.backend.model.dto.SongPreviewDTO;
 
 import java.util.List;
@@ -25,7 +26,7 @@ public interface ISongRepository {
             String songId
     ) throws ExecutionException, InterruptedException;
 
-    void incrementListenCount(
+    SongListenIncrementResult incrementListenCount(
             String albumId,
             String songId
     ) throws ExecutionException, InterruptedException;

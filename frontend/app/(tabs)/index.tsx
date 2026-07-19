@@ -1,7 +1,9 @@
 import React, {
     memo,
     useCallback,
+    useEffect,
     useMemo,
+    useRef,
     useState,
 } from "react";
 import {
@@ -20,17 +22,24 @@ import {
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useQueries } from "@tanstack/react-query";
+import {
+    useQueries,
+} from "@tanstack/react-query";
 
 import {
     AlbumPreviewDTO,
     SongPreviewDTO,
 } from "@/types/music";
+
 import AlbumCard from "@/components/AlbumCard";
 import LockedAlbumCard from "@/components/LockedAlbumCard";
+
 import { useAuth } from "@/context/AuthContext";
+
 import { useAlbums } from "@/hooks/useAlbums";
+import { useMarkNewsSeen } from "@/hooks/useMarkNewsSeen";
 import { useNews } from "@/hooks/useNews";
+
 import {
     fetchSongsByAlbum,
 } from "@/api/songs";
@@ -43,9 +52,12 @@ import {
     SkeletonGrid,
     SortOrder,
 } from "@/components/home";
+import {NewsDTO} from "@/types/news";
 
 const ADMIN_EMAIL =
     "admin@prova.com";
+
+const EMPTY_NEWS_LIST: NewsDTO[] = [];
 
 type AlbumItemProps = {
     album: AlbumPreviewDTO;
@@ -194,8 +206,13 @@ export default function HomeScreen() {
     } = useAuth();
 
     const {
-        data: newsList,
+        data: newsFeed,
     } = useNews();
+
+    const {
+        mutate: markNewsAsSeen,
+        isPending: isMarkingNewsSeen,
+    } = useMarkNewsSeen();
 
     const insets =
         useSafeAreaInsets();
@@ -218,6 +235,70 @@ export default function HomeScreen() {
         showNews,
         setShowNews,
     ] = useState(false);
+
+    /*
+     * Evita che lo stesso cursore venga inviato
+     * più volte, anche in React Strict Mode.
+     */
+    const lastMarkSeenCursorRef =
+        useRef<number | null>(null);
+
+    const newsList =
+        newsFeed?.news ??
+        EMPTY_NEWS_LIST;
+
+    const newsCount =
+        newsFeed?.unreadCount ?? 0;
+
+    const newsReadCursor =
+        newsFeed?.readCursor ?? 0;
+
+    /*
+     * Marca le news come viste soltanto quando
+     * il dropdown è realmente visibile.
+     *
+     * L'effect gestisce anche il caso in cui il feed
+     * venga caricato dopo l'apertura del dropdown.
+     */
+    useEffect(() => {
+        if (!showNews) {
+            return;
+        }
+
+        if (
+            newsCount <= 0 ||
+            newsReadCursor <= 0
+        ) {
+            return;
+        }
+
+        if (isMarkingNewsSeen) {
+            return;
+        }
+
+        if (
+            lastMarkSeenCursorRef.current ===
+            newsReadCursor
+        ) {
+            return;
+        }
+
+        lastMarkSeenCursorRef.current =
+            newsReadCursor;
+
+        markNewsAsSeen(
+            {
+                upToSequence:
+                newsReadCursor,
+            },
+        );
+    }, [
+        isMarkingNewsSeen,
+        markNewsAsSeen,
+        newsCount,
+        newsReadCursor,
+        showNews,
+    ]);
 
     /*
      * Usa le stesse query key del prefetch globale.
@@ -274,6 +355,7 @@ export default function HomeScreen() {
                             count:
                                 songs?.length ??
                                 0,
+
                             loading:
                                 Boolean(
                                     query?.isFetching &&
@@ -300,9 +382,6 @@ export default function HomeScreen() {
         appUser?.username ??
         "Utente";
 
-    const newsCount =
-        newsList?.length ?? 0;
-
     const {
         finalAlbumList,
         upcomingAlbumId,
@@ -314,6 +393,7 @@ export default function HomeScreen() {
             return {
                 finalAlbumList:
                     [] as AlbumPreviewDTO[],
+
                 upcomingAlbumId:
                     null as
                         | string
@@ -380,6 +460,7 @@ export default function HomeScreen() {
             return {
                 finalAlbumList:
                 sortedAlbums,
+
                 upcomingAlbumId:
                     null,
             };
@@ -397,6 +478,7 @@ export default function HomeScreen() {
                 upcomingAlbum,
                 ...availableAlbums,
             ],
+
             upcomingAlbumId:
             upcomingAlbum.id,
         };
@@ -404,29 +486,6 @@ export default function HomeScreen() {
         albumPreviews,
         sortOrder,
     ]);
-    useMemo(
-        () =>
-            albumPreviews.filter(
-                (album) =>
-                    album.available,
-            ).length,
-        [albumPreviews],
-    );
-    useMemo(
-        () =>
-            Array.from(
-                albumTrackState.values(),
-            ).reduce(
-                (
-                    total,
-                    trackState,
-                ) =>
-                    total +
-                    trackState.count,
-                0,
-            ),
-        [albumTrackState],
-    );
 
     const handleToggleNews =
         useCallback(() => {
@@ -434,6 +493,8 @@ export default function HomeScreen() {
                 (previousValue) =>
                     !previousValue,
             );
+
+            setShowSortMenu(false);
         }, []);
 
     const handleOpenSettings =
@@ -449,6 +510,8 @@ export default function HomeScreen() {
                 (previousValue) =>
                     !previousValue,
             );
+
+            setShowNews(false);
         }, []);
 
     const handleSelectSort =
@@ -460,41 +523,51 @@ export default function HomeScreen() {
             [],
         );
 
-    const renderItem = useCallback(
-        ({
-             item,
-             index,
-         }: ListRenderItemInfo<AlbumPreviewDTO>) => {
-            const trackState =
-                albumTrackState.get(item.id);
+    const renderItem =
+        useCallback(
+            ({
+                 item,
+                 index,
+             }: ListRenderItemInfo<AlbumPreviewDTO>) => {
+                const trackState =
+                    albumTrackState.get(
+                        item.id,
+                    );
 
-            return (
-                <View style={styles.albumColumn}>
-                    <AlbumItem
-                        album={item}
-                        index={index}
-                        isUpcoming={
-                            item.id ===
-                            upcomingAlbumId
+                return (
+                    <View
+                        style={
+                            styles.albumColumn
                         }
-                        isAdmin={isAdmin}
-                        trackCount={
-                            trackState?.count ?? 0
-                        }
-                        isTrackCountLoading={
-                            trackState?.loading ??
-                            false
-                        }
-                    />
-                </View>
-            );
-        },
-        [
-            albumTrackState,
-            isAdmin,
-            upcomingAlbumId,
-        ],
-    );
+                    >
+                        <AlbumItem
+                            album={item}
+                            index={index}
+                            isUpcoming={
+                                item.id ===
+                                upcomingAlbumId
+                            }
+                            isAdmin={
+                                isAdmin
+                            }
+                            trackCount={
+                                trackState?.count ??
+                                0
+                            }
+                            isTrackCountLoading={
+                                trackState?.loading ??
+                                false
+                            }
+                        />
+                    </View>
+                );
+            },
+            [
+                albumTrackState,
+                isAdmin,
+                upcomingAlbumId,
+            ],
+        );
 
     const keyExtractor =
         useCallback(
@@ -521,9 +594,12 @@ export default function HomeScreen() {
                             type: "spring",
                             damping: 17,
                         }}
-                        style={
-                            styles.headerContainer
-                        }
+                        style={[
+                            styles.headerContainer,
+
+                            showNews &&
+                            styles.headerContainerOverlay,
+                        ]}
                     >
                         <HomeHeader
                             newsCount={
@@ -551,8 +627,6 @@ export default function HomeScreen() {
                                 username
                             }
                         />
-
-
                     </MotiView>
 
                     <SectionHeader
@@ -571,7 +645,18 @@ export default function HomeScreen() {
                     />
                 </>
             ),
-            [handleOpenSettings, handleSelectSort, handleToggleNews, handleToggleSortMenu, newsCount, newsList, showNews, showSortMenu, sortOrder, username],
+            [
+                handleOpenSettings,
+                handleSelectSort,
+                handleToggleNews,
+                handleToggleSortMenu,
+                newsCount,
+                newsList,
+                showNews,
+                showSortMenu,
+                sortOrder,
+                username,
+            ],
         );
 
     return (
@@ -677,11 +762,14 @@ export default function HomeScreen() {
                     ]}
                 >
                     {ListHeader}
+
                     <SkeletonGrid />
                 </View>
             ) : (
                 <FlatList
-                    data={finalAlbumList}
+                    data={
+                        finalAlbumList
+                    }
                     keyExtractor={
                         keyExtractor
                     }
@@ -713,9 +801,11 @@ export default function HomeScreen() {
                                     ? 30
                                     : insets.top +
                                     8,
+
                             paddingBottom:
                                 insets.bottom +
                                 145,
+
                             flexGrow:
                                 finalAlbumList.length ===
                                 0
@@ -723,17 +813,10 @@ export default function HomeScreen() {
                                     : undefined,
                         },
                     ]}
-                    removeClippedSubviews={
-                        Platform.OS !==
-                        "web"
-                    }
-                    maxToRenderPerBatch={
-                        8
-                    }
+                    removeClippedSubviews={false}
+                    maxToRenderPerBatch={8}
                     windowSize={7}
-                    initialNumToRender={
-                        6
-                    }
+                    initialNumToRender={6}
                 />
             )}
         </View>
@@ -784,7 +867,16 @@ const styles = StyleSheet.create({
     },
 
     headerContainer: {
+        position: "relative",
+        zIndex: 10,
+        elevation: 10,
+        overflow: "visible",
         marginBottom: 16,
+    },
+
+    headerContainerOverlay: {
+        zIndex: 10000,
+        elevation: 100,
     },
 
     catalogSummaryBorder: {

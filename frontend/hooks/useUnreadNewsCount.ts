@@ -3,11 +3,11 @@ import {
 } from "@tanstack/react-query";
 
 import {
-    newsQueryOptions,
+    unreadNewsCountQueryOptions,
 } from "@/hooks/queryOptions";
 
-export function useNews() {
+export function useUnreadNewsCount() {
     return useQuery(
-        newsQueryOptions(),
+        unreadNewsCountQueryOptions(),
     );
 }

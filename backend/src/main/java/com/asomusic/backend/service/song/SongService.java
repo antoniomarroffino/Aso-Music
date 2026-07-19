@@ -1,10 +1,13 @@
 package com.asomusic.backend.service.song;
 
 import com.asomusic.backend.model.dto.*;
+import com.asomusic.backend.repository.news.INewsRepository;
 import com.asomusic.backend.repository.song.ISongRepository;
 import com.asomusic.backend.service.storage.IStorageUrlService;
+import com.asomusic.backend.util.SongUtils;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -13,8 +16,17 @@ import java.util.concurrent.ExecutionException;
 @ApplicationScoped
 public class SongService implements ISongService {
 
+    private static final Logger LOGGER =
+            Logger.getLogger(SongService.class);
+
+    private static final String UNKNOWN_ARTIST =
+            "Artista sconosciuto";
+
     @Inject
     ISongRepository songRepository;
+
+    @Inject
+    INewsRepository newsRepository;
 
     @Inject
     IStorageUrlService storageUrlService;
@@ -72,15 +84,18 @@ public class SongService implements ISongService {
             String albumId,
             String songId
     ) {
-        executeRepositoryWrite(
-                "Errore durante l'incremento degli ascolti "
-                        + "della canzone: "
-                        + songId,
-                () -> songRepository.incrementListenCount(
-                        albumId,
-                        songId
-                )
-        );
+        SongListenIncrementResult result =
+                executeRepositoryRead(
+                        "Errore durante l'incremento "
+                                + "degli ascolti della canzone: "
+                                + songId,
+                        () -> songRepository.incrementListenCount(
+                                albumId,
+                                songId
+                        )
+                );
+
+        createCertificationNewsIfNeeded(result);
     }
 
     @Override
@@ -125,6 +140,105 @@ public class SongService implements ISongService {
                 .url(playbackUrl.url())
                 .expiresAt(playbackUrl.expiresAt())
                 .build();
+    }
+
+    private void createCertificationNewsIfNeeded(
+            SongListenIncrementResult result
+    ) {
+        if (result == null) {
+            return;
+        }
+
+        String artistNames =
+                formatArtistNames(result.artistNames());
+
+        String message =
+                SongUtils.buildCertificationMessage(
+                        result.title(),
+                        artistNames,
+                        result.listenCount()
+                );
+
+        /*
+         * buildCertificationMessage restituisce null quando
+         * il numero di ascolti non corrisponde a una soglia
+         * che deve produrre una news.
+         */
+        if (!hasText(message)) {
+            return;
+        }
+
+        createNewsBestEffort(
+                result,
+                message
+        );
+    }
+
+    private void createNewsBestEffort(
+            SongListenIncrementResult result,
+            String message
+    ) {
+        try {
+            long newsSequence =
+                    newsRepository.createNews(message);
+
+            LOGGER.infof(
+                    "News con sequenza %d creata per la canzone %s "
+                            + "al raggiungimento di %d ascolti",
+                    newsSequence,
+                    result.songId(),
+                    result.listenCount()
+            );
+
+        } catch (InterruptedException exception) {
+            /*
+             * L'incremento degli ascolti è già stato salvato.
+             * Ripristiniamo comunque lo stato interrupted del thread.
+             */
+            Thread.currentThread().interrupt();
+
+            LOGGER.warnf(
+                    exception,
+                    "Creazione della news interrotta per la canzone %s "
+                            + "al raggiungimento di %d ascolti",
+                    result.songId(),
+                    result.listenCount()
+            );
+
+        } catch (ExecutionException | RuntimeException exception) {
+            /*
+             * Un errore nella creazione della news non deve far
+             * apparire fallito un incremento già completato.
+             */
+            LOGGER.warnf(
+                    exception,
+                    "Impossibile creare la news per la canzone %s "
+                            + "al raggiungimento di %d ascolti",
+                    result.songId(),
+                    result.listenCount()
+            );
+        }
+    }
+
+    private String formatArtistNames(
+            List<String> artistNames
+    ) {
+        if (artistNames == null || artistNames.isEmpty()) {
+            return UNKNOWN_ARTIST;
+        }
+
+        List<String> validArtistNames =
+                artistNames.stream()
+                        .filter(this::hasText)
+                        .toList();
+
+        if (validArtistNames.isEmpty()) {
+            return UNKNOWN_ARTIST;
+        }
+
+        return SongUtils.formatArtistNames(
+                validArtistNames
+        );
     }
 
     private List<SongPreviewDTO> resolveSongPreviewUrls(
@@ -260,42 +374,10 @@ public class SongService implements ISongService {
         }
     }
 
-    private void executeRepositoryWrite(
-            String errorMessage,
-            RepositoryAction operation
-    ) {
-        try {
-            operation.execute();
-
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-
-            throw new IllegalStateException(
-                    errorMessage
-                            + ": thread interrotto",
-                    exception
-            );
-
-        } catch (ExecutionException exception) {
-            throw new IllegalStateException(
-                    errorMessage,
-                    exception
-            );
-        }
-    }
-
     @FunctionalInterface
     private interface RepositorySupplier<T> {
 
         T execute()
-                throws ExecutionException,
-                InterruptedException;
-    }
-
-    @FunctionalInterface
-    private interface RepositoryAction {
-
-        void execute()
                 throws ExecutionException,
                 InterruptedException;
     }

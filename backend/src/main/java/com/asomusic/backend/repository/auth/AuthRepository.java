@@ -9,22 +9,32 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class AuthRepository implements IAuthRepository {
 
-    private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
+    private final FirebaseAuth firebaseAuth =
+            FirebaseAuth.getInstance();
 
     @Override
-    public FirebaseToken verifyToken(String idToken) throws FirebaseAuthException {
-        try {
-            return firebaseAuth.verifyIdToken(idToken);
-        } catch (FirebaseAuthException e) {
-            System.err.println("❌ Errore verifica token Firebase: " + e.getMessage());
-            throw e;
-        }
+    public FirebaseToken verifyToken(
+            String idToken,
+            boolean checkRevoked
+    ) throws FirebaseAuthException {
+
+        return firebaseAuth.verifyIdToken(
+                idToken,
+                checkRevoked
+        );
     }
 
-    public UserRecord createUser(String email, String password, String displayName) throws FirebaseAuthException {
-        UserRecord.CreateRequest request = new UserRecord.CreateRequest()
-                .setEmail(email)
-                .setPassword(password);
+    @Override
+    public UserRecord createUser(
+            String email,
+            String password,
+            String displayName
+    ) throws FirebaseAuthException {
+
+        UserRecord.CreateRequest request =
+                new UserRecord.CreateRequest()
+                        .setEmail(email)
+                        .setPassword(password);
 
         if (displayName != null && !displayName.isBlank()) {
             request.setDisplayName(displayName);
@@ -33,7 +43,11 @@ public class AuthRepository implements IAuthRepository {
         return firebaseAuth.createUser(request);
     }
 
-    public UserRecord getUserByUid(String uid) throws FirebaseAuthException {
+    @Override
+    public UserRecord getUserByUid(
+            String uid
+    ) throws FirebaseAuthException {
+
         return firebaseAuth.getUser(uid);
     }
 }

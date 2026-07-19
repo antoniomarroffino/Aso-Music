@@ -9,12 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginResponseDTO {
+public class ErrorResponseDTO {
 
-    private String uid;
-    private String email;
-    private String username;
-    private String firstName;
-    private String lastName;
-    private String subscriptionType;
+    private String code;
+    private String message;
 }

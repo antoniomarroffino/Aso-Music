@@ -1,16 +1,20 @@
 package com.asomusic.backend.service.auth;
 
+import com.asomusic.backend.exceptions.InvalidAuthenticationTokenException;
+import com.asomusic.backend.exceptions.UserProfileNotFoundException;
 import com.asomusic.backend.model.dto.LoginRequestDTO;
 import com.asomusic.backend.model.dto.LoginResponseDTO;
 import com.asomusic.backend.model.dto.SignupRequestDTO;
 import com.asomusic.backend.model.dto.SignupResponseDTO;
+import com.asomusic.backend.model.dto.UserDTO;
 import com.asomusic.backend.repository.auth.IAuthRepository;
 import com.asomusic.backend.repository.user.IUserRepository;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+
+import java.util.concurrent.ExecutionException;
 
 @ApplicationScoped
 public class AuthService implements IAuthService {
@@ -21,17 +25,28 @@ public class AuthService implements IAuthService {
     @Inject
     IUserRepository userRepository;
 
-    private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
-
     @Override
-    public LoginResponseDTO login(LoginRequestDTO request) {
+    public LoginResponseDTO login(
+            LoginRequestDTO request
+    ) {
+        validateLoginRequest(request);
+
         try {
-            FirebaseToken decodedToken = authRepository.verifyToken(request.getIdToken());
+            FirebaseToken decodedToken =
+                    authRepository.verifyToken(
+                            request.getIdToken(),
+                            true
+                    );
+
             String uid = decodedToken.getUid();
-            var user = userRepository.getUserByUid(uid);
+
+            UserDTO user =
+                    userRepository.getUserByUid(uid);
 
             if (user == null) {
-                throw new RuntimeException("Utente non trovato nel database Firestore");
+                throw new UserProfileNotFoundException(
+                        "Profilo utente non trovato"
+                );
             }
 
             return LoginResponseDTO.builder()
@@ -40,26 +55,59 @@ public class AuthService implements IAuthService {
                     .username(user.getUsername())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
-                    .subscriptionType(user.getSubscriptionType())
+                    .subscriptionType(
+                            user.getSubscriptionType()
+                    )
                     .build();
 
-        } catch (FirebaseAuthException e) {
-            System.err.println("❌ Errore autenticazione Firebase: " + e.getMessage());
-            throw new RuntimeException("Token non valido o scaduto", e);
-        } catch (Exception e) {
-            System.err.println("❌ Errore generico nel login: " + e.getMessage());
-            throw new RuntimeException("Errore durante il login", e);
+        } catch (FirebaseAuthException
+                 | IllegalArgumentException exception) {
+
+            throw new InvalidAuthenticationTokenException(
+                    "Token Firebase non valido, "
+                            + "scaduto o revocato",
+                    exception
+            );
+
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    "Login interrotto durante "
+                            + "il recupero del profilo utente",
+                    exception
+            );
+
+        } catch (ExecutionException exception) {
+            throw new IllegalStateException(
+                    "Errore durante il recupero "
+                            + "del profilo utente",
+                    exception
+            );
         }
     }
 
     @Override
-    public SignupResponseDTO signup(SignupRequestDTO request) {
+    public SignupResponseDTO signup(
+            SignupRequestDTO request
+    ) {
         try {
-            FirebaseToken decodedToken = firebaseAuth.verifyIdToken(request.getIdToken());
+            FirebaseToken decodedToken =
+                    authRepository.verifyToken(
+                            request.getIdToken(),
+                            true
+                    );
+
             String uid = decodedToken.getUid();
 
-            if (userRepository.isUsernameTaken(request.getUsername())) {
-                throw new RuntimeException("Username già in uso");
+            if (
+                    userRepository.isUsernameTaken(
+                            request.getUsername()
+                    )
+            ) {
+                throw new RuntimeException(
+                        "Username già in uso"
+                );
             }
 
             if (userRepository.getUserByUid(uid) == null) {
@@ -82,11 +130,29 @@ public class AuthService implements IAuthService {
                     .idToken(request.getIdToken())
                     .build();
 
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            System.err.println("❌ Errore durante la registrazione: " + e.getMessage());
-            throw new RuntimeException("Errore durante la registrazione: " + e.getMessage(), e);
+        } catch (RuntimeException exception) {
+            throw exception;
+
+        } catch (Exception exception) {
+            throw new RuntimeException(
+                    "Errore durante la registrazione: "
+                            + exception.getMessage(),
+                    exception
+            );
+        }
+    }
+
+    private void validateLoginRequest(
+            LoginRequestDTO request
+    ) {
+        if (request == null
+                || request.getIdToken() == null
+                || request.getIdToken().isBlank()) {
+
+            throw new InvalidAuthenticationTokenException(
+                    "Il token Firebase è obbligatorio",
+                    null
+            );
         }
     }
 }

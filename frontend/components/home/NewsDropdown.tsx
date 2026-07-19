@@ -1,5 +1,13 @@
-import React, { memo } from "react";
+import React, {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import {
+    Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -19,13 +27,75 @@ type NewsDropdownProps = {
     visible: boolean;
 };
 
+const DEFAULT_VISIBLE_NEWS = 4;
+
+const EMPTY_NEWS_LIST: NewsDTO[] = [];
+
 const NewsDropdown = memo(
     function NewsDropdown({
-                              newsList,
+                              newsList = EMPTY_NEWS_LIST,
                               visible,
                           }: NewsDropdownProps) {
+        const [
+            expanded,
+            setExpanded,
+        ] = useState(false);
+
+        useEffect(() => {
+            if (!visible) {
+                setExpanded(false);
+            }
+        }, [visible]);
+
+        const unreadCount =
+            useMemo(
+                () =>
+                    newsList.filter(
+                        (news) =>
+                            !news.seen,
+                    ).length,
+                [newsList],
+            );
+
         const visibleNews =
-            newsList?.slice(0, 3) ?? [];
+            useMemo(
+                () =>
+                    expanded
+                        ? newsList
+                        : newsList.slice(
+                            0,
+                            DEFAULT_VISIBLE_NEWS,
+                        ),
+                [
+                    expanded,
+                    newsList,
+                ],
+            );
+
+        const hiddenNewsCount =
+            Math.max(
+                newsList.length -
+                DEFAULT_VISIBLE_NEWS,
+                0,
+            );
+
+        const hasOlderNews =
+            hiddenNewsCount > 0;
+
+        const subtitle =
+            unreadCount > 0
+                ? unreadCount === 1
+                    ? "1 aggiornamento non letto"
+                    : `${unreadCount} aggiornamenti non letti`
+                : `${newsList.length} aggiornamenti`;
+
+        const handleToggleExpanded =
+            useCallback(() => {
+                setExpanded(
+                    (previousValue) =>
+                        !previousValue,
+                );
+            }, []);
 
         return (
             <AnimatePresence>
@@ -33,8 +103,8 @@ const NewsDropdown = memo(
                     <MotiView
                         from={{
                             opacity: 0,
-                            translateY: -8,
-                            scale: 0.97,
+                            translateY: -6,
+                            scale: 0.98,
                         }}
                         animate={{
                             opacity: 1,
@@ -43,29 +113,39 @@ const NewsDropdown = memo(
                         }}
                         exit={{
                             opacity: 0,
-                            translateY: -8,
-                            scale: 0.97,
+                            translateY: -6,
+                            scale: 0.98,
                         }}
                         transition={{
                             type: "timing",
-                            duration: 180,
+                            duration: 160,
                         }}
-                        style={styles.container}
+                        style={
+                            styles.container
+                        }
                     >
                         <LinearGradient
                             colors={[
-                                "rgba(29,185,84,0.34)",
-                                "rgba(119,89,255,0.25)",
-                                "rgba(255,255,255,0.07)",
+                                "rgba(29,185,84,0.32)",
+                                "rgba(119,89,255,0.22)",
+                                "rgba(255,255,255,0.06)",
                             ]}
-                            style={styles.border}
+                            style={
+                                styles.border
+                            }
                         >
                             <BlurView
-                                intensity={65}
+                                intensity={70}
                                 tint="dark"
-                                style={styles.blur}
+                                style={
+                                    styles.blur
+                                }
                             >
-                                <View style={styles.surface}>
+                                <View
+                                    style={
+                                        styles.surface
+                                    }
+                                >
                                     <View
                                         style={
                                             styles.header
@@ -78,12 +158,16 @@ const NewsDropdown = memo(
                                         >
                                             <Ionicons
                                                 name="notifications-outline"
-                                                size={14}
+                                                size={13}
                                                 color="#62EA92"
                                             />
                                         </View>
 
-                                        <View>
+                                        <View
+                                            style={
+                                                styles.headerContent
+                                            }
+                                        >
                                             <Text
                                                 style={
                                                     styles.title
@@ -93,13 +177,33 @@ const NewsDropdown = memo(
                                             </Text>
 
                                             <Text
+                                                numberOfLines={1}
                                                 style={
                                                     styles.subtitle
                                                 }
                                             >
-                                                Ultimi aggiornamenti
+                                                {subtitle}
                                             </Text>
                                         </View>
+
+                                        {unreadCount >
+                                            0 && (
+                                                <View
+                                                    style={
+                                                        styles.unreadBadge
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.unreadBadgeText
+                                                        }
+                                                    >
+                                                        {formatBadgeCount(
+                                                            unreadCount,
+                                                        )}
+                                                    </Text>
+                                                </View>
+                                            )}
                                     </View>
 
                                     <View
@@ -110,44 +214,94 @@ const NewsDropdown = memo(
 
                                     {visibleNews.length >
                                     0 ? (
-                                        visibleNews.map(
-                                            (
-                                                news,
-                                                index,
-                                            ) => (
-                                                <View
-                                                    key={
-                                                        news.id
-                                                    }
-                                                    style={[
-                                                        styles.newsItem,
-                                                        index <
-                                                        visibleNews.length -
-                                                        1 &&
-                                                        styles.newsItemBorder,
-                                                    ]}
-                                                >
+                                        <>
+                                            <ScrollView
+                                                nestedScrollEnabled
+                                                showsVerticalScrollIndicator={
+                                                    expanded
+                                                }
+                                                style={[
+                                                    styles.newsScroll,
+
+                                                    expanded &&
+                                                    styles.newsScrollExpanded,
+                                                ]}
+                                                contentContainerStyle={
+                                                    styles.newsScrollContent
+                                                }
+                                            >
+                                                {visibleNews.map(
+                                                    (
+                                                        news,
+                                                        index,
+                                                    ) => (
+                                                        <NewsItem
+                                                            key={
+                                                                news.id
+                                                            }
+                                                            news={
+                                                                news
+                                                            }
+                                                            showDivider={
+                                                                index <
+                                                                visibleNews.length -
+                                                                1
+                                                            }
+                                                        />
+                                                    ),
+                                                )}
+                                            </ScrollView>
+
+                                            {hasOlderNews && (
+                                                <>
                                                     <View
                                                         style={
-                                                            styles.newsDot
+                                                            styles.footerDivider
                                                         }
                                                     />
 
-                                                    <Text
-                                                        numberOfLines={
-                                                            2
+                                                    <Pressable
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={
+                                                            expanded
+                                                                ? "Mostra meno notifiche"
+                                                                : "Mostra tutte le notifiche"
                                                         }
-                                                        style={
-                                                            styles.newsText
+                                                        onPress={
+                                                            handleToggleExpanded
                                                         }
+                                                        style={({
+                                                                    pressed,
+                                                                }) => [
+                                                            styles.toggleButton,
+
+                                                            pressed &&
+                                                            styles.toggleButtonPressed,
+                                                        ]}
                                                     >
-                                                        {
-                                                            news.message
-                                                        }
-                                                    </Text>
-                                                </View>
-                                            ),
-                                        )
+                                                        <Text
+                                                            style={
+                                                                styles.toggleButtonText
+                                                            }
+                                                        >
+                                                            {expanded
+                                                                ? "Mostra meno"
+                                                                : `Mostra altre ${hiddenNewsCount}`}
+                                                        </Text>
+
+                                                        <Ionicons
+                                                            name={
+                                                                expanded
+                                                                    ? "chevron-up"
+                                                                    : "chevron-down"
+                                                            }
+                                                            size={12}
+                                                            color="#75ECA0"
+                                                        />
+                                                    </Pressable>
+                                                </>
+                                            )}
+                                        </>
                                     ) : (
                                         <View
                                             style={
@@ -155,8 +309,8 @@ const NewsDropdown = memo(
                                             }
                                         >
                                             <Ionicons
-                                                name="checkmark-circle-outline"
-                                                size={17}
+                                                name="notifications-off-outline"
+                                                size={16}
                                                 color="#697185"
                                             />
 
@@ -165,8 +319,7 @@ const NewsDropdown = memo(
                                                     styles.emptyText
                                                 }
                                             >
-                                                Nessuna nuova
-                                                notifica
+                                                Nessuna notifica
                                             </Text>
                                         </View>
                                     )}
@@ -180,42 +333,188 @@ const NewsDropdown = memo(
     },
 );
 
+type NewsItemProps = {
+    news: NewsDTO;
+    showDivider: boolean;
+};
+
+const NewsItem = memo(
+    function NewsItem({
+                          news,
+                          showDivider,
+                      }: NewsItemProps) {
+        const isUnread =
+            !news.seen;
+
+        const formattedDate =
+            news.createdAt
+                ? formatNewsDate(
+                    news.createdAt,
+                )
+                : null;
+
+        return (
+            <View
+                style={[
+                    styles.newsItem,
+
+                    isUnread &&
+                    styles.unreadNewsItem,
+
+                    showDivider &&
+                    styles.newsItemBorder,
+                ]}
+            >
+                <View
+                    style={[
+                        styles.newsDot,
+
+                        isUnread
+                            ? styles.unreadNewsDot
+                            : styles.seenNewsDot,
+                    ]}
+                />
+
+                <View
+                    style={
+                        styles.newsContent
+                    }
+                >
+                    <Text
+                        numberOfLines={2}
+                        style={[
+                            styles.newsText,
+
+                            isUnread &&
+                            styles.unreadNewsText,
+                        ]}
+                    >
+                        {news.message}
+                    </Text>
+
+                    {formattedDate && (
+                        <Text
+                            numberOfLines={1}
+                            style={
+                                styles.newsDate
+                            }
+                        >
+                            {formattedDate}
+                        </Text>
+                    )}
+                </View>
+
+                {isUnread && (
+                    <View
+                        style={
+                            styles.newLabel
+                        }
+                    >
+                        <Text
+                            style={
+                                styles.newLabelText
+                            }
+                        >
+                            NUOVA
+                        </Text>
+                    </View>
+                )}
+            </View>
+        );
+    },
+);
+
+function formatBadgeCount(
+    count: number,
+): string {
+    return count > 99
+        ? "99+"
+        : String(count);
+}
+
+function formatNewsDate(
+    createdAt: string,
+): string | null {
+    const date =
+        new Date(createdAt);
+
+    if (
+        Number.isNaN(
+            date.getTime(),
+        )
+    ) {
+        return null;
+    }
+
+    const currentDate =
+        new Date();
+
+    return date.toLocaleString(
+        "it-IT",
+        {
+            day: "2-digit",
+            month: "short",
+
+            year:
+                date.getFullYear() !==
+                currentDate.getFullYear()
+                    ? "numeric"
+                    : undefined,
+
+            hour: "2-digit",
+            minute: "2-digit",
+        },
+    );
+}
+
 export default NewsDropdown;
 
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
-        top: 46,
+        top: 44,
         right: 0,
-        zIndex: 1000,
-        width: 276,
-        maxWidth: "94%",
-        borderRadius: 18,
+
+        /*
+         * Il parent deve comunque avere uno zIndex
+         * elevato nella Home.
+         */
+        zIndex: 99999,
+        elevation: 100,
+
+        width: 288,
+        maxWidth: "96%",
+
+        borderRadius: 17,
+
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 8,
+            height: 10,
         },
-        shadowOpacity: 0.38,
-        shadowRadius: 16,
-        elevation: 14,
+        shadowOpacity: 0.48,
+        shadowRadius: 20,
     },
 
     border: {
         padding: 1,
-        borderRadius: 18,
+        borderRadius: 17,
     },
 
     blur: {
         overflow: "hidden",
-        borderRadius: 17,
+        borderRadius: 16,
     },
 
     surface: {
-        padding: 11,
-        borderRadius: 17,
+        paddingHorizontal: 9,
+        paddingTop: 9,
+        paddingBottom: 7,
+
+        borderRadius: 16,
+
         backgroundColor:
-            "rgba(9,11,16,0.94)",
+            "rgba(7,9,14,0.97)",
     },
 
     header: {
@@ -224,79 +523,240 @@ const styles = StyleSheet.create({
     },
 
     headerIcon: {
-        width: 32,
-        height: 32,
+        width: 28,
+        height: 28,
+
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 8,
-        borderRadius: 10,
+
+        marginRight: 7,
+
+        borderRadius: 9,
+
         backgroundColor:
             "rgba(29,185,84,0.09)",
     },
 
+    headerContent: {
+        flex: 1,
+        minWidth: 0,
+    },
+
     title: {
         color: "#F3F5FA",
-        fontSize: 12,
-        lineHeight: 15,
+
+        fontSize: 11,
+        lineHeight: 14,
         fontWeight: "800",
     },
 
     subtitle: {
-        color: "#697185",
-        fontSize: 8,
-        lineHeight: 11,
-        fontWeight: "600",
         marginTop: 1,
+
+        color: "#697185",
+
+        fontSize: 7.5,
+        lineHeight: 10,
+        fontWeight: "600",
+    },
+
+    unreadBadge: {
+        minWidth: 20,
+        height: 20,
+
+        alignItems: "center",
+        justifyContent: "center",
+
+        marginLeft: 7,
+        paddingHorizontal: 5,
+
+        borderRadius: 10,
+
+        backgroundColor:
+            "rgba(29,215,96,0.13)",
+
+        borderWidth: 1,
+        borderColor:
+            "rgba(29,215,96,0.22)",
+    },
+
+    unreadBadgeText: {
+        color: "#65EE97",
+
+        fontSize: 7.5,
+        lineHeight: 9,
+        fontWeight: "900",
     },
 
     divider: {
         height: 1,
-        marginVertical: 9,
+
+        marginTop: 7,
+        marginBottom: 3,
+
         backgroundColor:
             "rgba(255,255,255,0.055)",
     },
 
+    newsScroll: {
+        flexGrow: 0,
+    },
+
+    newsScrollExpanded: {
+        maxHeight: 310,
+    },
+
+    newsScrollContent: {
+        paddingVertical: 1,
+    },
+
     newsItem: {
-        minHeight: 43,
+        minHeight: 40,
+
         flexDirection: "row",
         alignItems: "flex-start",
-        paddingVertical: 7,
+
+        paddingHorizontal: 5,
+        paddingVertical: 6,
+
+        borderRadius: 8,
+    },
+
+    unreadNewsItem: {
+        backgroundColor:
+            "rgba(29,185,84,0.04)",
     },
 
     newsItemBorder: {
         borderBottomWidth: 1,
         borderBottomColor:
-            "rgba(255,255,255,0.045)",
+            "rgba(255,255,255,0.04)",
     },
 
     newsDot: {
         width: 5,
         height: 5,
+
         marginTop: 5,
-        marginRight: 8,
+        marginRight: 7,
+
         borderRadius: 2.5,
+    },
+
+    unreadNewsDot: {
         backgroundColor: "#1ED760",
     },
 
-    newsText: {
+    seenNewsDot: {
+        backgroundColor:
+            "rgba(116,124,142,0.38)",
+    },
+
+    newsContent: {
         flex: 1,
-        color: "#B5BBC8",
-        fontSize: 10,
-        lineHeight: 14,
+        minWidth: 0,
+    },
+
+    newsText: {
+        color: "#929AAA",
+
+        fontSize: 9.5,
+        lineHeight: 13,
         fontWeight: "500",
     },
 
-    emptyState: {
-        minHeight: 44,
+    unreadNewsText: {
+        color: "#D5DAE4",
+        fontWeight: "700",
+    },
+
+    newsDate: {
+        marginTop: 2,
+
+        color: "#626A7B",
+
+        fontSize: 6.5,
+        lineHeight: 9,
+        fontWeight: "600",
+    },
+
+    newLabel: {
+        marginTop: 1,
+        marginLeft: 6,
+
+        paddingHorizontal: 4,
+        paddingVertical: 1.5,
+
+        borderRadius: 4,
+
+        backgroundColor:
+            "rgba(29,215,96,0.09)",
+    },
+
+    newLabelText: {
+        color: "#63EA94",
+
+        fontSize: 5.5,
+        lineHeight: 7,
+        fontWeight: "900",
+        letterSpacing: 0.35,
+    },
+
+    footerDivider: {
+        height: 1,
+
+        marginTop: 3,
+
+        backgroundColor:
+            "rgba(255,255,255,0.05)",
+    },
+
+    toggleButton: {
+        minHeight: 30,
+
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
+
+        gap: 5,
+
+        marginTop: 4,
+
+        borderRadius: 8,
+
+        backgroundColor:
+            "rgba(255,255,255,0.025)",
+    },
+
+    toggleButtonPressed: {
+        opacity: 0.72,
+
+        backgroundColor:
+            "rgba(29,185,84,0.07)",
+    },
+
+    toggleButtonText: {
+        color: "#75ECA0",
+
+        fontSize: 8,
+        lineHeight: 11,
+        fontWeight: "800",
+    },
+
+    emptyState: {
+        minHeight: 42,
+
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+
         gap: 6,
     },
 
     emptyText: {
         color: "#747C8E",
-        fontSize: 10,
+
+        fontSize: 9,
         fontWeight: "600",
     },
 });
