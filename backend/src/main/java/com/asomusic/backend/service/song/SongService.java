@@ -1,20 +1,12 @@
 package com.asomusic.backend.service.song;
 
-import com.asomusic.backend.model.dto.AlbumDTO;
-import com.asomusic.backend.model.dto.ArtistDTO;
-import com.asomusic.backend.model.dto.SongPlaybackUrlDTO;
-import com.asomusic.backend.model.dto.SongPreviewDTO;
+import com.asomusic.backend.model.dto.*;
 import com.asomusic.backend.repository.song.ISongRepository;
-import com.asomusic.backend.service.storage.FirebaseStorageService;
+import com.asomusic.backend.service.storage.IStorageUrlService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 
@@ -25,37 +17,19 @@ public class SongService implements ISongService {
     ISongRepository songRepository;
 
     @Inject
-    FirebaseStorageService firebaseStorageService;
-
-    @ConfigProperty(
-            name = "firebase.storage.url-expiration-hours",
-            defaultValue = "24"
-    )
-    long urlExpirationHours;
+    IStorageUrlService storageUrlService;
 
     @Override
     public List<AlbumDTO> fetchAllSongs() {
         List<AlbumDTO> albums =
                 executeRepositoryRead(
-                        "Errore durante il recupero degli album e dei brani",
+                        "Errore durante il recupero "
+                                + "degli album e dei brani",
                         songRepository::fetchAllAlbumsWithSongs
                 );
 
-        /*
-         * Una singola cache per tutta la risposta:
-         * la copertina dell'album può essere usata anche
-         * da più canzoni dello stesso album.
-         */
-        Map<String, String> signedUrls =
-                new HashMap<>();
-
         return albums.stream()
-                .map(
-                        album -> signAlbumUrls(
-                                album,
-                                signedUrls
-                        )
-                )
+                .map(this::resolveAlbumUrls)
                 .toList();
     }
 
@@ -65,14 +39,15 @@ public class SongService implements ISongService {
     ) {
         List<SongPreviewDTO> songs =
                 executeRepositoryRead(
-                        "Errore durante il recupero delle canzoni dell'album: "
+                        "Errore durante il recupero "
+                                + "delle canzoni dell'album: "
                                 + albumId,
                         () -> songRepository.fetchSongsByAlbum(
                                 albumId
                         )
                 );
 
-        return signSongPreviewUrls(songs);
+        return resolveSongPreviewUrls(songs);
     }
 
     @Override
@@ -81,14 +56,15 @@ public class SongService implements ISongService {
     ) {
         List<SongPreviewDTO> songs =
                 executeRepositoryRead(
-                        "Errore durante il recupero delle canzoni dell'artista: "
+                        "Errore durante il recupero "
+                                + "delle canzoni dell'artista: "
                                 + artistId,
                         () -> songRepository.fetchSongsByArtist(
                                 artistId
                         )
                 );
 
-        return signSongPreviewUrls(songs);
+        return resolveSongPreviewUrls(songs);
     }
 
     @Override
@@ -114,8 +90,9 @@ public class SongService implements ISongService {
     ) {
         String audioStoragePath =
                 executeRepositoryRead(
-                        "Errore durante il recupero delle informazioni "
-                                + "di riproduzione della canzone: "
+                        "Errore durante il recupero "
+                                + "delle informazioni di riproduzione "
+                                + "della canzone: "
                                 + songId,
                         () -> songRepository
                                 .fetchSongAudioStoragePath(
@@ -131,67 +108,46 @@ public class SongService implements ISongService {
                                 )
                 );
 
-        String signedUrl =
-                firebaseStorageService.generateSignedUrl(
+        SignedStorageUrl playbackUrl =
+                storageUrlService.generateFreshSignedUrl(
                         audioStoragePath
                 );
 
-        if (!isValidPlaybackUrl(signedUrl)) {
+        if (!isValidPlaybackUrl(playbackUrl.url())) {
             throw new IllegalStateException(
-                    "Impossibile generare l'URL di riproduzione "
-                            + "per la canzone: "
+                    "Impossibile generare l'URL "
+                            + "di riproduzione per la canzone: "
                             + songId
             );
         }
 
-        OffsetDateTime expiresAt =
-                OffsetDateTime
-                        .now(ZoneOffset.UTC)
-                        .plusHours(
-                                urlExpirationHours
-                        );
-
         return SongPlaybackUrlDTO.builder()
-                .url(signedUrl)
-                .expiresAt(expiresAt)
+                .url(playbackUrl.url())
+                .expiresAt(playbackUrl.expiresAt())
                 .build();
     }
 
-    private List<SongPreviewDTO> signSongPreviewUrls(
+    private List<SongPreviewDTO> resolveSongPreviewUrls(
             List<SongPreviewDTO> songs
     ) {
-        if (songs.isEmpty()) {
+        if (songs == null || songs.isEmpty()) {
             return List.of();
         }
 
-        Map<String, String> signedUrls =
-                new HashMap<>();
-
         return songs.stream()
-                .map(
-                        song -> signSongPreviewUrls(
-                                song,
-                                signedUrls
-                        )
-                )
+                .map(this::resolveSongPreviewUrls)
                 .toList();
     }
 
-    private AlbumDTO signAlbumUrls(
-            AlbumDTO album,
-            Map<String, String> signedUrls
+    private AlbumDTO resolveAlbumUrls(
+            AlbumDTO album
     ) {
         List<SongPreviewDTO> songs =
                 album.getSongs() == null
                         ? List.of()
                         : album.getSongs()
                         .stream()
-                        .map(
-                                song -> signSongPreviewUrls(
-                                        song,
-                                        signedUrls
-                                )
-                        )
+                        .map(this::resolveSongPreviewUrls)
                         .toList();
 
         return AlbumDTO.builder()
@@ -200,33 +156,24 @@ public class SongService implements ISongService {
                 .artist(album.getArtist())
                 .description(album.getDescription())
                 .coverURL(
-                        generateSignedUrlCached(
-                                album.getCoverURL(),
-                                signedUrls
+                        resolveCachedStorageUrl(
+                                album.getCoverURL()
                         )
                 )
-                .releaseDate(
-                        album.getReleaseDate()
-                )
+                .releaseDate(album.getReleaseDate())
                 .songs(songs)
                 .build();
     }
 
-    private SongPreviewDTO signSongPreviewUrls(
-            SongPreviewDTO song,
-            Map<String, String> signedUrls
+    private SongPreviewDTO resolveSongPreviewUrls(
+            SongPreviewDTO song
     ) {
         List<ArtistDTO> artists =
                 song.getArtists() == null
                         ? List.of()
                         : song.getArtists()
                         .stream()
-                        .map(
-                                artist -> signArtistUrls(
-                                        artist,
-                                        signedUrls
-                                )
-                        )
+                        .map(this::resolveArtistUrls)
                         .toList();
 
         return SongPreviewDTO.builder()
@@ -234,9 +181,8 @@ public class SongService implements ISongService {
                 .title(song.getTitle())
                 .duration(song.getDuration())
                 .coverURL(
-                        generateSignedUrlCached(
-                                song.getCoverURL(),
-                                signedUrls
+                        resolveCachedStorageUrl(
+                                song.getCoverURL()
                         )
                 )
                 .stream(song.getStream())
@@ -249,65 +195,31 @@ public class SongService implements ISongService {
                 .build();
     }
 
-    private ArtistDTO signArtistUrls(
-            ArtistDTO artist,
-            Map<String, String> signedUrls
+    private ArtistDTO resolveArtistUrls(
+            ArtistDTO artist
     ) {
         return ArtistDTO.builder()
                 .id(artist.getId())
                 .name(artist.getName())
                 .bio(artist.getBio())
                 .profileURL(
-                        generateSignedUrlCached(
-                                artist.getProfileURL(),
-                                signedUrls
+                        resolveCachedStorageUrl(
+                                artist.getProfileURL()
                         )
                 )
                 .build();
     }
 
-    /**
-     * Firma ogni storage path una sola volta
-     * durante la costruzione della risposta.
-     */
-    private String generateSignedUrlCached(
-            String storagePath,
-            Map<String, String> signedUrls
+    private String resolveCachedStorageUrl(
+            String storagePath
     ) {
         if (!hasText(storagePath)) {
             return null;
         }
 
-        /*
-         * Evita di provare a firmare nuovamente
-         * un URL già utilizzabile.
-         */
-        if (isHttpUrl(storagePath)) {
-            return storagePath;
-        }
-
-        if (signedUrls.containsKey(storagePath)) {
-            return signedUrls.get(storagePath);
-        }
-
-        String signedUrl =
-                firebaseStorageService.generateSignedUrl(
-                        storagePath
-                );
-
-        signedUrls.put(
-                storagePath,
-                signedUrl
+        return storageUrlService.getSignedUrl(
+                storagePath
         );
-
-        return signedUrl;
-    }
-
-    private boolean isHttpUrl(
-            String value
-    ) {
-        return value.startsWith("https://")
-                || value.startsWith("http://");
     }
 
     private boolean isValidPlaybackUrl(

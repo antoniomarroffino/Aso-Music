@@ -1,19 +1,24 @@
 package com.asomusic.backend.service.storage;
 
+import com.asomusic.backend.model.dto.SignedStorageUrl;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.net.URL;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 
 @ApplicationScoped
 public class FirebaseStorageService {
 
     private static final String GS_PREFIX = "gs://";
+    private static final long MAX_V4_EXPIRATION_HOURS = 168;
 
     @Inject
     Storage storage;
@@ -30,56 +35,129 @@ public class FirebaseStorageService {
     )
     long urlExpirationHours;
 
-    public String generateSignedUrl(String gsPath) {
-        if (gsPath == null || gsPath.isBlank()) {
-            return null;
+    @PostConstruct
+    void validateConfiguration() {
+        if (configuredBucketName == null
+                || configuredBucketName.isBlank()) {
+            throw new IllegalStateException(
+                    "Firebase Storage bucket name cannot be empty"
+            );
         }
 
-        if (!gsPath.startsWith(GS_PREFIX)) {
-            return gsPath;
+        if (urlExpirationHours <= 0) {
+            throw new IllegalStateException(
+                    "Firebase Storage URL expiration "
+                            + "must be greater than zero"
+            );
+        }
+
+        if (urlExpirationHours > MAX_V4_EXPIRATION_HOURS) {
+            throw new IllegalStateException(
+                    "Firebase Storage V4 signed URL expiration "
+                            + "cannot exceed "
+                            + MAX_V4_EXPIRATION_HOURS
+                            + " hours"
+            );
+        }
+    }
+
+    public String generateSignedUrl(String storagePath) {
+        return generateSignedUrlDetails(storagePath).url();
+    }
+
+    /**
+     * Genera l'URL e restituisce anche la sua scadenza.
+     */
+    public SignedStorageUrl generateSignedUrlDetails(
+            String storagePath
+    ) {
+        if (storagePath == null || storagePath.isBlank()) {
+            return new SignedStorageUrl(
+                    null,
+                    null
+            );
+        }
+
+        /*
+         * Un URL HTTP/HTTPS già risolto non viene firmato.
+         * Non conoscendone la scadenza, expiresAt resta null.
+         */
+        if (!storagePath.startsWith(GS_PREFIX)) {
+            return new SignedStorageUrl(
+                    storagePath,
+                    null
+            );
         }
 
         StorageObjectReference objectReference =
-                parseStorageReference(gsPath);
+                parseStorageReference(storagePath);
 
-        BlobInfo blobInfo = BlobInfo.newBuilder(
-                BlobId.of(
-                        objectReference.bucketName(),
-                        objectReference.objectName()
-                )
-        ).build();
+        BlobId blobId = BlobId.of(
+                objectReference.bucketName(),
+                objectReference.objectName()
+        );
+
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .build();
+
+        /*
+         * Calcolato prima della firma: l'eventuale differenza
+         * di pochi millisecondi rende la scadenza restituita
+         * leggermente conservativa.
+         */
+        OffsetDateTime expiresAt =
+                OffsetDateTime
+                        .now(ZoneOffset.UTC)
+                        .plusHours(urlExpirationHours);
 
         URL signedUrl = storage.signUrl(
                 blobInfo,
                 urlExpirationHours,
-                TimeUnit.HOURS
+                TimeUnit.HOURS,
+                Storage.SignUrlOption.withV4Signature()
         );
 
-        return signedUrl.toString();
+        return new SignedStorageUrl(
+                signedUrl.toString(),
+                expiresAt
+        );
     }
 
-    private StorageObjectReference parseStorageReference(String gsPath) {
+    private StorageObjectReference parseStorageReference(
+            String storagePath
+    ) {
         String pathWithoutScheme =
-                gsPath.substring(GS_PREFIX.length());
+                storagePath.substring(GS_PREFIX.length());
 
-        int firstSlashIndex = pathWithoutScheme.indexOf('/');
+        int firstSlashIndex =
+                pathWithoutScheme.indexOf('/');
 
         if (firstSlashIndex <= 0
-                || firstSlashIndex == pathWithoutScheme.length() - 1) {
+                || firstSlashIndex
+                == pathWithoutScheme.length() - 1) {
             throw new IllegalArgumentException(
-                    "Invalid Google Storage path: " + gsPath
+                    "Invalid Google Storage path: "
+                            + storagePath
             );
         }
 
         String bucketName =
-                pathWithoutScheme.substring(0, firstSlashIndex);
+                pathWithoutScheme.substring(
+                        0,
+                        firstSlashIndex
+                );
 
         String objectName =
-                pathWithoutScheme.substring(firstSlashIndex + 1);
+                pathWithoutScheme.substring(
+                        firstSlashIndex + 1
+                );
 
         if (!configuredBucketName.equals(bucketName)) {
             throw new IllegalArgumentException(
-                    "Unexpected storage bucket: " + bucketName
+                    "Unexpected storage bucket: "
+                            + bucketName
+                            + ". Expected: "
+                            + configuredBucketName
             );
         }
 

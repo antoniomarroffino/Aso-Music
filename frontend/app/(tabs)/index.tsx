@@ -404,33 +404,29 @@ export default function HomeScreen() {
         albumPreviews,
         sortOrder,
     ]);
-
-    const availableAlbumCount =
-        useMemo(
-            () =>
-                albumPreviews.filter(
-                    (album) =>
-                        album.available,
-                ).length,
-            [albumPreviews],
-        );
-
-    const totalTrackCount =
-        useMemo(
-            () =>
-                Array.from(
-                    albumTrackState.values(),
-                ).reduce(
-                    (
-                        total,
-                        trackState,
-                    ) =>
-                        total +
-                        trackState.count,
-                    0,
-                ),
-            [albumTrackState],
-        );
+    useMemo(
+        () =>
+            albumPreviews.filter(
+                (album) =>
+                    album.available,
+            ).length,
+        [albumPreviews],
+    );
+    useMemo(
+        () =>
+            Array.from(
+                albumTrackState.values(),
+            ).reduce(
+                (
+                    total,
+                    trackState,
+                ) =>
+                    total +
+                    trackState.count,
+                0,
+            ),
+        [albumTrackState],
+    );
 
     const handleToggleNews =
         useCallback(() => {
@@ -556,165 +552,7 @@ export default function HomeScreen() {
                             }
                         />
 
-                        <LinearGradient
-                            colors={[
-                                "rgba(255,255,255,0.12)",
-                                "rgba(255,255,255,0.025)",
-                            ]}
-                            style={
-                                styles.catalogSummaryBorder
-                            }
-                        >
-                            <View
-                                style={
-                                    styles.catalogSummary
-                                }
-                            >
-                                <View
-                                    style={
-                                        styles.summaryItem
-                                    }
-                                >
-                                    <LinearGradient
-                                        colors={[
-                                            "rgba(29,185,84,0.18)",
-                                            "rgba(29,185,84,0.04)",
-                                        ]}
-                                        style={
-                                            styles.summaryIcon
-                                        }
-                                    >
-                                        <Ionicons
-                                            name="albums-outline"
-                                            size={
-                                                15
-                                            }
-                                            color="#64ED95"
-                                        />
-                                    </LinearGradient>
 
-                                    <View>
-                                        <Text
-                                            style={
-                                                styles.summaryValue
-                                            }
-                                        >
-                                            {
-                                                availableAlbumCount
-                                            }
-                                        </Text>
-
-                                        <Text
-                                            style={
-                                                styles.summaryLabel
-                                            }
-                                        >
-                                            ALBUM
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View
-                                    style={
-                                        styles.summaryDivider
-                                    }
-                                />
-
-                                <View
-                                    style={
-                                        styles.summaryItem
-                                    }
-                                >
-                                    <LinearGradient
-                                        colors={[
-                                            "rgba(119,91,255,0.18)",
-                                            "rgba(119,91,255,0.04)",
-                                        ]}
-                                        style={
-                                            styles.summaryIcon
-                                        }
-                                    >
-                                        <Ionicons
-                                            name="musical-notes-outline"
-                                            size={
-                                                15
-                                            }
-                                            color="#A58EFF"
-                                        />
-                                    </LinearGradient>
-
-                                    <View>
-                                        <Text
-                                            style={
-                                                styles.summaryValue
-                                            }
-                                        >
-                                            {
-                                                totalTrackCount
-                                            }
-                                        </Text>
-
-                                        <Text
-                                            style={
-                                                styles.summaryLabel
-                                            }
-                                        >
-                                            BRANI
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View
-                                    style={
-                                        styles.summaryDivider
-                                    }
-                                />
-
-                                <View
-                                    style={
-                                        styles.summaryItem
-                                    }
-                                >
-                                    <LinearGradient
-                                        colors={[
-                                            "rgba(255,184,91,0.18)",
-                                            "rgba(255,184,91,0.04)",
-                                        ]}
-                                        style={
-                                            styles.summaryIcon
-                                        }
-                                    >
-                                        <Ionicons
-                                            name="newspaper-outline"
-                                            size={
-                                                15
-                                            }
-                                            color="#FFBE72"
-                                        />
-                                    </LinearGradient>
-
-                                    <View>
-                                        <Text
-                                            style={
-                                                styles.summaryValue
-                                            }
-                                        >
-                                            {
-                                                newsCount
-                                            }
-                                        </Text>
-
-                                        <Text
-                                            style={
-                                                styles.summaryLabel
-                                            }
-                                        >
-                                            NOVITÀ
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </LinearGradient>
                     </MotiView>
 
                     <SectionHeader
@@ -733,20 +571,7 @@ export default function HomeScreen() {
                     />
                 </>
             ),
-            [
-                availableAlbumCount,
-                handleOpenSettings,
-                handleSelectSort,
-                handleToggleNews,
-                handleToggleSortMenu,
-                newsCount,
-                newsList,
-                showNews,
-                showSortMenu,
-                sortOrder,
-                totalTrackCount,
-                username,
-            ],
+            [handleOpenSettings, handleSelectSort, handleToggleNews, handleToggleSortMenu, newsCount, newsList, showNews, showSortMenu, sortOrder, username],
         );
 
     return (
