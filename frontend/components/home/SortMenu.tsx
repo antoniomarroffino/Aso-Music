@@ -140,7 +140,7 @@ const SortMenu = memo(function SortMenu({
                     accessibilityLabel="Chiudi menu di ordinamento"
                     onPress={onClose}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 

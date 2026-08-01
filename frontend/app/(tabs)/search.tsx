@@ -1535,7 +1535,7 @@ export default function SearchScreen() {
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
@@ -1567,7 +1567,7 @@ export default function SearchScreen() {
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </MotiView>
@@ -1600,7 +1600,7 @@ export default function SearchScreen() {
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </MotiView>

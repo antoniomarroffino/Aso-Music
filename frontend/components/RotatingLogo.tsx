@@ -130,7 +130,7 @@ const ModalContent = memo(
                     accessibilityLabel="Chiudi suggerimento"
                     onPress={onClose}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -343,7 +343,7 @@ const ModalContent = memo(
                                                         "rgba(0,0,0,0.58)",
                                                     ]}
                                                     style={
-                                                        StyleSheet.absoluteFillObject
+                                                        StyleSheet.absoluteFill
                                                     }
                                                 />
 
@@ -918,7 +918,7 @@ function RotatingLogoComponent({
                                     "rgba(0,0,0,0.14)",
                                 ]}
                                 style={
-                                    StyleSheet.absoluteFillObject
+                                    StyleSheet.absoluteFill
                                 }
                             />
                         </MotiView>

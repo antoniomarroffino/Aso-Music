@@ -110,7 +110,7 @@ const HeroSection = memo(
                                 "rgba(29,185,84,0.08)",
                             ]}
                             style={
-                                StyleSheet.absoluteFillObject
+                                StyleSheet.absoluteFill
                             }
                         />
                     </MotiView>
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     },
 
     coverOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
     },
 
     shineEffect: {

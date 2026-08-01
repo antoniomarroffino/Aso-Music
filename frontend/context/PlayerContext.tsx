@@ -1,30 +1,52 @@
-import React, {
+import {
     createContext,
+    type ReactNode,
+    useCallback,
     useContext,
     useEffect,
-    useState,
-    ReactNode,
-    useRef,
-    useCallback,
     useMemo,
+    useRef,
+    useState,
+    useSyncExternalStore,
 } from "react";
-import { Audio } from "expo-av";
-import {SongPreviewDTO} from "@/types/music";
-import {fetchSongPlaybackUrl, incrementStreamCount} from "@/api/songs";
-import { useQueryClient } from "@tanstack/react-query";
-import { ProgressContext, ProgressContextType, useProgress } from "./ProgressContext";
+import {
+    AppState,
+    Platform,
+    type AppStateStatus,
+} from "react-native";
+import TrackPlayer, {
+    type MediaItem,
+    PlaybackState,
+    PlayerCommand,
+    RepeatMode,
+    useActiveMediaItem,
+    useIsPlaying,
+    usePlaybackState,
+    useProgress,
+} from "@rntp/player";
 
-type PlayerContextType = {
+import {
+    fetchSongPlaybackUrl,
+    incrementStreamCount,
+} from "@/api/songs";
+import type { SongPreviewDTO } from "@/types/music";
+
+type PlayerStateContextType = {
     currentSong: SongPreviewDTO | null;
     nextSong: SongPreviewDTO | null;
     isPlaying: boolean;
+    isBuffering: boolean;
+    isPreparing: boolean;
+    isReady: boolean;
+    playbackState: PlaybackState;
+};
 
+type PlayerActionsContextType = {
     playSong: (
         song: SongPreviewDTO,
         queue?: SongPreviewDTO[],
         startIndex?: number,
     ) => Promise<void>;
-
     togglePlayPause: () => Promise<void>;
     stopSong: () => Promise<void>;
     nextSongAction: () => Promise<void>;
@@ -32,651 +54,878 @@ type PlayerContextType = {
     seekTo: (seconds: number) => Promise<void>;
 };
 
-const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
+export type PlayerContextType = PlayerStateContextType & PlayerActionsContextType;
 
-let MediaSession: any = null;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    MediaSession = require("expo-media-session");
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-} catch (e) {
-    console.log("⚠️ MediaSession non disponibile (probabilmente Expo Go / web puro)");
-}
+export type PlayerProgressContextType = {
+    progress: number;
+    duration: number;
+    buffered: number;
+    cached: number;
+};
 
-type MediaSessionEvent =
-    | "play"
-    | "pause"
-    | "next"
-    | "previous"
-    | "stop"
-    | "seekForward"
-    | "seekBackward"
-    | "seekTo";
+type PlaybackExtras = {
+    albumId: string;
+    songId: string;
+    queueIndex: number;
+    queueSessionId: string;
+    songJson: string;
+};
 
-export const PlayerProvider = ({ children }: { children: ReactNode }) => {
+const PlayerStateContext = createContext<PlayerStateContextType | null>(null);
+const PlayerActionsContext = createContext<PlayerActionsContextType | null>(null);
 
-    const [currentSong, setCurrentSong] =
-        useState<SongPreviewDTO | null>(null);
+const ACTIVE_PROGRESS_INTERVAL_SECONDS = 0.5;
+const BACKGROUND_PROGRESS_INTERVAL_SECONDS = 5;
+const STREAM_THRESHOLD_SECONDS = 20;
 
-    const currentQueueRef =
-        useRef<SongPreviewDTO[]>([]);
+const isWebServerEnvironment = (): boolean =>
+    Platform.OS === "web" &&
+    typeof window === "undefined";
 
-    const currentSongRef =
-        useRef<SongPreviewDTO | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [queueVersion, setQueueVersion] = useState(0);
+const isAlreadyInitializedError = (
+    error: unknown,
+): boolean => {
+    const message =
+        error instanceof Error
+            ? error.message
+            : String(error);
 
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
+    const normalizedMessage =
+        message.toLowerCase();
 
-    const currentIndexRef = useRef<number>(0);
-    const currentAlbumIdRef = useRef<string | null>(null);
-    const currentAlbumNameRef = useRef<string | null>(null);
-    const soundRef = useRef<Audio.Sound | null>(null);
-    const killSwitch = useRef(0);
-    const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const lastStreamedSongId = useRef<string | null>(null);
-
-    const isPlayingRef = useRef(false);
-
-    const queryClient = useQueryClient();
-
-    useEffect(() => {
-        isPlayingRef.current = isPlaying;
-    }, [isPlaying]);
-
-    useEffect(() => {
-        currentSongRef.current = currentSong;
-    }, [currentSong]);
-
-    const nextSong = useMemo((): SongPreviewDTO | null => {
-        const queue = currentQueueRef.current;
-
-        if (queue.length === 0) {
-            return null;
-        }
-
-        const nextIndex =
-            (currentIndexRef.current + 1) % queue.length;
-
-        return queue[nextIndex] ?? null;
-    }, [queueVersion]);
-
-    const scheduleStreamIncrement = useCallback(
-        (albumId: string | null, songId: string | null) => {
-            if (!albumId || !songId) return;
-
-            if (streamTimeoutRef.current) {
-                clearTimeout(streamTimeoutRef.current);
-                streamTimeoutRef.current = null;
-            }
-
-            streamTimeoutRef.current = setTimeout(async () => {
-                if (lastStreamedSongId.current === songId) return;
-                lastStreamedSongId.current = songId;
-
-                try {
-                    queryClient.setQueryData<SongPreviewDTO[]>(
-                        ["songs", albumId],
-                        (oldSongs) => {
-                            if (!oldSongs) {
-                                return oldSongs;
-                            }
-
-                            return oldSongs.map((song) =>
-                                song.id === songId
-                                    ? {
-                                        ...song,
-                                        stream: (song.stream ?? 0) + 1,
-                                    }
-                                    : song,
-                            );
-                        },
-                    );
-                    await incrementStreamCount(albumId, songId);
-                } catch (e) {
-                    console.error("❌ Errore stream:", e);
-                }
-            }, 20000);
-        },
-        [queryClient]
+    return (
+        normalizedMessage.includes("already") &&
+        normalizedMessage.includes("initial")
     );
+};
 
-    const updateMediaSessionsForSong = useCallback(
-        (
-            song: SongPreviewDTO,
-            albumName: string | null,
-            playing: boolean,
-        ) => {
-            const artistNames =
-                song.artists
-                    ?.map((artist) => artist?.name)
-                    .join(", ") || "Artista sconosciuto";
+const configureRemoteCommands = (
+    queueLength: number,
+): void => {
+    TrackPlayer.setCommands({
+        capabilities: [
+            PlayerCommand.PlayPause,
+            PlayerCommand.Seek,
+            ...(queueLength > 1
+                ? [
+                    PlayerCommand.Previous,
+                    PlayerCommand.Next,
+                ]
+                : []),
+        ],
+        handling: "native",
+    });
+};
 
-            try {
-                MediaSession?.setMetadata?.({
-                    title: song.title || "Brano",
-                    artist: artistNames,
-                    album: albumName || "",
-                    artwork: song.coverURL || "",
-                });
+const createMusicPlayerInitializer = () => {
+    let initialized = false;
 
-                MediaSession?.setPlaybackState?.(
-                    playing ? "playing" : "paused",
-                );
-            } catch {
-                // Ignora errori MediaSession native.
+    let initializationPromise:
+        Promise<boolean> | null =
+        null;
+
+    const isInitialized = (): boolean =>
+        initialized;
+
+    const initialize =
+        async (): Promise<boolean> => {
+            if (isWebServerEnvironment()) {
+                return false;
             }
 
-            if (
-                typeof navigator !== "undefined" &&
-                "mediaSession" in navigator
-            ) {
-                try {
-                    navigator.mediaSession.metadata =
-                        new MediaMetadata({
-                            title: song.title || "Brano",
-                            artist: artistNames,
-                            album: albumName || "",
-                            artwork: song.coverURL
-                                ? [
-                                    {
-                                        src: song.coverURL,
-                                        sizes: "512x512",
-                                        type: "image/png",
-                                    },
-                                ]
-                                : [],
+            if (initialized) {
+                return true;
+            }
+
+            if (initializationPromise) {
+                return initializationPromise;
+            }
+
+            const pendingInitialization =
+                (async (): Promise<boolean> => {
+                    try {
+                        await TrackPlayer.setupPlayer({
+                            contentType: "music",
+                            handleAudioBecomingNoisy: true,
+                            android: {
+                                wakeMode: "network",
+                            },
                         });
+                    } catch (error) {
+                        if (
+                            !isAlreadyInitializedError(
+                                error,
+                            )
+                        ) {
+                            throw error;
+                        }
+                    }
 
-                    navigator.mediaSession.playbackState =
-                        playing ? "playing" : "paused";
-                } catch {
-                    // Ignora errori MediaSession web.
-                }
-            }
-        },
-        [],
-    );
-
-    const cleanupSound = useCallback(async () => {
-        const sound = soundRef.current;
-        if (sound) {
-            try {
-                sound.setOnPlaybackStatusUpdate(null);
-                await sound.stopAsync();
-                await sound.unloadAsync();
-            } catch {
-                // ignore
-            }
-            soundRef.current = null;
-        }
-    }, []);
-
-    const playSongInternalRef = useRef<
-        (
-            song: SongPreviewDTO,
-            queue?: SongPreviewDTO[],
-            startIndex?: number,
-        ) => Promise<void>
-    >(async () => {});
-
-    playSongInternalRef.current = async (
-        song: SongPreviewDTO,
-        queue?: SongPreviewDTO[],
-        startIndex?: number,
-    ): Promise<void> => {
-        const session = ++killSwitch.current;
-
-        await cleanupSound();
-
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
-        }
-
-        if (queue && queue.length > 0) {
-            currentQueueRef.current = queue;
-
-            const resolvedIndex =
-                typeof startIndex === "number"
-                    ? startIndex
-                    : queue.findIndex(
-                        (queuedSong) =>
-                            queuedSong.id === song.id,
+                    await TrackPlayer.setRepeatMode(
+                        RepeatMode.All,
                     );
 
-            currentIndexRef.current =
-                resolvedIndex >= 0
-                    ? resolvedIndex
-                    : 0;
+                    configureRemoteCommands(0);
 
-            setQueueVersion((version) => version + 1);
-        }
+                    return true;
+                })();
 
-        currentAlbumIdRef.current = song.albumId;
-        currentAlbumNameRef.current = song.albumName;
+            initializationPromise =
+                pendingInitialization;
 
-        setCurrentSong(song);
-        setIsPlaying(false);
-        setProgress(0);
-        setDuration(0);
+            try {
+                const result =
+                    await pendingInitialization;
 
-        try {
-            /*
-             * La signed URL viene richiesta solo quando la traccia
-             * deve essere effettivamente riprodotta.
-             */
-            const playback =
-                await fetchSongPlaybackUrl(
-                    song.albumId,
-                    song.id,
-                );
+                initialized = result;
 
-            /*
-             * Nel frattempo l'utente potrebbe aver selezionato
-             * un'altra canzone.
-             */
-            if (session !== killSwitch.current) {
-                return;
+                return result;
+            } catch (error) {
+                initializationPromise = null;
+                throw error;
             }
+        };
 
-            const { sound } =
-                await Audio.Sound.createAsync(
-                    {
-                        uri: playback.url,
-                    },
-                    {
-                        shouldPlay: true,
-                    },
-                );
+    return {
+        initialize,
+        isInitialized,
+    };
+};
 
-            if (session !== killSwitch.current) {
-                try {
-                    await sound.unloadAsync();
-                } catch {
-                    // Ignora errore durante cleanup.
-                }
+const musicPlayerInitializer =
+    createMusicPlayerInitializer();
 
-                return;
-            }
+export const initializeMusicPlayer =
+    musicPlayerInitializer.initialize;
 
-            soundRef.current = sound;
+export const isMusicPlayerInitialized =
+    musicPlayerInitializer.isInitialized;
 
-            setIsPlaying(true);
+const ensureMusicPlayerReady =
+    async (): Promise<void> => {
+        const initialized =
+            await initializeMusicPlayer();
 
-            updateMediaSessionsForSong(
-                song,
-                song.albumName,
-                true,
+        if (!initialized) {
+            throw new Error(
+                "Il player audio non è disponibile durante il rendering server-side.",
             );
-
-            /*
-             * Il timer degli ascolti parte solo dopo che
-             * il player è stato creato correttamente.
-             */
-            scheduleStreamIncrement(
-                song.albumId,
-                song.id,
-            );
-
-            await sound.setProgressUpdateIntervalAsync(500);
-
-            sound.setOnPlaybackStatusUpdate((status: any) => {
-                if (session !== killSwitch.current) {
-                    return;
-                }
-
-                if (!status?.isLoaded) {
-                    return;
-                }
-
-                setProgress(status.positionMillis / 1000);
-
-                setDuration(
-                    status.durationMillis
-                        ? status.durationMillis / 1000
-                        : 0,
-                );
-
-                setIsPlaying((previousValue) => {
-                    const nextValue =
-                        Boolean(status.isPlaying);
-
-                    return previousValue === nextValue
-                        ? previousValue
-                        : nextValue;
-                });
-
-                if (
-                    status.didJustFinish &&
-                    !status.isLooping
-                ) {
-                    const currentQueue =
-                        currentQueueRef.current;
-
-                    if (currentQueue.length === 0) {
-                        return;
-                    }
-
-                    const nextIndex =
-                        (currentIndexRef.current + 1) %
-                        currentQueue.length;
-
-                    const nextTrack =
-                        currentQueue[nextIndex];
-
-                    if (nextTrack) {
-                        void playSongInternalRef.current(
-                            nextTrack,
-                            currentQueue,
-                            nextIndex,
-                        );
-                    }
-                }
-            });
-        } catch (error) {
-            if (session !== killSwitch.current) {
-                return;
-            }
-
-            console.error(
-                "Errore durante la riproduzione della canzone:",
-                error,
-            );
-
-            setIsPlaying(false);
         }
     };
+
+const songKey = (
+    song: Pick<SongPreviewDTO, "albumId" | "id">,
+): string => `${song.albumId}:${song.id}`;
+
+const getArtistNames = (song: SongPreviewDTO): string => {
+    const names =
+        song.artists
+            ?.map((artist) => artist?.name)
+            .filter(
+                (name): name is string =>
+                    typeof name === "string" && name.length > 0,
+            ) ?? [];
+
+    return names.length > 0 ? names.join(", ") : "Artista sconosciuto";
+};
+
+const normalizeDuration = (
+    duration: unknown,
+): number | undefined => {
+    if (
+        typeof duration === "number" &&
+        Number.isFinite(duration) &&
+        duration > 0
+    ) {
+        return duration;
+    }
+
+    if (typeof duration !== "string") {
+        return undefined;
+    }
+
+    const normalized =
+        duration.trim();
+
+    if (!normalized) {
+        return undefined;
+    }
+
+    const numericDuration =
+        Number(normalized);
+
+    if (
+        Number.isFinite(numericDuration) &&
+        numericDuration > 0
+    ) {
+        return numericDuration;
+    }
+
+    const parts =
+        normalized
+            .split(":")
+            .map(Number);
+
+    if (
+        parts.length < 2 ||
+        parts.length > 3 ||
+        parts.some(
+            (part) =>
+                !Number.isFinite(part) ||
+                part < 0,
+        )
+    ) {
+        return undefined;
+    }
+
+    const seconds =
+        parts.reduce(
+            (total, part) =>
+                total * 60 + part,
+            0,
+        );
+
+    return seconds > 0
+        ? seconds
+        : undefined;
+};
+
+const serializeSong = (
+    song: SongPreviewDTO,
+): string =>
+    JSON.stringify(song);
+
+const deserializeSong = (
+    mediaItem:
+        | MediaItem
+        | null
+        | undefined,
+): SongPreviewDTO | null => {
+    const extras =
+        mediaItem?.extras;
+
+    if (
+        !extras ||
+        typeof extras !== "object"
+    ) {
+        return null;
+    }
+
+    const songJson =
+        (extras as Partial<PlaybackExtras>)
+            .songJson;
+
+    if (typeof songJson !== "string") {
+        return null;
+    }
+
+    try {
+        return JSON.parse(
+            songJson,
+        ) as SongPreviewDTO;
+    } catch {
+        return null;
+    }
+};
+
+const createMediaItem = (
+    song: SongPreviewDTO,
+    url: string,
+    queueIndex: number,
+    queueSessionId: string,
+): MediaItem => {
+    const extras: PlaybackExtras = {
+        albumId: song.albumId,
+        songId: song.id,
+        queueIndex,
+        queueSessionId,
+        songJson: serializeSong(song),
+    };
+
+    return {
+        mediaId: [
+            queueSessionId,
+            queueIndex,
+            song.albumId,
+            song.id,
+        ].join(":"),
+        url,
+        title: song.title || "Brano",
+        artist: getArtistNames(song),
+        albumTitle: song.albumName || undefined,
+        artworkUrl: song.coverURL || undefined,
+        duration: normalizeDuration(
+            song.duration,
+        ),
+        extras,
+    };
+};
+
+const mapPlaybackItems = async (
+    songs: readonly SongPreviewDTO[],
+    queueSessionId: string,
+): Promise<MediaItem[]> =>
+    Promise.all(
+        songs.map(
+            async (
+                song,
+                queueIndex,
+            ) => {
+                const playback =
+                    await fetchSongPlaybackUrl(
+                        song.albumId,
+                        song.id,
+                    );
+
+                return createMediaItem(
+                    song,
+                    playback.url,
+                    queueIndex,
+                    queueSessionId,
+                );
+            },
+        ),
+    );
+
+const createQueueSessionId = (): string =>
+    [
+        Date.now(),
+        Math.random()
+            .toString(36)
+            .slice(2),
+    ].join("-");
+
+const subscribeToAppState = (listener: () => void): (() => void) => {
+    const subscription = AppState.addEventListener("change", () => listener());
+    return () => subscription.remove();
+};
+
+const getAppStateSnapshot = (): AppStateStatus =>
+    AppState.currentState ?? "active";
+
+function StreamTracker() {
+    const activeMediaItem =
+        useActiveMediaItem();
+
+    const progress =
+        useProgress(1);
+
+    const countedStreamKeyRef =
+        useRef<string | null>(
+            null,
+        );
+
+    const activeExtras =
+        activeMediaItem?.extras &&
+        typeof activeMediaItem.extras ===
+        "object"
+            ? (
+                activeMediaItem.extras as
+                    Partial<PlaybackExtras>
+            )
+            : null;
+
+    useEffect(() => {
+        if (
+            progress.position <
+            STREAM_THRESHOLD_SECONDS ||
+            !activeExtras ||
+            typeof activeExtras.albumId !==
+            "string" ||
+            typeof activeExtras.songId !==
+            "string" ||
+            typeof activeExtras.queueSessionId !==
+            "string"
+        ) {
+            return;
+        }
+
+        const streamKey = [
+            activeExtras.queueSessionId,
+            activeExtras.albumId,
+            activeExtras.songId,
+        ].join(":");
+
+        if (
+            countedStreamKeyRef.current ===
+            streamKey
+        ) {
+            return;
+        }
+
+        countedStreamKeyRef.current =
+            streamKey;
+
+        void incrementStreamCount(
+            activeExtras.albumId,
+            activeExtras.songId,
+        ).catch(
+            (error: unknown) => {
+                if (
+                    countedStreamKeyRef.current ===
+                    streamKey
+                ) {
+                    countedStreamKeyRef.current =
+                        null;
+                }
+
+                console.error(
+                    "Errore durante l'incremento dello stream:",
+                    error,
+                );
+            },
+        );
+    }, [
+        activeExtras,
+        progress.position,
+    ]);
+
+    return null;
+}
+
+export const PlayerProvider = ({
+                                   children,
+                               }: {
+    children: ReactNode;
+}) => {
+    const isPlaying =
+        useIsPlaying();
+
+    const playbackState =
+        usePlaybackState();
+
+    const activeMediaItem =
+        useActiveMediaItem();
+
+    const [
+        queue,
+        setQueue,
+    ] =
+        useState<SongPreviewDTO[]>([]);
+
+    const [
+        isPreparing,
+        setIsPreparing,
+    ] =
+        useState(false);
+
+    const [
+        isPlayerReady,
+        setIsPlayerReady,
+    ] =
+        useState(
+            isMusicPlayerInitialized,
+        );
+
+    useEffect(() => {
+        let providerMounted = true;
+
+        void initializeMusicPlayer()
+            .then((initialized) => {
+                if (
+                    !providerMounted ||
+                    !initialized
+                ) {
+                    return;
+                }
+
+                setIsPlayerReady(true);
+
+                const nativeQueue =
+                    TrackPlayer.getQueue();
+
+                const restoredQueue =
+                    nativeQueue
+                        .map(
+                            deserializeSong,
+                        )
+                        .filter(
+                            (
+                                song,
+                            ): song is SongPreviewDTO =>
+                                song !== null,
+                        );
+
+                if (
+                    restoredQueue.length >
+                    0
+                ) {
+                    setQueue(
+                        restoredQueue,
+                    );
+                }
+            })
+            .catch((error: unknown) => {
+                console.error(
+                    "Impossibile inizializzare il player:",
+                    error,
+                );
+
+                if (providerMounted) {
+                    setIsPlayerReady(false);
+                }
+            });
+
+        return () => {
+            providerMounted = false;
+        };
+    }, []);
+
+    const activeExtras =
+        activeMediaItem?.extras &&
+        typeof activeMediaItem.extras ===
+        "object"
+            ? (
+                activeMediaItem.extras as
+                    Partial<PlaybackExtras>
+            )
+            : null;
+
+    const activeQueueIndex =
+        typeof activeExtras?.queueIndex ===
+        "number"
+            ? activeExtras.queueIndex
+            : -1;
+
+    const currentSong =
+        useMemo<
+            SongPreviewDTO | null
+        >(
+            () =>
+                queue[
+                    activeQueueIndex
+                    ] ??
+                deserializeSong(
+                    activeMediaItem,
+                ),
+            [
+                activeMediaItem,
+                activeQueueIndex,
+                queue,
+            ],
+        );
+
+    const nextSong =
+        useMemo<
+            SongPreviewDTO | null
+        >(() => {
+            if (
+                queue.length === 0 ||
+                activeQueueIndex < 0
+            ) {
+                return null;
+            }
+
+            return (
+                queue[
+                (
+                    activeQueueIndex +
+                    1
+                ) %
+                queue.length
+                    ] ??
+                null
+            );
+        }, [
+            activeQueueIndex,
+            queue,
+        ]);
+
+    const currentQueueSignature =
+        useMemo(
+            () =>
+                queue
+                    .map(songKey)
+                    .join("|"),
+            [queue],
+        );
 
     const playSong = useCallback(
         async (
             song: SongPreviewDTO,
-            queue?: SongPreviewDTO[],
-            startIndex?: number,
-        ) => {
-            await playSongInternalRef.current(
-                song,
-                queue,
-                startIndex,
-            );
+            requestedQueue?: SongPreviewDTO[],
+            requestedStartIndex?: number,
+        ): Promise<void> => {
+            await ensureMusicPlayerReady();
+            setIsPlayerReady(true);
+            setIsPreparing(true);
+
+            try {
+                const targetQueue =
+                    requestedQueue && requestedQueue.length > 0
+                        ? [...requestedQueue]
+                        : [song];
+
+                const songIndex = targetQueue.findIndex(
+                    (queuedSong) => songKey(queuedSong) === songKey(song),
+                );
+
+                const startIndex =
+                    typeof requestedStartIndex === "number"
+                        ? Math.min(
+                            Math.max(requestedStartIndex, 0),
+                            targetQueue.length - 1,
+                        )
+                        : Math.max(songIndex, 0);
+
+                const signature =
+                    targetQueue
+                        .map(songKey)
+                        .join("|");
+
+                // Stessa queue: non rigenera URL e non ricrea il player.
+                if (signature === currentQueueSignature) {
+                    await TrackPlayer.skipToIndex(
+                        startIndex,
+                    );
+                    await TrackPlayer.play();
+                    return;
+                }
+
+                const queueSessionId =
+                    createQueueSessionId();
+
+                const mediaItems =
+                    await mapPlaybackItems(
+                        targetQueue,
+                        queueSessionId,
+                    );
+
+                await TrackPlayer.setMediaItems(
+                    mediaItems,
+                    startIndex,
+                );
+
+                await TrackPlayer.setRepeatMode(
+                    RepeatMode.All,
+                );
+
+                configureRemoteCommands(
+                    targetQueue.length,
+                );
+
+                setQueue(targetQueue);
+
+                await TrackPlayer.play();
+            } catch (error) {
+
+                console.error(
+                    "Errore durante la preparazione del brano:",
+                    error,
+                );
+
+                throw error;
+            } finally {
+                setIsPreparing(false);
+            }
         },
-        [],
+        [
+            currentQueueSignature,
+        ],
     );
 
-    const togglePlayPause = useCallback(async () => {
-        const sound = soundRef.current;
-        if (!sound) return;
+    const togglePlayPause =
+        useCallback(
+            async (): Promise<void> => {
+                await ensureMusicPlayerReady();
+                setIsPlayerReady(true);
 
-        try {
-            const status: any = await sound.getStatusAsync();
-            if (!status?.isLoaded) return;
-
-            if (status.isPlaying) {
-                await sound.pauseAsync();
-                setIsPlaying(false);
-                MediaSession?.setPlaybackState?.("paused");
-
-                if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-                    try {
-                        // @ts-ignore
-                        navigator.mediaSession.playbackState = "paused";
-                    } catch {
-                        // ignore
-                    }
+                if (TrackPlayer.isPlaying()) {
+                    await TrackPlayer.pause();
+                    return;
                 }
 
-                if (streamTimeoutRef.current) {
-                    clearTimeout(streamTimeoutRef.current);
-                    streamTimeoutRef.current = null;
+                await TrackPlayer.play();
+            },
+            [],
+        );
+
+    const stopSong =
+        useCallback(
+            async (): Promise<void> => {
+                await ensureMusicPlayerReady();
+                setIsPlayerReady(true);
+
+                await TrackPlayer.stop();
+                await TrackPlayer.clear();
+                setQueue([]);
+                setIsPreparing(false);
+                configureRemoteCommands(0);
+            },
+            [],
+        );
+
+    const nextSongAction =
+        useCallback(
+            async (): Promise<void> => {
+                await ensureMusicPlayerReady();
+                setIsPlayerReady(true);
+
+                if (queue.length <= 1) {
+                    return;
                 }
-            } else {
-                await sound.playAsync();
-                setIsPlaying(true);
-                MediaSession?.setPlaybackState?.("playing");
 
-                if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-                    try {
-                        // @ts-ignore
-                        navigator.mediaSession.playbackState = "playing";
-                    } catch {
-                        // ignore
-                    }
+                await TrackPlayer.skipToNext();
+                await TrackPlayer.play();
+            },
+            [
+                queue.length,
+            ],
+        );
+
+    const prevSong =
+        useCallback(
+            async (): Promise<void> => {
+                await ensureMusicPlayerReady();
+                setIsPlayerReady(true);
+
+                if (queue.length === 0) {
+                    return;
                 }
 
-                const albumId = currentAlbumIdRef.current;
-                const songId = currentSongRef.current?.id;
-                if (albumId && songId) {
-                    scheduleStreamIncrement(albumId, songId);
+                await TrackPlayer.skipToPrevious();
+                await TrackPlayer.play();
+            },
+            [
+                queue.length,
+            ],
+        );
+
+    const seekTo =
+        useCallback(
+            async (
+                seconds: number,
+            ): Promise<void> => {
+                if (!Number.isFinite(seconds)) {
+                    return;
                 }
-            }
-        } catch (e) {
-            console.log("❌ Errore togglePlayPause:", e);
-        }
-    }, [scheduleStreamIncrement]);
 
-    const stopSong = useCallback(async () => {
-        killSwitch.current += 1;
+                await ensureMusicPlayerReady();
+                setIsPlayerReady(true);
 
-        await cleanupSound();
+                await TrackPlayer.seekTo(
+                    Math.max(seconds, 0),
+                );
+            },
+            [],
+        );
 
-        if (streamTimeoutRef.current) {
-            clearTimeout(streamTimeoutRef.current);
-            streamTimeoutRef.current = null;
-        }
+    const stateValue = useMemo<PlayerStateContextType>(
+        () => ({
+            currentSong,
+            nextSong,
+            isPlaying,
+            isBuffering: playbackState === PlaybackState.Buffering,
+            isPreparing,
+            isReady: isPlayerReady,
+            playbackState,
+        }),
+        [
+            currentSong,
+            nextSong,
+            isPlaying,
+            isPlayerReady,
+            isPreparing,
+            playbackState,
+        ],
+    );
 
-        setIsPlaying(false);
-        setCurrentSong(null);
-        setProgress(0);
-        setDuration(0);
-
-        currentQueueRef.current = [];
-        currentIndexRef.current = 0;
-        currentAlbumIdRef.current = null;
-        currentAlbumNameRef.current = null;
-
-        setQueueVersion((v) => v + 1);
-
-        MediaSession?.setPlaybackState?.("none");
-
-        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-            try {
-                // @ts-ignore
-                navigator.mediaSession.metadata = null;
-                // @ts-ignore
-                navigator.mediaSession.playbackState = "none";
-            } catch {
-                // ignore
-            }
-        }
-    }, [cleanupSound]);
-
-    const seekTo = useCallback(async (seconds: number) => {
-        const sound = soundRef.current;
-        if (!sound) return;
-
-        try {
-            const status: any = await sound.getStatusAsync();
-            if (status?.isLoaded) {
-                await sound.setPositionAsync(seconds * 1000);
-            }
-        } catch (e) {
-            console.log("❌ Errore seekTo:", e);
-        }
-    }, []);
-
-    const nextSongAction = useCallback(async () => {
-        const queue = currentQueueRef.current;
-        if (queue.length === 0) {
-            console.warn("⚠️ Queue vuota!");
-            return;
-        }
-
-        const nextIndex = (currentIndexRef.current + 1) % queue.length;
-        const next = queue[nextIndex];
-
-        if (next) {
-            await playSongInternalRef.current(next, queue, nextIndex);
-        }
-    }, []);
-
-    const prevSong = useCallback(async () => {
-        const queue = currentQueueRef.current;
-        if (queue.length === 0) return;
-
-        const prevIndex = (currentIndexRef.current - 1 + queue.length) % queue.length;
-        const prev = queue[prevIndex];
-
-        if (prev) {
-            await playSongInternalRef.current(prev, queue, prevIndex);
-        }
-    }, []);
-
-    const togglePlayPauseRef = useRef(togglePlayPause);
-    const nextSongActionRef = useRef(nextSongAction);
-    const prevSongRef = useRef(prevSong);
-    const stopSongRef = useRef(stopSong);
-
-    useEffect(() => {
-        togglePlayPauseRef.current = togglePlayPause;
-        nextSongActionRef.current = nextSongAction;
-        prevSongRef.current = prevSong;
-        stopSongRef.current = stopSong;
-    }, [togglePlayPause, nextSongAction, prevSong, stopSong]);
-
-    useEffect(() => {
-        // Web MediaSession handlers
-        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-            try {
-                // @ts-ignore
-                navigator.mediaSession.setActionHandler("play", () => {
-                    togglePlayPauseRef.current();
-                });
-                // @ts-ignore
-                navigator.mediaSession.setActionHandler("pause", () => {
-                    togglePlayPauseRef.current();
-                });
-                // @ts-ignore
-                navigator.mediaSession.setActionHandler("nexttrack", () => {
-                    nextSongActionRef.current();
-                });
-                // @ts-ignore
-                navigator.mediaSession.setActionHandler("previoustrack", () => {
-                    prevSongRef.current();
-                });
-            } catch (e) {
-                console.log("⚠️ Error registering Web MediaSession handlers:", e);
-            }
-        }
-        let subscription: any = null;
-        if (MediaSession?.activate) {
-            MediaSession.activate();
-            MediaSession.setActive(true);
-
-            subscription = MediaSession.addListener?.(
-                "event",
-                (event: MediaSessionEvent) => {
-                    switch (event) {
-                        case "pause":
-                        case "play":
-                            togglePlayPauseRef.current();
-                            break;
-                        case "next":
-                            nextSongActionRef.current();
-                            break;
-                        case "previous":
-                            prevSongRef.current();
-                            break;
-                        case "stop":
-                            stopSongRef.current();
-                            break;
-                    }
-                }
-            );
-
-            console.log("✅ MediaSession attiva per background playback");
-        }
-
-        return () => {
-            subscription?.remove?.();
-            MediaSession?.setActive?.(false);
-        };
-    }, []);
-
-    useEffect(() => {
-        MediaSession?.setPlaybackState?.(isPlaying ? "playing" : "paused");
-
-        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-            try {
-                // @ts-ignore
-                navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
-            } catch {
-
-            }
-        }
-    }, [isPlaying]);
-
-    useEffect(() => {
-        return () => {
-            killSwitch.current += 1;
-
-            if (soundRef.current) {
-                soundRef.current.setOnPlaybackStatusUpdate(null);
-                soundRef.current.unloadAsync().catch(() => {});
-            }
-
-            if (streamTimeoutRef.current) {
-                clearTimeout(streamTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    const playerContextValue = useMemo<PlayerContextType>(() => ({
-        currentSong,
-        nextSong,
-        isPlaying,
-        playSong,
-        togglePlayPause,
-        stopSong,
-        nextSongAction,
-        prevSong,
-        seekTo,
-    }), [
-        currentSong,
-        nextSong,
-        isPlaying,
-        playSong,
-        togglePlayPause,
-        stopSong,
-        nextSongAction,
-        prevSong,
-        seekTo,
-    ]);
-
-    const progressContextValue = useMemo<ProgressContextType>(() => ({
-        progress,
-        duration,
-    }), [progress, duration]);
+    const actionsValue = useMemo<PlayerActionsContextType>(
+        () => ({
+            playSong,
+            togglePlayPause,
+            stopSong,
+            nextSongAction,
+            prevSong,
+            seekTo,
+        }),
+        [
+            playSong,
+            togglePlayPause,
+            stopSong,
+            nextSongAction,
+            prevSong,
+            seekTo,
+        ],
+    );
 
     return (
-        <PlayerContext.Provider value={playerContextValue}>
-            <ProgressContext.Provider value={progressContextValue}>
+        <PlayerActionsContext.Provider
+            value={actionsValue}
+        >
+            <PlayerStateContext.Provider
+                value={stateValue}
+            >
+                <StreamTracker />
                 {children}
-            </ProgressContext.Provider>
-        </PlayerContext.Provider>
+            </PlayerStateContext.Provider>
+        </PlayerActionsContext.Provider>
     );
 };
 
-export const usePlayer = () => {
-    const ctx = useContext(PlayerContext);
-    if (!ctx) {
-        throw new Error("usePlayer deve essere usato dentro <PlayerProvider>");
+export const usePlayerState = (): PlayerStateContextType => {
+    const context = useContext(PlayerStateContext);
+
+    if (!context) {
+        throw new Error(
+            "usePlayerState deve essere usato dentro <PlayerProvider>",
+        );
     }
-    return ctx;
+
+    return context;
 };
 
-export const usePlayerWithProgress = () => {
+export const usePlayerActions = (): PlayerActionsContextType => {
+    const context = useContext(PlayerActionsContext);
+
+    if (!context) {
+        throw new Error(
+            "usePlayerActions deve essere usato dentro <PlayerProvider>",
+        );
+    }
+
+    return context;
+};
+
+export const usePlayer = (): PlayerContextType => {
+    const state = usePlayerState();
+    const actions = usePlayerActions();
+
+    return {
+        ...state,
+        ...actions,
+    };
+};
+
+export const usePlayerProgress = (): PlayerProgressContextType => {
+    const appState = useSyncExternalStore(
+        subscribeToAppState,
+        getAppStateSnapshot,
+        getAppStateSnapshot,
+    );
+
+    const progress = useProgress(
+        Platform.OS === "web" ||
+        appState === "active"
+            ? ACTIVE_PROGRESS_INTERVAL_SECONDS
+            : BACKGROUND_PROGRESS_INTERVAL_SECONDS,
+    );
+
+    return {
+        progress: progress.position,
+        duration: progress.duration,
+        buffered: progress.buffered,
+        cached: progress.cached,
+    };
+};
+
+export const usePlayerWithProgress = (): PlayerContextType &
+    PlayerProgressContextType => {
     const player = usePlayer();
-    const progress = useProgress();
-    return { ...player, ...progress };
+    const progress = usePlayerProgress();
+
+    return {
+        ...player,
+        ...progress,
+    };
 };

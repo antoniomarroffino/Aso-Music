@@ -27,7 +27,6 @@ type AlbumCardProps = {
 
 function AlbumCardComponent({
                                 album,
-                                index = 0,
                                 trackCount = 0,
                                 isTrackCountLoading = false,
                             }: AlbumCardProps) {
@@ -55,35 +54,21 @@ function AlbumCardComponent({
             onPress={handlePress}
             style={styles.container}
         >
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 12,
-                    scale: 0.96,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                    scale: 1,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    delay: Math.min(
-                        index * 40,
-                        240,
-                    ),
-                }}
-                style={styles.animation}
-            >
+            <View style={styles.card}>
                 <LinearGradient
                     colors={[
                         "rgba(255,255,255,0.14)",
                         "rgba(29,185,84,0.10)",
                         "rgba(119,89,255,0.08)",
                     ]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
+                    start={{
+                        x: 0,
+                        y: 0,
+                    }}
+                    end={{
+                        x: 1,
+                        y: 1,
+                    }}
                     style={styles.border}
                 >
                     <View style={styles.surface}>
@@ -101,7 +86,6 @@ function AlbumCardComponent({
                                 )}
                                 style={styles.cover}
                                 contentFit="cover"
-                                transition={200}
                             />
 
                             <LinearGradient
@@ -110,7 +94,7 @@ function AlbumCardComponent({
                                     "rgba(0,0,0,0.48)",
                                 ]}
                                 style={
-                                    StyleSheet.absoluteFillObject
+                                    StyleSheet.absoluteFill
                                 }
                             />
 
@@ -193,7 +177,7 @@ function AlbumCardComponent({
                         </View>
                     </View>
                 </LinearGradient>
-            </MotiView>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -223,7 +207,7 @@ const styles = StyleSheet.create({
         width: "100%",
     },
 
-    animation: {
+    card: {
         width: "100%",
     },
 

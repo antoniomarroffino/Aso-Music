@@ -15,7 +15,7 @@ const SlowLoadingState = memo(function SlowLoadingState({ onGoBack }: SlowLoadin
             <LinearGradient
                 colors={["#000000", "#0a0a0a", "#1a1a2e", "#0f0f0f"]}
                 locations={[0, 0.3, 0.7, 1]}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
             />
             <StatusBar style="light" />
 

@@ -115,7 +115,7 @@ const PremiumTabBarBackground = memo(
                     intensity={72}
                     tint="dark"
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -128,7 +128,7 @@ const PremiumTabBarBackground = memo(
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -162,7 +162,7 @@ const TabsLoadingState = memo(
                         "#050506",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -177,7 +177,7 @@ const TabsLoadingState = memo(
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </View>
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     },
 
     tabBarBackground: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         overflow: "hidden",
         borderTopLeftRadius: 22,
         borderTopRightRadius: 22,

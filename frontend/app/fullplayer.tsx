@@ -22,7 +22,6 @@ import { MotiView } from "moti";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
-    runOnJS,
     useAnimatedStyle,
     useDerivedValue,
     useSharedValue,
@@ -30,15 +29,18 @@ import Animated, {
     withTiming,
 } from "react-native-reanimated";
 import {
+    scheduleOnRN,
+} from "react-native-worklets";
+import {
     Gesture,
     GestureDetector,
 } from "react-native-gesture-handler";
 
 import { SongPreviewDTO } from "@/types/music";
-import { usePlayer } from "@/context/PlayerContext";
 import {
-    useProgress,
-} from "@/context/ProgressContext";
+    usePlayer,
+    usePlayerProgress,
+} from "@/context/PlayerContext";
 import AwardBadges from "@/components/ui/AwardBadges";
 
 const formatTime = (
@@ -93,7 +95,7 @@ const TimeDisplay = memo(
         const {
             progress,
             duration,
-        } = useProgress();
+        } = usePlayerProgress();
 
         return (
             <View style={styles.timeRow}>
@@ -126,7 +128,7 @@ const ProgressBarSection = memo(
         const {
             progress,
             duration,
-        } = useProgress();
+        } = usePlayerProgress();
 
         const barWidth =
             useSharedValue(0);
@@ -149,20 +151,20 @@ const ProgressBarSection = memo(
         const animatedProgress =
             useDerivedValue(() => {
                 if (
-                    isDragging.value
+                    isDragging.get()
                 ) {
-                    return dragValue.value;
+                    return dragValue.get();
                 }
 
                 if (
-                    lastSeekValue.value >
+                    lastSeekValue.get() >
                     0 &&
                     Math.abs(
                         progress -
-                        lastSeekValue.value,
+                        lastSeekValue.get(),
                     ) > 0.5
                 ) {
-                    return lastSeekValue.value;
+                    return lastSeekValue.get();
                 }
 
                 return progress;
@@ -170,14 +172,14 @@ const ProgressBarSection = memo(
 
         useDerivedValue(() => {
             if (
-                lastSeekValue.value >
+                lastSeekValue.get() >
                 0 &&
                 Math.abs(
                     progress -
-                    lastSeekValue.value,
+                    lastSeekValue.get(),
                 ) < 0.5
             ) {
-                lastSeekValue.value = 0;
+                lastSeekValue.set(0);
             }
         }, [progress]);
 
@@ -191,9 +193,10 @@ const ProgressBarSection = memo(
                                 _y,
                                 measuredWidth,
                             ) => {
-                                barX.value = x;
-                                barWidth.value =
-                                    measuredWidth;
+                                barX.set(x);
+                                barWidth.set(
+                                    measuredWidth,
+                                );
                             },
                         );
                 });
@@ -208,7 +211,7 @@ const ProgressBarSection = memo(
                     Gesture.Tap().onStart(
                         (event) => {
                             if (
-                                barWidth.value <=
+                                barWidth.get() <=
                                 0 ||
                                 duration <= 0
                             ) {
@@ -217,14 +220,14 @@ const ProgressBarSection = memo(
 
                             const relativeX =
                                 event.absoluteX -
-                                barX.value;
+                                barX.get();
 
                             const ratio =
                                 Math.max(
                                     0,
                                     Math.min(
                                         relativeX /
-                                        barWidth.value,
+                                        barWidth.get(),
                                         1,
                                     ),
                                 );
@@ -233,21 +236,26 @@ const ProgressBarSection = memo(
                                 ratio *
                                 duration;
 
-                            isDragging.value =
-                                true;
+                            isDragging.set(
+                                true,
+                            );
 
-                            dragValue.value =
-                                newProgress;
-
-                            lastSeekValue.value =
-                                newProgress;
-
-                            runOnJS(seekTo)(
+                            dragValue.set(
                                 newProgress,
                             );
 
-                            isDragging.value =
-                                false;
+                            lastSeekValue.set(
+                                newProgress,
+                            );
+
+                            scheduleOnRN(
+                                seekTo,
+                                newProgress,
+                            );
+
+                            isDragging.set(
+                                false,
+                            );
                         },
                     ),
                 [
@@ -268,39 +276,41 @@ const ProgressBarSection = memo(
                         .onBegin(
                             (event) => {
                                 if (
-                                    barWidth.value <=
+                                    barWidth.get() <=
                                     0 ||
                                     duration <= 0
                                 ) {
                                     return;
                                 }
 
-                                isDragging.value =
-                                    true;
+                                isDragging.set(
+                                    true,
+                                );
 
                                 const relativeX =
                                     event.absoluteX -
-                                    barX.value;
+                                    barX.get();
 
                                 const ratio =
                                     Math.max(
                                         0,
                                         Math.min(
                                             relativeX /
-                                            barWidth.value,
+                                            barWidth.get(),
                                             1,
                                         ),
                                     );
 
-                                dragValue.value =
+                                dragValue.set(
                                     ratio *
-                                    duration;
+                                    duration,
+                                );
                             },
                         )
                         .onUpdate(
                             (event) => {
                                 if (
-                                    barWidth.value <=
+                                    barWidth.get() <=
                                     0 ||
                                     duration <= 0
                                 ) {
@@ -309,45 +319,51 @@ const ProgressBarSection = memo(
 
                                 const relativeX =
                                     event.absoluteX -
-                                    barX.value;
+                                    barX.get();
 
                                 const ratio =
                                     Math.max(
                                         0,
                                         Math.min(
                                             relativeX /
-                                            barWidth.value,
+                                            barWidth.get(),
                                             1,
                                         ),
                                     );
 
-                                dragValue.value =
+                                dragValue.set(
                                     ratio *
-                                    duration;
+                                    duration,
+                                );
                             },
                         )
                         .onEnd(() => {
                             if (
                                 duration <= 0
                             ) {
-                                isDragging.value =
-                                    false;
+                                isDragging.set(
+                                    false,
+                                );
                                 return;
                             }
 
-                            lastSeekValue.value =
-                                dragValue.value;
-
-                            runOnJS(seekTo)(
-                                dragValue.value,
+                            lastSeekValue.set(
+                                dragValue.get(),
                             );
 
-                            isDragging.value =
-                                false;
+                            scheduleOnRN(
+                                seekTo,
+                                dragValue.get(),
+                            );
+
+                            isDragging.set(
+                                false,
+                            );
                         })
                         .onFinalize(() => {
-                            isDragging.value =
-                                false;
+                            isDragging.set(
+                                false,
+                            );
                         }),
                 [
                     duration,
@@ -380,7 +396,7 @@ const ProgressBarSection = memo(
                         ? Math.max(
                         0,
                         Math.min(
-                            animatedProgress.value /
+                            animatedProgress.get() /
                             duration,
                             1,
                         ),
@@ -399,7 +415,7 @@ const ProgressBarSection = memo(
                         ? Math.max(
                         0,
                         Math.min(
-                            animatedProgress.value /
+                            animatedProgress.get() /
                             duration,
                             1,
                         ),
@@ -482,7 +498,7 @@ const ProgressBarSection = memo(
                                         y: 0,
                                     }}
                                     style={
-                                        StyleSheet.absoluteFillObject
+                                        StyleSheet.absoluteFill
                                     }
                                 />
                             </View>
@@ -563,7 +579,7 @@ const NextSongPreview = memo(
         const {
             progress,
             duration,
-        } = useProgress();
+        } = usePlayerProgress();
 
         if (
             !nextSong ||
@@ -1209,7 +1225,7 @@ const Cover = memo(
                             "rgba(29,185,84,0.05)",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </MotiView>
@@ -1277,7 +1293,7 @@ const Cover = memo(
                             y: 1,
                         }}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
 
@@ -1510,7 +1526,7 @@ const Header = memo(
                     intensity={62}
                     tint="dark"
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -1699,15 +1715,16 @@ export default function FullPlayer() {
                                 event.translationY >
                                 0
                             ) {
-                                translateY.value =
-                                    event.translationY;
+                                translateY.set(
+                                    event.translationY,
+                                );
                             }
                         },
                     )
                     .onEnd(
                         (event) => {
                             const shouldClose =
-                                translateY.value >
+                                translateY.get() >
                                 height *
                                 0.14 ||
                                 event.velocityY >
@@ -1716,7 +1733,7 @@ export default function FullPlayer() {
                             if (
                                 shouldClose
                             ) {
-                                translateY.value =
+                                translateY.set(
                                     withTiming(
                                         height,
                                         {
@@ -1729,17 +1746,18 @@ export default function FullPlayer() {
                                             if (
                                                 finished
                                             ) {
-                                                runOnJS(
+                                                scheduleOnRN(
                                                     handleBack,
-                                                )();
+                                                );
                                             }
                                         },
-                                    );
+                                    ),
+                                );
 
                                 return;
                             }
 
-                            translateY.value =
+                            translateY.set(
                                 withSpring(
                                     0,
                                     {
@@ -1748,7 +1766,8 @@ export default function FullPlayer() {
                                         stiffness:
                                             180,
                                     },
-                                );
+                                ),
+                            );
                         },
                     ),
             [
@@ -1762,7 +1781,7 @@ export default function FullPlayer() {
         useAnimatedStyle(() => {
             const progress =
                 Math.min(
-                    translateY.value /
+                    translateY.get() /
                     Math.max(
                         height,
                         1,
@@ -1781,7 +1800,7 @@ export default function FullPlayer() {
                 transform: [
                     {
                         translateY:
-                        translateY.value,
+                            translateY.get(),
                     },
                     {
                         scale,
@@ -1839,7 +1858,7 @@ export default function FullPlayer() {
                     intensity={92}
                     tint="dark"
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -1857,7 +1876,7 @@ export default function FullPlayer() {
                         1,
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -1874,7 +1893,7 @@ export default function FullPlayer() {
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </View>
@@ -1892,7 +1911,7 @@ export default function FullPlayer() {
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </View>
@@ -1989,7 +2008,7 @@ const styles = StyleSheet.create({
     },
 
     backgroundImage: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         opacity: 0.22,
         transform: [
             {
@@ -2217,7 +2236,7 @@ const styles = StyleSheet.create({
     },
 
     coverOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
     },
 
     coverShine: {

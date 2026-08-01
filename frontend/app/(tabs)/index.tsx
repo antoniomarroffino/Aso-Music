@@ -106,17 +106,15 @@ const EmptyAlbumCatalog = memo(
             <MotiView
                 from={{
                     opacity: 0,
-                    scale: 0.96,
-                    translateY: 12,
+                    translateY: 6,
                 }}
                 animate={{
                     opacity: 1,
-                    scale: 1,
                     translateY: 0,
                 }}
                 transition={{
-                    type: "spring",
-                    damping: 17,
+                    type: "timing",
+                    duration: 240,
                 }}
                 style={styles.emptyState}
             >
@@ -125,18 +123,7 @@ const EmptyAlbumCatalog = memo(
                         styles.emptyStage
                     }
                 >
-                    <MotiView
-                        from={{
-                            rotate: "0deg",
-                        }}
-                        animate={{
-                            rotate: "360deg",
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 12000,
-                            loop: true,
-                        }}
+                    <View
                         style={
                             styles.emptyOrbit
                         }
@@ -584,15 +571,15 @@ export default function HomeScreen() {
                     <MotiView
                         from={{
                             opacity: 0,
-                            translateY: -14,
+                            translateY: -6,
                         }}
                         animate={{
                             opacity: 1,
                             translateY: 0,
                         }}
                         transition={{
-                            type: "spring",
-                            damping: 17,
+                            type: "timing",
+                            duration: 220,
                         }}
                         style={[
                             styles.headerContainer,
@@ -675,26 +662,12 @@ export default function HomeScreen() {
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
-            <MotiView
+            <View
                 pointerEvents="none"
-                from={{
-                    opacity: 0.2,
-                    scale: 0.94,
-                }}
-                animate={{
-                    opacity: 0.45,
-                    scale: 1.07,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 7500,
-                    loop: true,
-                    repeatReverse: true,
-                }}
                 style={[
                     styles.ambientOrb,
                     styles.greenOrb,
@@ -702,32 +675,18 @@ export default function HomeScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(29,185,84,0.28)",
-                        "rgba(29,185,84,0.025)",
+                        "rgba(29,185,84,0.15)",
+                        "rgba(29,185,84,0.015)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
-            </MotiView>
+            </View>
 
-            <MotiView
+            <View
                 pointerEvents="none"
-                from={{
-                    opacity: 0.18,
-                    scale: 1.05,
-                }}
-                animate={{
-                    opacity: 0.4,
-                    scale: 0.94,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 9000,
-                    loop: true,
-                    repeatReverse: true,
-                }}
                 style={[
                     styles.ambientOrb,
                     styles.purpleOrb,
@@ -735,15 +694,15 @@ export default function HomeScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(119,89,255,0.25)",
-                        "rgba(119,89,255,0.02)",
+                        "rgba(119,89,255,0.13)",
+                        "rgba(119,89,255,0.012)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
-            </MotiView>
+            </View>
 
             <StatusBar style="light" />
 
@@ -835,6 +794,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         overflow: "hidden",
         borderRadius: 999,
+        opacity: 0.8,
     },
 
     greenOrb: {
@@ -987,9 +947,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 7,
         },
-        shadowOpacity: 0.24,
-        shadowRadius: 14,
-        elevation: 8,
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
     },
 
     emptyIcon: {

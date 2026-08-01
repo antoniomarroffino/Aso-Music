@@ -12,24 +12,25 @@ import {
 } from "react-native";
 import {
     DarkTheme,
+    Stack,
     ThemeProvider,
-    type Theme,
-} from "@react-navigation/native";
+} from "expo-router";
 import {
     QueryClient,
     QueryClientProvider,
 } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import {
-    Audio,
-    InterruptionModeAndroid,
-    InterruptionModeIOS,
-} from "expo-av";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
+    StatusBar,
+} from "expo-status-bar";
+import {
+    LinearGradient,
+} from "expo-linear-gradient";
+import {
+    BlurView,
+} from "expo-blur";
+import {
+    Ionicons,
+} from "@expo/vector-icons";
 import {
     GestureHandlerRootView,
 } from "react-native-gesture-handler";
@@ -41,7 +42,9 @@ import {
 import {
     PlayerProvider,
 } from "@/context/PlayerContext";
-import { useAlbums } from "@/hooks/useAlbums";
+import {
+    useAlbums,
+} from "@/hooks/useAlbums";
 import {
     usePrefetchSongs,
 } from "@/hooks/usePrefetchAllSongs";
@@ -55,26 +58,27 @@ const MAINTENANCE_MODE = false;
 const MAINTENANCE_ADMIN_EMAIL =
     "admin@prova.com";
 
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            staleTime:
-                1000 * 60 * 5,
-            gcTime:
-                1000 * 60 * 30,
-            retry: 2,
-            refetchOnWindowFocus:
-                false,
-            refetchOnReconnect:
-                true,
+const queryClient =
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                staleTime:
+                    1000 * 60 * 5,
+                gcTime:
+                    1000 * 60 * 30,
+                retry: 2,
+                refetchOnWindowFocus:
+                    false,
+                refetchOnReconnect:
+                    true,
+            },
+            mutations: {
+                retry: false,
+            },
         },
-        mutations: {
-            retry: false,
-        },
-    },
-});
+    });
 
-const ASO_DARK_THEME: Theme = {
+const ASO_DARK_THEME = {
     ...DarkTheme,
     dark: true,
     colors: {
@@ -95,6 +99,7 @@ const ASO_DARK_THEME: Theme = {
 
 const SHARED_STACK_OPTIONS = {
     headerShown: false,
+    freezeOnBlur: true,
     contentStyle: {
         backgroundColor: "#050506",
     },
@@ -104,13 +109,21 @@ const SHARED_STACK_OPTIONS = {
 /* Background                                                                 */
 /* -------------------------------------------------------------------------- */
 
+/*
+ * Il background resta intenzionalmente statico.
+ *
+ * Prima questo componente eseguiva due animazioni infinite per tutta
+ * la vita dell'app. Su React Native New Architecture animazioni sempre
+ * attive, blur e gradienti di grandi dimensioni possono mantenere GPU e
+ * UI thread costantemente occupati, contribuendo al surriscaldamento.
+ */
 const AmbientBackground = memo(
     function AmbientBackground() {
         return (
             <View
                 pointerEvents="none"
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             >
                 <LinearGradient
@@ -127,25 +140,11 @@ const AmbientBackground = memo(
                         1,
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
-                <MotiView
-                    from={{
-                        opacity: 0.25,
-                        scale: 0.94,
-                    }}
-                    animate={{
-                        opacity: 0.48,
-                        scale: 1.07,
-                    }}
-                    transition={{
-                        type: "timing",
-                        duration: 7000,
-                        loop: true,
-                        repeatReverse: true,
-                    }}
+                <View
                     style={[
                         styles.ambientOrb,
                         styles.greenOrb,
@@ -153,31 +152,17 @@ const AmbientBackground = memo(
                 >
                     <LinearGradient
                         colors={[
-                            "rgba(29,185,84,0.28)",
-                            "rgba(29,185,84,0.03)",
+                            "rgba(29,185,84,0.22)",
+                            "rgba(29,185,84,0.035)",
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
-                </MotiView>
+                </View>
 
-                <MotiView
-                    from={{
-                        opacity: 0.18,
-                        scale: 1.05,
-                    }}
-                    animate={{
-                        opacity: 0.4,
-                        scale: 0.94,
-                    }}
-                    transition={{
-                        type: "timing",
-                        duration: 8500,
-                        loop: true,
-                        repeatReverse: true,
-                    }}
+                <View
                     style={[
                         styles.ambientOrb,
                         styles.purpleOrb,
@@ -185,15 +170,15 @@ const AmbientBackground = memo(
                 >
                     <LinearGradient
                         colors={[
-                            "rgba(123,97,255,0.26)",
-                            "rgba(123,97,255,0.02)",
+                            "rgba(123,97,255,0.20)",
+                            "rgba(123,97,255,0.03)",
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
-                </MotiView>
+                </View>
 
                 <LinearGradient
                     colors={[
@@ -209,7 +194,9 @@ const AmbientBackground = memo(
                         x: 1,
                         y: 1,
                     }}
-                    style={styles.lightBeam}
+                    style={
+                        styles.lightBeam
+                    }
                 />
             </View>
         );
@@ -227,8 +214,10 @@ type PremiumLoaderProps = {
 
 const PremiumLoader = memo(
     function PremiumLoader({
-                               label = "Preparazione esperienza",
-                               description = "Sincronizzazione ASO Music",
+                               label =
+                               "Preparazione esperienza",
+                               description =
+                               "Sincronizzazione ASO Music",
                            }: PremiumLoaderProps) {
         return (
             <View
@@ -248,19 +237,7 @@ const PremiumLoader = memo(
                             styles.logoStage
                         }
                     >
-                        <MotiView
-                            from={{
-                                rotate: "0deg",
-                            }}
-                            animate={{
-                                rotate:
-                                    "360deg",
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 9000,
-                                loop: true,
-                            }}
+                        <View
                             style={
                                 styles.outerOrbit
                             }
@@ -274,24 +251,12 @@ const PremiumLoader = memo(
                                     "#1ED760",
                                 ]}
                                 style={
-                                    StyleSheet.absoluteFillObject
+                                    StyleSheet.absoluteFill
                                 }
                             />
-                        </MotiView>
+                        </View>
 
-                        <MotiView
-                            from={{
-                                rotate:
-                                    "360deg",
-                            }}
-                            animate={{
-                                rotate: "0deg",
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 6200,
-                                loop: true,
-                            }}
+                        <View
                             style={
                                 styles.innerOrbit
                             }
@@ -316,7 +281,7 @@ const PremiumLoader = memo(
                             }
                         >
                             <BlurView
-                                intensity={45}
+                                intensity={35}
                                 tint="dark"
                                 style={
                                     styles.logoBlur
@@ -340,21 +305,7 @@ const PremiumLoader = memo(
                             </BlurView>
                         </LinearGradient>
 
-                        <MotiView
-                            from={{
-                                opacity: 0.2,
-                                scale: 0.75,
-                            }}
-                            animate={{
-                                opacity: 0.9,
-                                scale: 1.15,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 1300,
-                                loop: true,
-                                repeatReverse: true,
-                            }}
+                        <View
                             style={
                                 styles.logoPulse
                             }
@@ -427,33 +378,16 @@ const PremiumLoader = memo(
                     >
                         {[0, 1, 2].map(
                             (dotIndex) => (
-                                <MotiView
+                                <View
                                     key={
                                         dotIndex
                                     }
-                                    from={{
-                                        opacity:
-                                            0.25,
-                                        scale: 0.7,
-                                    }}
-                                    animate={{
-                                        opacity: 1,
-                                        scale: 1,
-                                    }}
-                                    transition={{
-                                        type: "timing",
-                                        duration:
-                                            700,
-                                        delay:
-                                            dotIndex *
-                                            180,
-                                        loop: true,
-                                        repeatReverse:
-                                            true,
-                                    }}
-                                    style={
-                                        styles.loadingDot
-                                    }
+                                    style={[
+                                        styles.loadingDot,
+                                        dotIndex ===
+                                        1 &&
+                                        styles.loadingDotActive,
+                                    ]}
                                 />
                             ),
                         )}
@@ -509,6 +443,7 @@ function AuthenticatedAppLayout() {
                      * la propria gesture verticale.
                      */
                     gestureEnabled: false,
+                    freezeOnBlur: false,
                 }}
             />
         </Stack>
@@ -544,8 +479,9 @@ function AuthGateLayout() {
         !isAdmin;
 
     /*
-     * Non bisogna chiamare logout durante
-     * il render. Lo eseguiamo come effetto.
+     * Questo useEffect è appropriato: sincronizza React con un sistema
+     * esterno, cioè Firebase Auth. Non aggiorna stato React locale e non
+     * viene usato per derivare valori renderizzabili.
      */
     useEffect(() => {
         if (!shouldForceLogout) {
@@ -644,32 +580,16 @@ function AuthGateLayout() {
 /* -------------------------------------------------------------------------- */
 
 export default function RootLayout() {
-    useEffect(() => {
-        void Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            staysActiveInBackground: true,
-            playsInSilentModeIOS: true,
-            interruptionModeIOS:
-            InterruptionModeIOS.DoNotMix,
-            interruptionModeAndroid:
-            InterruptionModeAndroid.DoNotMix,
-            shouldDuckAndroid: false,
-            playThroughEarpieceAndroid:
-                false,
-        }).catch((error: unknown) => {
-            console.error(
-                "Impossibile configurare la modalità audio:",
-                error,
-            );
-        });
-    }, []);
-
     return (
         <GestureHandlerRootView
-            style={styles.root}
+            style={
+                styles.root
+            }
         >
             <QueryClientProvider
-                client={queryClient}
+                client={
+                    queryClient
+                }
             >
                 <ThemeProvider
                     value={
@@ -691,7 +611,6 @@ export default function RootLayout() {
                                     "web" && (
                                         <StatusBar
                                             style="light"
-                                            translucent
                                         />
                                     )}
                             </View>
@@ -703,206 +622,224 @@ export default function RootLayout() {
     );
 }
 
-const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: "#050506",
-    },
+/* -------------------------------------------------------------------------- */
+/* Styles                                                                     */
+/* -------------------------------------------------------------------------- */
 
-    appShell: {
-        flex: 1,
-        position: "relative",
-        overflow: "hidden",
-        backgroundColor: "#050506",
-    },
-
-    ambientOrb: {
-        position: "absolute",
-        overflow: "hidden",
-        borderRadius: 999,
-    },
-
-    greenOrb: {
-        width: 470,
-        height: 470,
-        top: -250,
-        right: -220,
-    },
-
-    purpleOrb: {
-        width: 440,
-        height: 440,
-        bottom: -230,
-        left: -240,
-    },
-
-    lightBeam: {
-        position: "absolute",
-        top: "-15%",
-        left: "42%",
-        width: 90,
-        height: "135%",
-        opacity: 0.3,
-        transform: [
-            {
-                rotate: "24deg",
-            },
-        ],
-    },
-
-    loaderContainer: {
-        flex: 1,
-        position: "relative",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        backgroundColor: "#050506",
-    },
-
-    loaderContent: {
-        width: "100%",
-        maxWidth: 440,
-        alignItems: "center",
-        paddingHorizontal: 24,
-    },
-
-    logoStage: {
-        width: 150,
-        height: 150,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 22,
-    },
-
-    outerOrbit: {
-        position: "absolute",
-        width: 144,
-        height: 144,
-        overflow: "hidden",
-        borderRadius: 72,
-        opacity: 0.78,
-        padding: 1,
-    },
-
-    innerOrbit: {
-        position: "absolute",
-        width: 116,
-        height: 116,
-        borderRadius: 58,
-        borderWidth: 1,
-        borderStyle: "dashed",
-        borderColor:
-            "rgba(174,151,255,0.36)",
-    },
-
-    logoBorder: {
-        width: 82,
-        height: 82,
-        padding: 2,
-        borderRadius: 26,
-        shadowColor: "#1ED760",
-        shadowOffset: {
-            width: 0,
-            height: 8,
+const styles =
+    StyleSheet.create({
+        root: {
+            flex: 1,
+            backgroundColor:
+                "#050506",
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 18,
-        elevation: 10,
-    },
 
-    logoBlur: {
-        flex: 1,
-        overflow: "hidden",
-        borderRadius: 24,
-    },
+        appShell: {
+            flex: 1,
+            position: "relative",
+            overflow: "hidden",
+            backgroundColor:
+                "#050506",
+        },
 
-    logoSurface: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor:
-            "rgba(255,255,255,0.08)",
-    },
+        ambientOrb: {
+            position: "absolute",
+            overflow: "hidden",
+            borderRadius: 999,
+        },
 
-    logoPulse: {
-        position: "absolute",
-        width: 94,
-        height: 94,
-        borderRadius: 47,
-        borderWidth: 1,
-        borderColor:
-            "rgba(29,185,84,0.30)",
-    },
+        greenOrb: {
+            width: 470,
+            height: 470,
+            top: -250,
+            right: -220,
+        },
 
-    loaderEyebrow: {
-        color: "#62EA93",
-        fontSize: 8,
-        lineHeight: 11,
-        fontWeight: "900",
-        letterSpacing: 2,
-        marginBottom: 5,
-    },
+        purpleOrb: {
+            width: 440,
+            height: 440,
+            bottom: -230,
+            left: -240,
+        },
 
-    loaderTitle: {
-        color: "#F7F8FC",
-        fontSize: 23,
-        lineHeight: 28,
-        fontWeight: "900",
-        textAlign: "center",
-        letterSpacing: -0.65,
-    },
+        lightBeam: {
+            position: "absolute",
+            top: "-15%",
+            left: "42%",
+            width: 90,
+            height: "135%",
+            opacity: 0.3,
+            transform: [
+                {
+                    rotate: "24deg",
+                },
+            ],
+        },
 
-    loaderDescription: {
-        color: "#7D8598",
-        fontSize: 11,
-        lineHeight: 16,
-        fontWeight: "600",
-        textAlign: "center",
-        marginTop: 5,
-    },
+        loaderContainer: {
+            flex: 1,
+            position: "relative",
+            alignItems: "center",
+            justifyContent:
+                "center",
+            overflow: "hidden",
+            backgroundColor:
+                "#050506",
+        },
 
-    loadingIndicator: {
-        overflow: "hidden",
-        borderRadius: 999,
-        marginTop: 20,
-    },
+        loaderContent: {
+            width: "100%",
+            maxWidth: 440,
+            alignItems: "center",
+            paddingHorizontal: 24,
+        },
 
-    loadingIndicatorBorder: {
-        padding: 1,
-        borderRadius: 999,
-    },
+        logoStage: {
+            width: 150,
+            height: 150,
+            alignItems: "center",
+            justifyContent:
+                "center",
+            marginBottom: 22,
+        },
 
-    loadingIndicatorSurface: {
-        minWidth: 126,
-        height: 36,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        paddingHorizontal: 14,
-        borderRadius: 999,
-        backgroundColor:
-            "rgba(10,12,18,0.94)",
-    },
+        outerOrbit: {
+            position: "absolute",
+            width: 144,
+            height: 144,
+            overflow: "hidden",
+            borderRadius: 72,
+            opacity: 0.72,
+            padding: 1,
+        },
 
-    loadingText: {
-        color: "#B3B9C8",
-        fontSize: 10,
-        fontWeight: "700",
-    },
+        innerOrbit: {
+            position: "absolute",
+            width: 116,
+            height: 116,
+            borderRadius: 58,
+            borderWidth: 1,
+            borderStyle: "dashed",
+            borderColor:
+                "rgba(174,151,255,0.36)",
+        },
 
-    loadingDots: {
-        flexDirection: "row",
-        gap: 5,
-        marginTop: 13,
-    },
+        logoBorder: {
+            width: 82,
+            height: 82,
+            padding: 2,
+            borderRadius: 26,
+            shadowColor: "#1ED760",
+            shadowOffset: {
+                width: 0,
+                height: 8,
+            },
+            shadowOpacity: 0.3,
+            shadowRadius: 18,
+            elevation: 10,
+        },
 
-    loadingDot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: "#7E66FF",
-    },
-});
+        logoBlur: {
+            flex: 1,
+            overflow: "hidden",
+            borderRadius: 24,
+        },
+
+        logoSurface: {
+            flex: 1,
+            alignItems: "center",
+            justifyContent:
+                "center",
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor:
+                "rgba(255,255,255,0.08)",
+        },
+
+        logoPulse: {
+            position: "absolute",
+            width: 94,
+            height: 94,
+            borderRadius: 47,
+            borderWidth: 1,
+            borderColor:
+                "rgba(29,185,84,0.30)",
+        },
+
+        loaderEyebrow: {
+            color: "#62EA93",
+            fontSize: 8,
+            lineHeight: 11,
+            fontWeight: "900",
+            letterSpacing: 2,
+            marginBottom: 5,
+        },
+
+        loaderTitle: {
+            color: "#F7F8FC",
+            fontSize: 23,
+            lineHeight: 28,
+            fontWeight: "900",
+            textAlign: "center",
+            letterSpacing: -0.65,
+        },
+
+        loaderDescription: {
+            color: "#7D8598",
+            fontSize: 11,
+            lineHeight: 16,
+            fontWeight: "600",
+            textAlign: "center",
+            marginTop: 5,
+        },
+
+        loadingIndicator: {
+            overflow: "hidden",
+            borderRadius: 999,
+            marginTop: 20,
+        },
+
+        loadingIndicatorBorder: {
+            padding: 1,
+            borderRadius: 999,
+        },
+
+        loadingIndicatorSurface: {
+            minWidth: 126,
+            height: 36,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent:
+                "center",
+            gap: 8,
+            paddingHorizontal: 14,
+            borderRadius: 999,
+            backgroundColor:
+                "rgba(10,12,18,0.94)",
+        },
+
+        loadingText: {
+            color: "#B3B9C8",
+            fontSize: 10,
+            fontWeight: "700",
+        },
+
+        loadingDots: {
+            flexDirection: "row",
+            gap: 5,
+            marginTop: 13,
+        },
+
+        loadingDot: {
+            width: 4,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor:
+                "rgba(126,102,255,0.35)",
+        },
+
+        loadingDotActive: {
+            backgroundColor:
+                "#7E66FF",
+        },
+    });

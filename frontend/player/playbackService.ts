@@ -1,200 +1,312 @@
+import {
+    Platform,
+} from "react-native";
+
 import TrackPlayer, {
     Event,
-} from "react-native-track-player";
-
-import {
-    isAsoPlayerTrack,
-} from "@/player/asoTrack";
-
-import {
-    ensureTrackPlayerReady,
-    skipToNextWithWrap,
-    skipToPreviousWithWrap,
-} from "@/player/trackPlayerSetup";
+    type BackgroundEvent,
+    type MediaItem,
+} from "@rntp/player";
 
 const STREAM_THRESHOLD_SECONDS =
     20;
 
-const countedStreamKeys =
-    new Set<string>();
+type PlaybackExtras = {
+    albumId?: unknown;
+    songId?: unknown;
+    queueSessionId?: unknown;
+};
 
-const pendingStreamKeys =
-    new Set<string>();
+type StreamIdentity = {
+    albumId: string;
+    songId: string;
+    queueSessionId: string;
+    streamKey: string;
+};
 
-export async function playbackService():
-    Promise<void> {
-    TrackPlayer.addEventListener(
-        Event.RemotePlay,
-        () => {
-            void TrackPlayer.play();
-        },
-    );
+const createStreamRegistry = () => {
+    let countedKeys:
+        ReadonlySet<string> =
+        new Set<string>();
 
-    TrackPlayer.addEventListener(
-        Event.RemotePause,
-        () => {
-            void TrackPlayer.pause();
-        },
-    );
+    let pendingKeys:
+        ReadonlySet<string> =
+        new Set<string>();
 
-    TrackPlayer.addEventListener(
-        Event.RemoteNext,
-        () => {
-            void skipToNextWithWrap();
-        },
-    );
+    const contains = (
+        keys: ReadonlySet<string>,
+        key: string,
+    ): boolean =>
+        keys.has(key);
 
-    TrackPlayer.addEventListener(
-        Event.RemotePrevious,
-        () => {
-            void skipToPreviousWithWrap();
-        },
-    );
+    const insert = (
+        keys: ReadonlySet<string>,
+        key: string,
+    ): ReadonlySet<string> =>
+        new Set([
+            ...keys,
+            key,
+        ]);
 
-    TrackPlayer.addEventListener(
-        Event.RemoteSeek,
-        (event) => {
-            void TrackPlayer.seekTo(
-                event.position,
-            );
-        },
-    );
-
-    TrackPlayer.addEventListener(
-        Event.RemoteStop,
-        () => {
-            void TrackPlayer.reset();
-        },
-    );
-
-    /*
-     * RepeatMode.Queue dovrebbe già gestire il passaggio
-     * dall'ultima traccia alla prima. Questo listener è
-     * una protezione ulteriore per eventuali differenze
-     * tra piattaforme.
-     */
-    TrackPlayer.addEventListener(
-        Event.PlaybackQueueEnded,
-        () => {
-            void restartQueue();
-        },
-    );
-
-    /*
-     * Questo evento viene emesso dal servizio nativo,
-     * quindi il conteggio non dipende da un setTimeout
-     * montato dentro un componente React.
-     */
-    TrackPlayer.addEventListener(
-        Event.PlaybackProgressUpdated,
-        (event) => {
-            void registerStreamWhenEligible(
-                event.position,
-            );
-        },
-    );
-}
-
-async function restartQueue():
-    Promise<void> {
-    try {
-        await ensureTrackPlayerReady();
-
-        const queue =
-            await TrackPlayer.getQueue();
-
-        if (queue.length === 0) {
-            return;
-        }
-
-        await TrackPlayer.skip(0);
-        await TrackPlayer.play();
-    } catch (error) {
-        console.error(
-            "Errore durante il riavvio della coda:",
-            error,
+    const remove = (
+        keys: ReadonlySet<string>,
+        key: string,
+    ): ReadonlySet<string> =>
+        new Set(
+            [...keys].filter(
+                (existingKey) =>
+                    existingKey !== key,
+            ),
         );
-    }
-}
 
-async function registerStreamWhenEligible(
-    positionSeconds: number,
-): Promise<void> {
+    return {
+        isAlreadyHandled(
+            streamKey: string,
+        ): boolean {
+            return (
+                contains(
+                    countedKeys,
+                    streamKey,
+                ) ||
+                contains(
+                    pendingKeys,
+                    streamKey,
+                )
+            );
+        },
+
+        markPending(
+            streamKey: string,
+        ): void {
+            pendingKeys =
+                insert(
+                    pendingKeys,
+                    streamKey,
+                );
+        },
+
+        markCounted(
+            streamKey: string,
+        ): void {
+            countedKeys =
+                insert(
+                    countedKeys,
+                    streamKey,
+                );
+        },
+
+        clearPending(
+            streamKey: string,
+        ): void {
+            pendingKeys =
+                remove(
+                    pendingKeys,
+                    streamKey,
+                );
+        },
+    };
+};
+
+const streamRegistry =
+    createStreamRegistry();
+
+const readStreamIdentity = (
+    mediaItem:
+        | MediaItem
+        | null,
+): StreamIdentity | null => {
     if (
-        positionSeconds <
-        STREAM_THRESHOLD_SECONDS
+        !mediaItem?.extras ||
+        typeof mediaItem.extras !==
+        "object"
     ) {
-        return;
+        return null;
     }
 
-    try {
-        const activeTrack =
-            await TrackPlayer
-                .getActiveTrack();
+    const extras =
+        mediaItem.extras as
+            PlaybackExtras;
 
+    if (
+        typeof extras.albumId !==
+        "string" ||
+        typeof extras.songId !==
+        "string" ||
+        typeof extras.queueSessionId !==
+        "string"
+    ) {
+        return null;
+    }
+
+    return {
+        albumId:
+        extras.albumId,
+
+        songId:
+        extras.songId,
+
+        queueSessionId:
+        extras.queueSessionId,
+
+        streamKey: [
+            extras.queueSessionId,
+            extras.albumId,
+            extras.songId,
+        ].join(":"),
+    };
+};
+
+const registerStreamWhenEligible =
+    async (
+        positionSeconds: number,
+        eventMediaId?: string,
+    ): Promise<void> => {
         if (
-            !isAsoPlayerTrack(
-                activeTrack,
-            )
-        ) {
-            return;
-        }
-
-        const streamKey =
-            [
-                activeTrack
-                    .asoQueueSessionId,
-                activeTrack
-                    .asoAlbumId,
-                activeTrack
-                    .asoSongId,
-            ].join(":");
-
-        if (
-            countedStreamKeys.has(
-                streamKey,
+            !Number.isFinite(
+                positionSeconds,
             ) ||
-            pendingStreamKeys.has(
-                streamKey,
-            )
+            positionSeconds <
+            STREAM_THRESHOLD_SECONDS
         ) {
             return;
         }
-
-        pendingStreamKeys.add(
-            streamKey,
-        );
 
         try {
             /*
-             * Import ritardato: evita di inizializzare
-             * prematuramente l'intero client HTTP quando
-             * viene registrato il playback service.
+             * In @rntp/player v5 questo metodo è sincrono.
+             * Gli extras sono quelli inseriti dal PlayerContext
+             * quando costruisce il MediaItem.
              */
-            const {
-                incrementStreamCount,
-            } =
-                await import(
-                    "@/api/songs"
+            const activeMediaItem =
+                TrackPlayer
+                    .getActiveMediaItem();
+
+            if (
+                !activeMediaItem ||
+                (
+                    eventMediaId &&
+                    activeMediaItem.mediaId !==
+                    eventMediaId
+                )
+            ) {
+                return;
+            }
+
+            const identity =
+                readStreamIdentity(
+                    activeMediaItem,
                 );
 
-            await incrementStreamCount(
-                activeTrack.asoAlbumId,
-                activeTrack.asoSongId,
+            if (
+                !identity ||
+                streamRegistry
+                    .isAlreadyHandled(
+                        identity.streamKey,
+                    )
+            ) {
+                return;
+            }
+
+            streamRegistry.markPending(
+                identity.streamKey,
             );
 
-            countedStreamKeys.add(
-                streamKey,
-            );
-        } finally {
-            pendingStreamKeys.delete(
-                streamKey,
+            try {
+                /*
+                 * Import ritardato: il client HTTP non viene
+                 * inizializzato quando il servizio è registrato.
+                 */
+                const {
+                    incrementStreamCount,
+                } =
+                    await import(
+                        "@/api/songs"
+                        );
+
+                await incrementStreamCount(
+                    identity.albumId,
+                    identity.songId,
+                );
+
+                streamRegistry.markCounted(
+                    identity.streamKey,
+                );
+            } finally {
+                streamRegistry.clearPending(
+                    identity.streamKey,
+                );
+            }
+        } catch (error) {
+            console.error(
+                "Errore durante l'incremento dello stream:",
+                error,
             );
         }
-    } catch (error) {
-        console.error(
-            "Errore durante l'incremento dello stream:",
-            error,
-        );
-    }
-}
+    };
+
+/**
+ * Handler Android eseguito anche quando l'interfaccia React
+ * non è montata. Registrarlo in index.js prima di Expo Router.
+ */
+export const playbackService =
+    () =>
+        async (
+            event: BackgroundEvent,
+        ): Promise<void> => {
+            if (
+                event.type !==
+                Event.PlaybackProgressUpdated
+            ) {
+                return;
+            }
+
+            const eventMediaId =
+                typeof event.mediaId ===
+                "string"
+                    ? event.mediaId
+                    : undefined;
+
+            await registerStreamWhenEligible(
+                event.position,
+                eventMediaId,
+            );
+        };
+
+/**
+ * Su iOS registerBackgroundEventHandler è un no-op.
+ * Su iOS e web questo listener va registrato dentro un
+ * useEffect del PlayerProvider, quindi soltanto sul client.
+ *
+ * Su Android non viene aggiunto per evitare che il medesimo
+ * evento sia gestito sia qui sia dall'handler background.
+ */
+export const registerPlaybackEventListeners =
+    (): (() => void) => {
+        if (
+            Platform.OS ===
+            "android"
+        ) {
+            return () => undefined;
+        }
+
+        const subscription =
+            TrackPlayer.addEventListener(
+                Event.PlaybackProgressUpdated,
+                (event) => {
+                    const eventMediaId =
+                        typeof event.mediaId ===
+                        "string"
+                            ? event.mediaId
+                            : undefined;
+
+                    void registerStreamWhenEligible(
+                        event.position,
+                        eventMediaId,
+                    );
+                },
+            );
+
+        return () => {
+            subscription.remove();
+        };
+    };

@@ -24,8 +24,10 @@ import {
 } from "expo-router";
 
 import { SongPreviewDTO } from "@/types/music";
-import { usePlayer } from "@/context/PlayerContext";
-import { useProgress } from "@/context/ProgressContext";
+import {
+    usePlayer,
+    usePlayerProgress,
+} from "@/context/PlayerContext";
 import AwardBadges from "@/components/ui/AwardBadges";
 
 const MINI_PLAYER_BOTTOM_OFFSET = 60;
@@ -65,7 +67,7 @@ const MiniProgressBar = memo(
         const {
             progress,
             duration,
-        } = useProgress();
+        } = usePlayerProgress();
 
         const progressPercentage =
             duration > 0
@@ -611,7 +613,7 @@ export default function MiniPlayer() {
                                     intensity={84}
                                     tint="dark"
                                     style={
-                                        StyleSheet.absoluteFillObject
+                                        StyleSheet.absoluteFill
                                     }
                                 />
 
@@ -754,7 +756,7 @@ const styles = StyleSheet.create({
     },
 
     backgroundCover: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         opacity: 0.18,
         transform: [
             {
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
     },
 
     progressTrack: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor:
             "rgba(255,255,255,0.055)",
     },

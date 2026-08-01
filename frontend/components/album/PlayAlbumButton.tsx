@@ -1,58 +1,151 @@
-import React, { memo } from "react";
-import { Text, StyleSheet, TouchableOpacity } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
-import { Ionicons } from "@expo/vector-icons";
+import React, {
+    memo,
+} from "react";
+
+import {
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+} from "react-native";
+
+import {
+    LinearGradient,
+} from "expo-linear-gradient";
+
+import {
+    Ionicons,
+} from "@expo/vector-icons";
+
+import {
+    MotiView,
+} from "moti";
 
 type PlayAlbumButtonProps = {
     onPress: () => void;
 };
 
-const PlayAlbumButton = memo(function PlayAlbumButton({ onPress }: PlayAlbumButtonProps) {
-    return (
-        <MotiView
-            from={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", delay: 700, damping: 12 }}
-            style={styles.playButtonContainer}
-        >
-            <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
-                <LinearGradient
-                    colors={["#1DB954", "#1ed760"]}
-                    style={styles.playButton}
+const PlayAlbumButton = memo(
+    function PlayAlbumButton({
+                                 onPress,
+                             }: PlayAlbumButtonProps) {
+        return (
+            <MotiView
+                from={{
+                    opacity: 0,
+                    translateY: 10,
+                }}
+                animate={{
+                    opacity: 1,
+                    translateY: 0,
+                }}
+                transition={{
+                    type: "timing",
+                    duration: 320,
+                    delay: 120,
+                }}
+                style={
+                    styles.container
+                }
+            >
+                <TouchableOpacity
+                    activeOpacity={0.82}
+                    onPress={onPress}
+                    accessibilityRole="button"
+                    accessibilityLabel="Riproduci album"
                 >
-                    <Ionicons name="play" size={28} color="#000" />
-                    <Text style={styles.playButtonText}>Riproduci Album</Text>
-                </LinearGradient>
-            </TouchableOpacity>
-        </MotiView>
-    );
-});
+                    <LinearGradient
+                        colors={[
+                            "rgba(80,255,145,0.85)",
+                            "rgba(119,91,255,0.7)",
+                        ]}
+                        start={{
+                            x: 0,
+                            y: 0,
+                        }}
+                        end={{
+                            x: 1,
+                            y: 1,
+                        }}
+                        style={
+                            styles.border
+                        }
+                    >
+                        <LinearGradient
+                            colors={[
+                                "#26E477",
+                                "#1DB954",
+                            ]}
+                            start={{
+                                x: 0,
+                                y: 0,
+                            }}
+                            end={{
+                                x: 1,
+                                y: 1,
+                            }}
+                            style={
+                                styles.button
+                            }
+                        >
+                            <Ionicons
+                                name="play"
+                                size={20}
+                                color="#041108"
+                                style={
+                                    styles.playIcon
+                                }
+                            />
+
+                            <Text
+                                style={
+                                    styles.text
+                                }
+                            >
+                                Riproduci album
+                            </Text>
+                        </LinearGradient>
+                    </LinearGradient>
+                </TouchableOpacity>
+            </MotiView>
+        );
+    },
+);
 
 export default PlayAlbumButton;
 
 const styles = StyleSheet.create({
-    playButtonContainer: {
-        marginBottom: 32,
+    container: {
+        alignItems: "center",
+        marginBottom: 20,
     },
-    playButton: {
+
+    border: {
+        padding: 1.5,
+        borderRadius: 999,
+    },
+
+    button: {
+        minWidth: 190,
+        minHeight: 48,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 30,
-        gap: 12,
-        shadowColor: "#1DB954",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 8,
+        gap: 9,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 999,
     },
-    playButtonText: {
-        color: "#000",
-        fontSize: 16,
+
+    playIcon: {
+        marginLeft: 2,
+    },
+
+    text: {
+        color: "#041108",
+        fontSize: 14,
+        lineHeight: 18,
         fontWeight: "900",
-        letterSpacing: 0.5,
+        letterSpacing: 0.15,
+        textTransform: "uppercase",
     },
 });

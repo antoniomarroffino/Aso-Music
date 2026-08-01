@@ -7,7 +7,6 @@ import {
     View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
 import {
     Stack,
     useLocalSearchParams,
@@ -260,26 +259,12 @@ export default function AlbumDetails() {
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
-            <MotiView
+            <View
                 pointerEvents="none"
-                from={{
-                    opacity: 0.32,
-                    scale: 0.94,
-                }}
-                animate={{
-                    opacity: 0.52,
-                    scale: 1.06,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 6000,
-                    loop: true,
-                    repeatReverse: true,
-                }}
                 style={[
                     styles.ambientGlow,
                     styles.topGlow,
@@ -287,15 +272,15 @@ export default function AlbumDetails() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(29,185,84,0.20)",
-                        "rgba(99,72,255,0.12)",
+                        "rgba(29,185,84,0.13)",
+                        "rgba(99,72,255,0.07)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
-            </MotiView>
+            </View>
 
             <View
                 pointerEvents="none"
@@ -306,12 +291,12 @@ export default function AlbumDetails() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(84,58,220,0.13)",
-                        "rgba(29,185,84,0.05)",
+                        "rgba(84,58,220,0.08)",
+                        "rgba(29,185,84,0.03)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </View>
@@ -340,20 +325,7 @@ export default function AlbumDetails() {
                     album={album}
                 />
 
-                <MotiView
-                    from={{
-                        opacity: 0,
-                        translateY: 14,
-                    }}
-                    animate={{
-                        opacity: 1,
-                        translateY: 0,
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 16,
-                        delay: 250,
-                    }}
+                <View
                     style={
                         styles.statsPanel
                     }
@@ -374,7 +346,7 @@ export default function AlbumDetails() {
                                 stats.trackCount
                             }
                             label="Tracce"
-                            delay={300}
+                            delay={0}
                         />
 
                         <StatCard
@@ -388,7 +360,7 @@ export default function AlbumDetails() {
                                 stats.duration
                             }
                             label="Durata"
-                            delay={350}
+                            delay={0}
                         />
 
                         <StatCard
@@ -400,10 +372,10 @@ export default function AlbumDetails() {
                             ]}
                             value={stats.date}
                             label="Uscita"
-                            delay={400}
+                            delay={0}
                         />
                     </View>
-                </MotiView>
+                </View>
 
                 <View
                     style={

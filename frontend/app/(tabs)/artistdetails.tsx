@@ -1,7 +1,6 @@
 import React, {
     memo,
     useCallback,
-    useEffect,
     useMemo,
     useState,
 } from "react";
@@ -22,7 +21,6 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { MotiView } from "moti";
 import { BlurView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -59,7 +57,7 @@ const AmbientBackground = memo(
         return (
             <View
                 pointerEvents="none"
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
             >
                 <LinearGradient
                     colors={[
@@ -75,25 +73,11 @@ const AmbientBackground = memo(
                         1,
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
-                <MotiView
-                    from={{
-                        opacity: 0.2,
-                        scale: 0.94,
-                    }}
-                    animate={{
-                        opacity: 0.43,
-                        scale: 1.06,
-                    }}
-                    transition={{
-                        type: "timing",
-                        duration: 7600,
-                        loop: true,
-                        repeatReverse: true,
-                    }}
+                <View
                     style={[
                         styles.ambientOrb,
                         styles.greenOrb,
@@ -101,31 +85,17 @@ const AmbientBackground = memo(
                 >
                     <LinearGradient
                         colors={[
-                            "rgba(29,185,84,0.27)",
-                            "rgba(29,185,84,0.02)",
+                            "rgba(29,185,84,0.13)",
+                            "rgba(29,185,84,0.015)",
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
-                </MotiView>
+                </View>
 
-                <MotiView
-                    from={{
-                        opacity: 0.17,
-                        scale: 1.05,
-                    }}
-                    animate={{
-                        opacity: 0.38,
-                        scale: 0.95,
-                    }}
-                    transition={{
-                        type: "timing",
-                        duration: 9000,
-                        loop: true,
-                        repeatReverse: true,
-                    }}
+                <View
                     style={[
                         styles.ambientOrb,
                         styles.purpleOrb,
@@ -133,15 +103,15 @@ const AmbientBackground = memo(
                 >
                     <LinearGradient
                         colors={[
-                            "rgba(119,89,255,0.24)",
-                            "rgba(119,89,255,0.02)",
+                            "rgba(119,89,255,0.11)",
+                            "rgba(119,89,255,0.015)",
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
-                </MotiView>
+                </View>
             </View>
         );
     },
@@ -175,19 +145,7 @@ const LoadingState = memo(
                         },
                     ]}
                 >
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0.9,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                        }}
+                    <View
                         style={styles.loadingContent}
                     >
                         <LinearGradient
@@ -247,7 +205,7 @@ const LoadingState = memo(
                                 Preparazione profilo
                             </Text>
                         </View>
-                    </MotiView>
+                    </View>
                 </View>
             </View>
         );
@@ -289,7 +247,7 @@ const ErrorState = memo(
                     ]}
                 >
                     <BlurView
-                        intensity={58}
+                        intensity={28}
                         tint="dark"
                         style={
                             styles.floatingBackBlur
@@ -308,21 +266,7 @@ const ErrorState = memo(
                         styles.errorContainer
                     }
                 >
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0.9,
-                            translateY: 12,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                        }}
+                    <View
                         style={styles.errorContent}
                     >
                         <LinearGradient
@@ -390,7 +334,7 @@ const ErrorState = memo(
                                 </Text>
                             </LinearGradient>
                         </TouchableOpacity>
-                    </MotiView>
+                    </View>
                 </View>
             </View>
         );
@@ -492,19 +436,7 @@ const EmptySection = memo(
                               subtitle,
                           }: EmptySectionProps) {
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 8,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
             >
                 <LinearGradient
                     colors={[
@@ -559,7 +491,7 @@ const EmptySection = memo(
                         </View>
                     </View>
                 </LinearGradient>
-            </MotiView>
+            </View>
         );
     },
 );
@@ -617,7 +549,7 @@ const ArtistHeader = memo(
                     }
                 >
                     <BlurView
-                        intensity={58}
+                        intensity={28}
                         tint="dark"
                         style={
                             styles.headerBackBlur
@@ -631,21 +563,7 @@ const ArtistHeader = memo(
                     </BlurView>
                 </TouchableOpacity>
 
-                <MotiView
-                    from={{
-                        opacity: 0,
-                        translateY: -12,
-                        scale: 0.96,
-                    }}
-                    animate={{
-                        opacity: 1,
-                        translateY: 0,
-                        scale: 1,
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 17,
-                    }}
+                <View
                     style={
                         styles.artistHeaderContent
                     }
@@ -655,18 +573,7 @@ const ArtistHeader = memo(
                             styles.profileStage
                         }
                     >
-                        <MotiView
-                            from={{
-                                rotate: "0deg",
-                            }}
-                            animate={{
-                                rotate: "360deg",
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 18000,
-                                loop: true,
-                            }}
+                        <View
                             style={[
                                 styles.profileOrbit,
                                 {
@@ -716,7 +623,6 @@ const ArtistHeader = memo(
                                     },
                                 ]}
                                 contentFit="cover"
-                                transition={250}
                                 accessibilityLabel={`Foto di ${artist.name}`}
                             />
                         </LinearGradient>
@@ -820,7 +726,7 @@ const ArtistHeader = memo(
                             </Text>
                         </View>
                     </View>
-                </MotiView>
+                </View>
             </View>
         );
     },
@@ -860,22 +766,8 @@ const SongListSection = memo(
                 <View style={styles.songSkeletonList}>
                     {[0, 1, 2].map(
                         (index) => (
-                            <MotiView
+                            <View
                                 key={index}
-                                from={{
-                                    opacity: 0.3,
-                                }}
-                                animate={{
-                                    opacity: 0.72,
-                                }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 900,
-                                    delay:
-                                        index * 100,
-                                    loop: true,
-                                    repeatReverse: true,
-                                }}
                                 style={
                                     styles.songSkeleton
                                 }
@@ -903,7 +795,7 @@ const SongListSection = memo(
                                         }
                                     />
                                 </View>
-                            </MotiView>
+                            </View>
                         ),
                     )}
                 </View>
@@ -1094,22 +986,8 @@ const AlbumsSection = memo(
                 >
                     {[0, 1, 2].map(
                         (index) => (
-                            <MotiView
+                            <View
                                 key={index}
-                                from={{
-                                    opacity: 0.3,
-                                }}
-                                animate={{
-                                    opacity: 0.72,
-                                }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 900,
-                                    delay:
-                                        index * 100,
-                                    loop: true,
-                                    repeatReverse: true,
-                                }}
                                 style={[
                                     styles.albumSkeletonCard,
                                     {
@@ -1141,7 +1019,7 @@ const AlbumsSection = memo(
                                         }
                                     />
                                 </View>
-                            </MotiView>
+                            </View>
                         ),
                     )}
                 </ScrollView>
@@ -1272,17 +1150,21 @@ export default function ArtistDetailsScreen() {
     } = usePlayer();
 
     const [
-        visibleCount,
-        setVisibleCount,
-    ] = useState(
-        INITIAL_VISIBLE_SONGS,
-    );
+        visibleSongsState,
+        setVisibleSongsState,
+    ] = useState<{
+        artistId: string | undefined;
+        count: number;
+    }>({
+        artistId,
+        count: INITIAL_VISIBLE_SONGS,
+    });
 
-    useEffect(() => {
-        setVisibleCount(
-            INITIAL_VISIBLE_SONGS,
-        );
-    }, [artistId]);
+    const visibleCount =
+        visibleSongsState.artistId ===
+        artistId
+            ? visibleSongsState.count
+            : INITIAL_VISIBLE_SONGS;
 
     const artist = useMemo(() => {
         if (!artistId) {
@@ -1462,22 +1344,37 @@ export default function ArtistDetailsScreen() {
 
     const handleShowMore =
         useCallback(() => {
-            setVisibleCount(
-                (currentCount) =>
-                    Math.min(
-                        currentCount +
-                        SONGS_INCREMENT,
-                        artistSongs.length,
-                    ),
+            setVisibleSongsState(
+                (currentState) => {
+                    const currentCount =
+                        currentState.artistId ===
+                        artistId
+                            ? currentState.count
+                            : INITIAL_VISIBLE_SONGS;
+
+                    return {
+                        artistId,
+                        count: Math.min(
+                            currentCount +
+                            SONGS_INCREMENT,
+                            artistSongs.length,
+                        ),
+                    };
+                },
             );
-        }, [artistSongs.length]);
+        }, [
+            artistId,
+            artistSongs.length,
+        ]);
 
     const handleShowLess =
         useCallback(() => {
-            setVisibleCount(
+            setVisibleSongsState({
+                artistId,
+                count:
                 INITIAL_VISIBLE_SONGS,
-            );
-        }, []);
+            });
+        }, [artistId]);
 
     const contentWidth = Math.min(
         windowWidth,
@@ -1562,20 +1459,7 @@ export default function ArtistDetailsScreen() {
                         }
                     />
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 10,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 100,
-                        }}
+                    <View
                         style={
                             styles.bioSection
                         }
@@ -1624,22 +1508,9 @@ export default function ArtistDetailsScreen() {
                                 </Text>
                             </View>
                         </LinearGradient>
-                    </MotiView>
+                    </View>
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 12,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 170,
-                        }}
+                    <View
                         style={styles.section}
                     >
                         <SectionHeader
@@ -1681,22 +1552,9 @@ export default function ArtistDetailsScreen() {
                                 handlePlaySong
                             }
                         />
-                    </MotiView>
+                    </View>
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 12,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 240,
-                        }}
+                    <View
                         style={styles.section}
                     >
                         <SectionHeader
@@ -1726,7 +1584,7 @@ export default function ArtistDetailsScreen() {
                                 albumTrackState
                             }
                         />
-                    </MotiView>
+                    </View>
                 </View>
             </ScrollView>
         </View>
@@ -1966,9 +1824,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 9,
         },
-        shadowOpacity: 0.24,
-        shadowRadius: 18,
-        elevation: 10,
+        shadowOpacity: 0.14,
+        shadowRadius: 10,
+        elevation: 5,
     },
 
     profileImage: {

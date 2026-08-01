@@ -458,12 +458,12 @@ export default function SettingsScreen() {
                 ]}
                 locations={[
                     0,
-                    0.33,
+                    0.32,
                     0.72,
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
@@ -476,12 +476,12 @@ export default function SettingsScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(29,185,84,0.25)",
-                        "rgba(29,185,84,0.02)",
+                        "rgba(29,185,84,0.15)",
+                        "rgba(29,185,84,0.015)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </View>
@@ -495,12 +495,12 @@ export default function SettingsScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(119,86,255,0.22)",
-                        "rgba(119,86,255,0.02)",
+                        "rgba(119,89,255,0.13)",
+                        "rgba(119,89,255,0.012)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </View>
@@ -530,21 +530,7 @@ export default function SettingsScreen() {
                 >
                     {/* Header */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: -18,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                        }}
-                        style={styles.header}
-                    >
+                    <View style={styles.header}>
                         <TouchableOpacity
                             onPress={
                                 handleBack
@@ -613,30 +599,11 @@ export default function SettingsScreen() {
                                 }
                             </Text>
                         </View>
-                    </MotiView>
+                    </View>
 
                     {/* Profile */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0.96,
-                            translateY: 14,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 80,
-                        }}
-                        style={
-                            styles.profileWrapper
-                        }
-                    >
+                    <View style={styles.profileWrapper}>
                         <GlassCard
                             colors={[
                                 "rgba(54,239,130,0.42)",
@@ -770,26 +737,11 @@ export default function SettingsScreen() {
                                 </Text>
                             </LinearGradient>
                         </GlassCard>
-                    </MotiView>
+                    </View>
 
                     {/* Account details */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 16,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 140,
-                        }}
-                        style={styles.section}
-                    >
+                    <View style={styles.section}>
                         <SectionHeader
                             icon="person-outline"
                             title="Account"
@@ -828,26 +780,11 @@ export default function SettingsScreen() {
                                 isLast
                             />
                         </GlassCard>
-                    </MotiView>
+                    </View>
 
                     {/* App information */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 16,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 200,
-                        }}
-                        style={styles.section}
-                    >
+                    <View style={styles.section}>
                         <SectionHeader
                             icon="information-circle-outline"
                             title="Informazioni app"
@@ -933,26 +870,11 @@ export default function SettingsScreen() {
                                 </Text>
                             </View>
                         </GlassCard>
-                    </MotiView>
+                    </View>
 
                     {/* Patch notes */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 16,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 260,
-                        }}
-                        style={styles.section}
-                    >
+                    <View style={styles.section}>
                         <SectionHeader
                             icon="newspaper-outline"
                             title="Novità"
@@ -1107,28 +1029,11 @@ export default function SettingsScreen() {
                                 </GlassCard>
                             ),
                         )}
-                    </MotiView>
+                    </View>
 
                     {/* Support developer */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 16,
-                            scale: 0.98,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                            scale: 1,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 320,
-                        }}
-                        style={styles.section}
-                    >
+                    <View style={styles.section}>
                         <SectionHeader
                             icon="heart-outline"
                             title="Supporta lo sviluppo"
@@ -1366,25 +1271,11 @@ export default function SettingsScreen() {
                                 )}
                             </AnimatePresence>
                         </GlassCard>
-                    </MotiView>
+                    </View>
 
                     {/* Logout */}
 
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: 16,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                            delay: 380,
-                        }}
-                    >
+                    <View>
                         <TouchableOpacity
                             onPress={
                                 handleLogout
@@ -1437,7 +1328,7 @@ export default function SettingsScreen() {
                                 </Text>
                             </LinearGradient>
                         </TouchableOpacity>
-                    </MotiView>
+                    </View>
 
                     <Text
                         style={
@@ -1456,6 +1347,8 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        position: "relative",
+        overflow: "hidden",
         backgroundColor: "#050506",
     },
 
@@ -1463,20 +1356,21 @@ const styles = StyleSheet.create({
         position: "absolute",
         overflow: "hidden",
         borderRadius: 999,
+        opacity: 0.8,
     },
 
     greenOrb: {
-        width: 430,
-        height: 430,
-        top: -220,
-        right: -210,
+        width: 440,
+        height: 440,
+        top: -235,
+        right: -205,
     },
 
     purpleOrb: {
-        width: 410,
-        height: 410,
-        bottom: -210,
-        left: -220,
+        width: 420,
+        height: 420,
+        bottom: -220,
+        left: -230,
     },
 
     scrollContent: {

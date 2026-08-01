@@ -59,7 +59,7 @@ const AlbumHeader = memo(
                     intensity={58}
                     tint="dark"
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 

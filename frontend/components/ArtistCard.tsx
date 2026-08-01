@@ -152,7 +152,7 @@ function ArtistCardComponent({
                                         1,
                                     ]}
                                     style={
-                                        StyleSheet.absoluteFillObject
+                                        StyleSheet.absoluteFill
                                     }
                                 />
 

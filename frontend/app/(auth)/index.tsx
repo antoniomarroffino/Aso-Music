@@ -229,7 +229,7 @@ const AmbientBackground = memo(
                         1,
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
 
@@ -261,7 +261,7 @@ const AmbientBackground = memo(
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </MotiView>
@@ -294,7 +294,7 @@ const AmbientBackground = memo(
                             "transparent",
                         ]}
                         style={
-                            StyleSheet.absoluteFillObject
+                            StyleSheet.absoluteFill
                         }
                     />
                 </MotiView>

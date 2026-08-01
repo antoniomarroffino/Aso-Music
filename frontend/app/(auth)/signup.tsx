@@ -568,7 +568,7 @@ export default function SignupScreen() {
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
@@ -600,7 +600,7 @@ export default function SignupScreen() {
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </MotiView>
@@ -633,7 +633,7 @@ export default function SignupScreen() {
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
             </MotiView>

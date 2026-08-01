@@ -44,6 +44,11 @@ const ROW_BOTTOM_SPACING = 11;
  */
 const ARTIST_CARD_INFO_HEIGHT = 64;
 
+const ARTIST_VIEWABILITY_CONFIG = {
+    itemVisiblePercentThreshold: 35,
+    minimumViewTime: 80,
+};
+
 function getArtistLetter(
     artistName: string,
 ): string {
@@ -74,20 +79,7 @@ const ArtistsSkeletonGrid = memo(
                         key={index}
                         style={styles.skeletonColumn}
                     >
-                        <MotiView
-                            from={{
-                                opacity: 0.3,
-                            }}
-                            animate={{
-                                opacity: 0.78,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 950,
-                                delay: index * 80,
-                                loop: true,
-                                repeatReverse: true,
-                            }}
+                        <View
                             style={styles.skeletonCard}
                         >
                             <LinearGradient
@@ -117,7 +109,7 @@ const ArtistsSkeletonGrid = memo(
                                     </View>
                                 </View>
                             </LinearGradient>
-                        </MotiView>
+                        </View>
                     </View>
                 ))}
             </View>
@@ -132,36 +124,11 @@ const ArtistsSkeletonGrid = memo(
 const EmptyArtistsState = memo(
     function EmptyArtistsState() {
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    scale: 0.96,
-                    translateY: 12,
-                }}
-                animate={{
-                    opacity: 1,
-                    scale: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
                 style={styles.emptyState}
             >
                 <View style={styles.emptyStage}>
-                    <MotiView
-                        from={{
-                            rotate: "0deg",
-                        }}
-                        animate={{
-                            rotate: "360deg",
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 12000,
-                            loop: true,
-                        }}
+                    <View
                         style={styles.emptyOrbit}
                     />
 
@@ -194,7 +161,7 @@ const EmptyArtistsState = memo(
                 <Text style={styles.emptyDescription}>
                     Il catalogo non contiene ancora artisti disponibili.
                 </Text>
-            </MotiView>
+            </View>
         );
     },
 );
@@ -469,7 +436,7 @@ export default function ArtistsScreen() {
         );
 
     const onViewableItemsChanged =
-        useRef(
+        useCallback(
             ({
                  viewableItems,
              }: {
@@ -495,14 +462,8 @@ export default function ArtistsScreen() {
                     );
                 }
             },
-        ).current;
-
-    const viewabilityConfig =
-        useRef({
-            itemVisiblePercentThreshold:
-                35,
-            minimumViewTime: 80,
-        }).current;
+            [],
+        );
 
     const renderItem = useCallback(
         ({
@@ -542,26 +503,12 @@ export default function ArtistsScreen() {
                     1,
                 ]}
                 style={
-                    StyleSheet.absoluteFillObject
+                    StyleSheet.absoluteFill
                 }
             />
 
-            <MotiView
+            <View
                 pointerEvents="none"
-                from={{
-                    opacity: 0.2,
-                    scale: 0.94,
-                }}
-                animate={{
-                    opacity: 0.45,
-                    scale: 1.07,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 7600,
-                    loop: true,
-                    repeatReverse: true,
-                }}
                 style={[
                     styles.ambientOrb,
                     styles.greenOrb,
@@ -569,32 +516,18 @@ export default function ArtistsScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(29,185,84,0.27)",
-                        "rgba(29,185,84,0.02)",
+                        "rgba(29,185,84,0.15)",
+                        "rgba(29,185,84,0.015)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
-            </MotiView>
+            </View>
 
-            <MotiView
+            <View
                 pointerEvents="none"
-                from={{
-                    opacity: 0.18,
-                    scale: 1.06,
-                }}
-                animate={{
-                    opacity: 0.39,
-                    scale: 0.95,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 9000,
-                    loop: true,
-                    repeatReverse: true,
-                }}
                 style={[
                     styles.ambientOrb,
                     styles.purpleOrb,
@@ -602,31 +535,19 @@ export default function ArtistsScreen() {
             >
                 <LinearGradient
                     colors={[
-                        "rgba(119,89,255,0.25)",
-                        "rgba(119,89,255,0.02)",
+                        "rgba(119,89,255,0.13)",
+                        "rgba(119,89,255,0.012)",
                         "transparent",
                     ]}
                     style={
-                        StyleSheet.absoluteFillObject
+                        StyleSheet.absoluteFill
                     }
                 />
-            </MotiView>
+            </View>
 
             <StatusBar style="light" />
 
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: -15,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
                 style={[
                     styles.header,
                     {
@@ -705,7 +626,7 @@ export default function ArtistsScreen() {
                 >
                     Esplora gli artisti del catalogo in ordine alfabetico.
                 </Text>
-            </MotiView>
+            </View>
 
             <View style={styles.listShell}>
                 {isLoading ? (
@@ -757,7 +678,7 @@ export default function ArtistsScreen() {
                                 onViewableItemsChanged
                             }
                             viewabilityConfig={
-                                viewabilityConfig
+                                ARTIST_VIEWABILITY_CONFIG
                             }
                             removeClippedSubviews={
                                 Platform.OS ===
@@ -805,19 +726,16 @@ export default function ArtistsScreen() {
                         key={previewLetter}
                         from={{
                             opacity: 0,
-                            scale: 0.65,
                         }}
                         animate={{
                             opacity: 1,
-                            scale: 1,
                         }}
                         exit={{
                             opacity: 0,
-                            scale: 0.8,
                         }}
                         transition={{
-                            type: "spring",
-                            damping: 15,
+                            type: "timing",
+                            duration: 140,
                         }}
                         style={
                             styles.letterIndicator
