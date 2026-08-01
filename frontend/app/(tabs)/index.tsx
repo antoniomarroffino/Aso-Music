@@ -706,78 +706,64 @@ export default function HomeScreen() {
 
             <StatusBar style="light" />
 
-            {albumsLoading ? (
-                <View
-                    style={[
-                        styles.loadingContainer,
-                        {
-                            paddingTop:
-                                Platform.OS ===
-                                "web"
-                                    ? 46
-                                    : insets.top +
-                                    14,
-                        },
-                    ]}
-                >
-                    {ListHeader}
+            <FlatList
+                data={
+                    albumsLoading
+                        ? []
+                        : finalAlbumList
+                }
+                keyExtractor={
+                    keyExtractor
+                }
+                renderItem={
+                    renderItem
+                }
+                numColumns={2}
+                ListHeaderComponent={
+                    ListHeader
+                }
+                ListEmptyComponent={
+                    albumsLoading
+                        ? SkeletonGrid
+                        : EmptyAlbumCatalog
+                }
+                columnWrapperStyle={
+                    !albumsLoading &&
+                    finalAlbumList.length >
+                    1
+                        ? styles.row
+                        : undefined
+                }
+                showsVerticalScrollIndicator={
+                    false
+                }
+                contentContainerStyle={[
+                    styles.listContent,
+                    {
+                        paddingTop:
+                            Platform.OS ===
+                            "web"
+                                ? 30
+                                : insets.top +
+                                8,
 
-                    <SkeletonGrid />
-                </View>
-            ) : (
-                <FlatList
-                    data={
-                        finalAlbumList
-                    }
-                    keyExtractor={
-                        keyExtractor
-                    }
-                    renderItem={
-                        renderItem
-                    }
-                    numColumns={2}
-                    ListHeaderComponent={
-                        ListHeader
-                    }
-                    ListEmptyComponent={
-                        EmptyAlbumCatalog
-                    }
-                    columnWrapperStyle={
-                        finalAlbumList.length >
-                        1
-                            ? styles.row
-                            : undefined
-                    }
-                    showsVerticalScrollIndicator={
-                        false
-                    }
-                    contentContainerStyle={[
-                        styles.listContent,
-                        {
-                            paddingTop:
-                                Platform.OS ===
-                                "web"
-                                    ? 30
-                                    : insets.top +
-                                    8,
+                        paddingBottom:
+                            insets.bottom +
+                            145,
 
-                            paddingBottom:
-                                insets.bottom +
-                                145,
-
-                            flexGrow:
-                                finalAlbumList.length ===
-                                0
-                                    ? 1
-                                    : undefined,
-                        },
-                    ]}
-                    removeClippedSubviews={false}
-                    maxToRenderPerBatch={8}
-                    windowSize={7}
-                    initialNumToRender={6}
-                />
-            )}
+                        flexGrow:
+                            albumsLoading ||
+                            finalAlbumList.length ===
+                            0
+                                ? 1
+                                : undefined,
+                    },
+                ]}
+                removeClippedSubviews={false}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                initialNumToRender={6}
+            />
         </View>
     );
 }
