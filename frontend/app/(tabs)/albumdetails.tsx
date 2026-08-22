@@ -1,4 +1,4 @@
-import React, {
+import {
     useCallback,
     useMemo,
 } from "react";
@@ -6,21 +6,30 @@ import {
     StyleSheet,
     View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import {
-    Stack,
     useLocalSearchParams,
     useRouter,
 } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useQuery } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    useQuery,
+} from "@tanstack/react-query";
+import {
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { SongPreviewDTO } from "@/types/music";
-import { useAlbums } from "@/hooks/useAlbums";
-import { fetchSongsByAlbum } from "@/api/songs";
-import { usePlayer } from "@/context/PlayerContext";
-import { useArtists } from "@/hooks/useArtists";
+import type {
+    SongPreviewDTO,
+} from "@/types/music";
+import {
+    useAlbums,
+} from "@/hooks/useAlbums";
+import {
+    fetchSongsByAlbum,
+} from "@/api/songs";
+
+import {
+    useArtists,
+} from "@/hooks/useArtists";
 import SafeScrollView from "@/components/ui/SafeScrollView";
 
 import {
@@ -34,39 +43,63 @@ import {
     StatCard,
     TracklistSection,
 } from "@/components/album";
+import {usePlayerActions, usePlayerState} from "@/hooks/usePlayer";
+
+const getSongKey = (
+    song:
+    Pick<
+        SongPreviewDTO,
+        "albumId" | "id"
+    >,
+): string =>
+    `${song.albumId}:${song.id}`;
 
 export default function AlbumDetails() {
-    const { id } =
-        useLocalSearchParams<{ id?: string }>();
+    const params =
+        useLocalSearchParams<{
+            id?:
+                | string
+                | string[];
+        }>();
+
+    const albumId =
+        Array.isArray(params.id)
+            ? params.id[0]
+            : params.id;
 
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
     const {
-        data: albumPreviews,
+        data: albumPreviews = [],
+        isLoading: loadingAlbums,
     } = useAlbums();
 
     const {
-        data: artists,
+        data: artists = [],
         isLoading: loadingArtists,
     } = useArtists();
 
     const {
         playSong,
+        togglePlayPause,
+    } = usePlayerActions();
+
+    const {
         currentSong,
         isPlaying,
-        togglePlayPause,
-    } = usePlayer();
+    } = usePlayerState();
 
     const album = useMemo(
         () =>
-            albumPreviews?.find(
+            albumPreviews.find(
                 (albumPreview) =>
-                    albumPreview.id === id,
+                    albumPreview.id ===
+                    albumId,
             ),
         [
+            albumId,
             albumPreviews,
-            id,
         ],
     );
 
@@ -76,18 +109,22 @@ export default function AlbumDetails() {
     } = useQuery<SongPreviewDTO[]>({
         queryKey: [
             "songs",
-            id,
+            albumId,
         ],
         queryFn: () => {
-            if (!id) {
+            if (!albumId) {
                 throw new Error(
                     "Album ID non disponibile",
                 );
             }
 
-            return fetchSongsByAlbum(id);
+            return fetchSongsByAlbum(
+                albumId,
+            );
         },
-        enabled: Boolean(id),
+        enabled: Boolean(
+            albumId,
+        ),
         staleTime: 1000 * 60 * 60,
     });
 
@@ -158,6 +195,13 @@ export default function AlbumDetails() {
     const currentSongId =
         currentSong?.id ?? null;
 
+    const currentSongKey =
+        currentSong
+            ? getSongKey(
+                currentSong,
+            )
+            : null;
+
     const handleGoBack =
         useCallback(() => {
             router.back();
@@ -165,26 +209,33 @@ export default function AlbumDetails() {
 
     const handlePlaySong =
         useCallback(
-            (
+            async (
                 song: SongPreviewDTO,
                 index: number,
-            ) => {
-                if (
-                    currentSongId ===
-                    song.id
-                ) {
-                    void togglePlayPause();
-                    return;
-                }
+            ): Promise<void> => {
+                try {
+                    if (
+                        currentSongKey ===
+                        getSongKey(song)
+                    ) {
+                        await togglePlayPause();
+                        return;
+                    }
 
-                void playSong(
-                    song,
-                    sortedSongs,
-                    index,
-                );
+                    await playSong(
+                        song,
+                        sortedSongs,
+                        index,
+                    );
+                } catch (error) {
+                    console.error(
+                        "Errore durante l'avvio del brano:",
+                        error,
+                    );
+                }
             },
             [
-                currentSongId,
+                currentSongKey,
                 playSong,
                 sortedSongs,
                 togglePlayPause,
@@ -192,35 +243,48 @@ export default function AlbumDetails() {
         );
 
     const handlePlayAlbum =
-        useCallback(() => {
-            const firstSong =
-                sortedSongs[0];
+        useCallback(
+            async (): Promise<void> => {
+                const firstSong =
+                    sortedSongs[0];
 
-            if (!firstSong) {
-                return;
-            }
+                if (!firstSong) {
+                    return;
+                }
 
-            if (
-                currentSongId ===
-                firstSong.id
-            ) {
-                void togglePlayPause();
-                return;
-            }
+                try {
+                    if (
+                        currentSongKey ===
+                        getSongKey(
+                            firstSong,
+                        )
+                    ) {
+                        await togglePlayPause();
+                        return;
+                    }
 
-            void playSong(
-                firstSong,
+                    await playSong(
+                        firstSong,
+                        sortedSongs,
+                        0,
+                    );
+                } catch (error) {
+                    console.error(
+                        "Errore durante l'avvio dell'album:",
+                        error,
+                    );
+                }
+            },
+            [
+                currentSongKey,
+                playSong,
                 sortedSongs,
-                0,
-            );
-        }, [
-            currentSongId,
-            playSong,
-            sortedSongs,
-            togglePlayPause,
-        ]);
+                togglePlayPause,
+            ],
+        );
 
     if (
+        loadingAlbums ||
         loadingSongs ||
         loadingArtists
     ) {
@@ -239,70 +303,6 @@ export default function AlbumDetails() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen
-                options={{
-                    headerShown: false,
-                }}
-            />
-
-            <LinearGradient
-                colors={[
-                    "#050609",
-                    "#090b12",
-                    "#0c0c17",
-                    "#050506",
-                ]}
-                locations={[
-                    0,
-                    0.32,
-                    0.72,
-                    1,
-                ]}
-                style={
-                    StyleSheet.absoluteFill
-                }
-            />
-
-            <View
-                pointerEvents="none"
-                style={[
-                    styles.ambientGlow,
-                    styles.topGlow,
-                ]}
-            >
-                <LinearGradient
-                    colors={[
-                        "rgba(29,185,84,0.13)",
-                        "rgba(99,72,255,0.07)",
-                        "transparent",
-                    ]}
-                    style={
-                        StyleSheet.absoluteFill
-                    }
-                />
-            </View>
-
-            <View
-                pointerEvents="none"
-                style={[
-                    styles.ambientGlow,
-                    styles.bottomGlow,
-                ]}
-            >
-                <LinearGradient
-                    colors={[
-                        "rgba(84,58,220,0.08)",
-                        "rgba(29,185,84,0.03)",
-                        "transparent",
-                    ]}
-                    style={
-                        StyleSheet.absoluteFill
-                    }
-                />
-            </View>
-
-            <StatusBar style="light" />
-
             <AlbumHeader
                 title={album.name}
                 onGoBack={
@@ -394,23 +394,12 @@ export default function AlbumDetails() {
                         styles.tracklistShell
                     }
                 >
-                    <LinearGradient
-                        pointerEvents="none"
-                        colors={[
-                            "rgba(255,255,255,0.04)",
-                            "transparent",
-                        ]}
-                        style={
-                            styles.tracklistTopGlow
-                        }
-                    />
-
                     <TracklistSection
                         songs={
                             sortedSongs
                         }
                         artists={
-                            artists ?? []
+                            artists
                         }
                         albumId={
                             album.id
@@ -446,26 +435,6 @@ const styles = StyleSheet.create({
         paddingBottom: 150,
     },
 
-    ambientGlow: {
-        position: "absolute",
-        overflow: "hidden",
-        borderRadius: 999,
-    },
-
-    topGlow: {
-        width: 430,
-        height: 430,
-        top: -190,
-        right: -170,
-    },
-
-    bottomGlow: {
-        width: 380,
-        height: 380,
-        bottom: -180,
-        left: -180,
-    },
-
     statsPanel: {
         marginTop: 2,
         marginBottom: 14,
@@ -483,16 +452,6 @@ const styles = StyleSheet.create({
     },
 
     tracklistShell: {
-        position: "relative",
         borderRadius: 18,
-    },
-
-    tracklistTopGlow: {
-        position: "absolute",
-        top: 0,
-        left: 12,
-        right: 12,
-        height: 1,
-        zIndex: 2,
     },
 });

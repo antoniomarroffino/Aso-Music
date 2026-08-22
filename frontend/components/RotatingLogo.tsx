@@ -1,13 +1,12 @@
-import React, {
+import {
     memo,
     useCallback,
-    useEffect,
     useMemo,
     useState,
 } from "react";
 import {
+    ActivityIndicator,
     Modal,
-    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -16,8 +15,6 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueries } from "@tanstack/react-query";
 
@@ -26,13 +23,17 @@ import {
     SongPreviewDTO,
 } from "@/types/music";
 import { useAlbums } from "@/hooks/useAlbums";
-import { usePlayer } from "@/context/PlayerContext";
+import {
+    usePlayerActions,
+    usePlayerState,
+} from "@/hooks/usePlayer";
 import { fetchSongsByAlbum } from "@/api/songs";
 
 type SuggestedTrack = {
     song: SongPreviewDTO;
     album: AlbumPreviewDTO;
     queue: SongPreviewDTO[];
+    queueIndex: number;
 };
 
 function getArtistNames(
@@ -52,35 +53,53 @@ function getArtistNames(
         "Artista sconosciuto";
 }
 
-function pickRandomSuggestion(
-    suggestions: SuggestedTrack[],
-    currentSongId?: string,
+function getSongKey(
+    song:
+    Pick<
+        SongPreviewDTO,
+        "albumId" | "id"
+    >,
+): string {
+    return `${song.albumId}:${song.id}`;
+}
+
+function pickSuggestion(
+    suggestions:
+    readonly SuggestedTrack[],
+    selectionIndex: number,
+    currentSongKey: string | null,
 ): SuggestedTrack | null {
-    if (suggestions.length === 0) {
+    if (
+        suggestions.length ===
+        0
+    ) {
         return null;
     }
 
-    if (suggestions.length === 1) {
-        return suggestions[0];
-    }
-
-    const randomIndex = Math.floor(
-        Math.random() * suggestions.length,
-    );
-
-    const selectedSuggestion =
-        suggestions[randomIndex];
+    let selectedIndex =
+        Math.abs(
+            selectionIndex,
+        ) %
+        suggestions.length;
 
     if (
-        selectedSuggestion.song.id !==
-        currentSongId
+        suggestions.length > 1 &&
+        getSongKey(
+            suggestions[
+                selectedIndex
+                ].song,
+        ) === currentSongKey
     ) {
-        return selectedSuggestion;
+        selectedIndex =
+            (
+                selectedIndex +
+                1
+            ) %
+            suggestions.length;
     }
 
     return suggestions[
-    (randomIndex + 1) %
-    suggestions.length
+        selectedIndex
         ];
 }
 
@@ -134,23 +153,10 @@ const ModalContent = memo(
                     }
                 />
 
-                <MotiView
-                    from={{
-                        opacity: 0,
-                        scale: 0.94,
-                        translateY: 18,
-                    }}
-                    animate={{
-                        opacity: 1,
-                        scale: 1,
-                        translateY: 0,
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 17,
-                        stiffness: 150,
-                    }}
-                    style={styles.modalCardWrapper}
+                <View
+                    style={
+                        styles.modalCardWrapper
+                    }
                 >
                     <LinearGradient
                         colors={[
@@ -168,14 +174,10 @@ const ModalContent = memo(
                         }}
                         style={styles.modalBorder}
                     >
-                        <BlurView
-                            intensity={
-                                Platform.OS === "web"
-                                    ? 30
-                                    : 65
+                        <View
+                            style={
+                                styles.modalSurfaceContainer
                             }
-                            tint="dark"
-                            style={styles.modalBlur}
                         >
                             <LinearGradient
                                 colors={[
@@ -268,31 +270,16 @@ const ModalContent = memo(
                                             styles.loadingContent
                                         }
                                     >
-                                        <MotiView
-                                            from={{
-                                                rotate:
-                                                    "0deg",
-                                            }}
-                                            animate={{
-                                                rotate:
-                                                    "360deg",
-                                            }}
-                                            transition={{
-                                                type: "timing",
-                                                duration:
-                                                    1800,
-                                                loop: true,
-                                            }}
+                                        <View
                                             style={
                                                 styles.loadingIcon
                                             }
                                         >
-                                            <Ionicons
-                                                name="disc-outline"
-                                                size={30}
+                                            <ActivityIndicator
+                                                size="small"
                                                 color="#62E992"
                                             />
-                                        </MotiView>
+                                        </View>
 
                                         <Text
                                             style={
@@ -332,9 +319,6 @@ const ModalContent = memo(
                                                         styles.cover
                                                     }
                                                     contentFit="cover"
-                                                    transition={
-                                                        200
-                                                    }
                                                 />
 
                                                 <LinearGradient
@@ -589,16 +573,276 @@ const ModalContent = memo(
                                     </View>
                                 )}
                             </LinearGradient>
-                        </BlurView>
+                        </View>
                     </LinearGradient>
-                </MotiView>
+                </View>
             </View>
         );
     },
 );
 
 /* -------------------------------------------------------------------------- */
-/* Rotating logo                                                              */
+/* Suggestion modal controller                                                */
+/* -------------------------------------------------------------------------- */
+
+type SuggestionModalProps = {
+    albums:
+        AlbumPreviewDTO[];
+
+    albumsLoading: boolean;
+
+    currentSong:
+        | SongPreviewDTO
+        | null;
+
+    playSong: (
+        song: SongPreviewDTO,
+        queue?: SongPreviewDTO[],
+        startIndex?: number,
+    ) => Promise<void>;
+
+    togglePlayPause:
+        () => Promise<void>;
+
+    onClose: () => void;
+};
+
+const SuggestionModal = memo(
+    function SuggestionModal({
+                                 albums,
+                                 albumsLoading,
+                                 currentSong,
+                                 playSong,
+                                 togglePlayPause,
+                                 onClose,
+                             }: SuggestionModalProps) {
+        /*
+         * Questi observer esistono soltanto mentre il modal è aperto.
+         * Quando il modal viene chiuso, il componente viene smontato.
+         */
+        const songQueries =
+            useQueries({
+                queries:
+                    albums.map(
+                        (album) => ({
+                            queryKey: [
+                                "songs",
+                                album.id,
+                            ],
+
+                            queryFn: () =>
+                                fetchSongsByAlbum(
+                                    album.id,
+                                ),
+
+                            staleTime:
+                                1000 *
+                                60 *
+                                60,
+
+                            enabled:
+                                album.available !==
+                                false,
+                        }),
+                    ),
+            });
+
+        const [
+            selectionIndex,
+            setSelectionIndex,
+        ] =
+            useState(
+                () =>
+                    Math.floor(
+                        Math.random() *
+                        1_000_000,
+                    ),
+            );
+
+        const currentSongKey =
+            currentSong
+                ? getSongKey(
+                    currentSong,
+                )
+                : null;
+
+        const suggestions =
+            useMemo<
+                SuggestedTrack[]
+            >(() => {
+                const result:
+                    SuggestedTrack[] =
+                    [];
+
+                albums.forEach(
+                    (
+                        album,
+                        albumIndex,
+                    ) => {
+                        if (
+                            album.available ===
+                            false
+                        ) {
+                            return;
+                        }
+
+                        const queue =
+                            songQueries[
+                                albumIndex
+                                ]?.data ??
+                            [];
+
+                        queue.forEach(
+                            (
+                                song,
+                                queueIndex,
+                            ) => {
+                                const normalizedTitle =
+                                    song.title
+                                        .trim()
+                                        .toLowerCase();
+
+                                if (
+                                    !normalizedTitle ||
+                                    normalizedTitle ===
+                                    "none"
+                                ) {
+                                    return;
+                                }
+
+                                result.push({
+                                    song,
+                                    album,
+                                    queue,
+                                    queueIndex,
+                                });
+                            },
+                        );
+                    },
+                );
+
+                return result;
+            }, [
+                albums,
+                songQueries,
+            ]);
+
+        /*
+         * Nessun effect:
+         * la proposta è un valore derivato dai dati e dall'indice.
+         */
+        const suggestion =
+            useMemo(
+                () =>
+                    pickSuggestion(
+                        suggestions,
+                        selectionIndex,
+                        currentSongKey,
+                    ),
+                [
+                    currentSongKey,
+                    selectionIndex,
+                    suggestions,
+                ],
+            );
+
+        const songsLoading =
+            songQueries.some(
+                (query) =>
+                    query.isFetching &&
+                    !query.data,
+            );
+
+        const catalogLoading =
+            albumsLoading ||
+            songsLoading;
+
+        const handleShuffle =
+            useCallback(() => {
+                setSelectionIndex(
+                    (
+                        currentIndex,
+                    ) =>
+                        currentIndex +
+                        1,
+                );
+            }, []);
+
+        const handlePlay =
+            useCallback(
+                async (): Promise<void> => {
+                    if (!suggestion) {
+                        return;
+                    }
+
+                    try {
+                        if (
+                            currentSongKey ===
+                            getSongKey(
+                                suggestion.song,
+                            )
+                        ) {
+                            await togglePlayPause();
+                        } else {
+                            await playSong(
+                                suggestion.song,
+                                suggestion.queue,
+                                suggestion.queueIndex,
+                            );
+                        }
+
+                        onClose();
+                    } catch (error) {
+                        console.error(
+                            "Errore durante l'avvio del suggerimento:",
+                            error,
+                        );
+                    }
+                },
+                [
+                    currentSongKey,
+                    onClose,
+                    playSong,
+                    suggestion,
+                    togglePlayPause,
+                ],
+            );
+
+        return (
+            <Modal
+                visible
+                transparent
+                animationType="none"
+                statusBarTranslucent
+                hardwareAccelerated
+                onRequestClose={
+                    onClose
+                }
+            >
+                <ModalContent
+                    suggestion={
+                        suggestion
+                    }
+                    isLoading={
+                        catalogLoading
+                    }
+                    onPlay={
+                        handlePlay
+                    }
+                    onShuffle={
+                        handleShuffle
+                    }
+                    onClose={
+                        onClose
+                    }
+                />
+            </Modal>
+        );
+    },
+);
+
+/* -------------------------------------------------------------------------- */
+/* Static logo                                                                */
 /* -------------------------------------------------------------------------- */
 
 type RotatingLogoProps = {
@@ -610,219 +854,66 @@ function RotatingLogoComponent({
                                }: RotatingLogoProps) {
     const {
         data: albums = [],
-        isLoading: albumsLoading,
+        isLoading:
+            albumsLoading,
     } = useAlbums();
 
     const {
-        playSong,
         currentSong,
+    } = usePlayerState();
+
+    const {
+        playSong,
         togglePlayPause,
-    } = usePlayer();
+    } = usePlayerActions();
 
     const [
         showMessage,
         setShowMessage,
-    ] = useState(false);
+    ] =
+        useState(false);
 
-    const [
-        suggestion,
-        setSuggestion,
-    ] = useState<SuggestedTrack | null>(
-        null,
-    );
-
-    /*
-     * Si iscrive alle stesse query usate dal
-     * prefetch globale.
-     */
-    const songQueries = useQueries({
-        queries: albums.map((album) => ({
-            queryKey: [
-                "songs",
-                album.id,
-            ],
-            queryFn: () =>
-                fetchSongsByAlbum(album.id),
-            staleTime:
-                1000 * 60 * 60,
-            enabled:
-                album.available !== false,
-        })),
-    });
-
-    const suggestions =
-        useMemo<SuggestedTrack[]>(() => {
-            const availableSuggestions: SuggestedTrack[] =
-                [];
-
-            albums.forEach(
-                (album, albumIndex) => {
-                    if (
-                        album.available ===
-                        false
-                    ) {
-                        return;
-                    }
-
-                    const queue =
-                        songQueries[
-                            albumIndex
-                            ]?.data ?? [];
-
-                    queue.forEach((song) => {
-                        const normalizedTitle =
-                            song.title
-                                .trim()
-                                .toLowerCase();
-
-                        if (
-                            !normalizedTitle ||
-                            normalizedTitle ===
-                            "none"
-                        ) {
-                            return;
-                        }
-
-                        availableSuggestions.push({
-                            song,
-                            album,
-                            queue,
-                        });
-                    });
+    const dimensions =
+        useMemo(
+            () => ({
+                logo: {
+                    width: size,
+                    height: size,
+                    borderRadius:
+                        size / 2,
                 },
-            );
 
-            return availableSuggestions;
-        }, [
-            albums,
-            songQueries,
-        ]);
+                orbit: {
+                    width:
+                        size + 10,
 
-    const songsLoading =
-        songQueries.some(
-            (query) =>
-                query.isFetching &&
-                !query.data,
+                    height:
+                        size + 10,
+
+                    borderRadius:
+                        (
+                            size +
+                            10
+                        ) /
+                        2,
+                },
+            }),
+            [size],
         );
-
-    const catalogLoading =
-        albumsLoading || songsLoading;
-
-    /*
-     * Se il modal viene aperto mentre i brani
-     * sono ancora in caricamento, la proposta
-     * viene generata appena arrivano.
-     */
-    useEffect(() => {
-        if (
-            !showMessage ||
-            suggestion ||
-            suggestions.length === 0
-        ) {
-            return;
-        }
-
-        setSuggestion(
-            pickRandomSuggestion(
-                suggestions,
-            ),
-        );
-    }, [
-        showMessage,
-        suggestion,
-        suggestions,
-    ]);
-
-    const dynamicLogoStyle = useMemo(
-        () => ({
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-        }),
-        [size],
-    );
-
-    const orbitStyle = useMemo(
-        () => ({
-            width: size + 10,
-            height: size + 10,
-            borderRadius:
-                (size + 10) / 2,
-        }),
-        [size],
-    );
 
     const handleOpenSuggestion =
         useCallback(() => {
-            setSuggestion(
-                pickRandomSuggestion(
-                    suggestions,
-                    suggestion?.song.id,
-                ),
+            setShowMessage(
+                true,
             );
-
-            setShowMessage(true);
-        }, [
-            suggestion?.song.id,
-            suggestions,
-        ]);
-
-    const handleShuffle =
-        useCallback(() => {
-            setSuggestion(
-                (currentSuggestion) =>
-                    pickRandomSuggestion(
-                        suggestions,
-                        currentSuggestion
-                            ?.song.id,
-                    ),
-            );
-        }, [suggestions]);
+        }, []);
 
     const handleClose =
         useCallback(() => {
-            setShowMessage(false);
-        }, []);
-
-    const handlePlay =
-        useCallback(() => {
-            if (!suggestion) {
-                return;
-            }
-
-            if (
-                currentSong?.id ===
-                suggestion.song.id
-            ) {
-                void togglePlayPause();
-                setShowMessage(false);
-                return;
-            }
-
-            const songIndex =
-                suggestion.queue.findIndex(
-                    (song) =>
-                        song.id ===
-                        suggestion.song.id,
-                );
-
-            if (songIndex < 0) {
-                return;
-            }
-
-            void playSong(
-                suggestion.queue[songIndex],
-                suggestion.queue,
-                songIndex,
+            setShowMessage(
+                false,
             );
-
-            setShowMessage(false);
-        }, [
-            currentSong?.id,
-            playSong,
-            suggestion,
-            togglePlayPause,
-        ]);
+        }, []);
 
     return (
         <>
@@ -835,33 +926,20 @@ function RotatingLogoComponent({
                 }
                 style={[
                     styles.logoTouchable,
-                    dynamicLogoStyle,
+                    dimensions.logo,
                 ]}
             >
                 <View
                     style={[
                         styles.logoStage,
-                        dynamicLogoStyle,
+                        dimensions.logo,
                     ]}
                 >
-                    <MotiView
+                    <View
                         pointerEvents="none"
-                        from={{
-                            rotate: "0deg",
-                            opacity: 0.45,
-                        }}
-                        animate={{
-                            rotate: "360deg",
-                            opacity: 0.9,
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 16000,
-                            loop: true,
-                        }}
                         style={[
                             styles.logoOrbit,
-                            orbitStyle,
+                            dimensions.orbit,
                         ]}
                     />
 
@@ -881,21 +959,10 @@ function RotatingLogoComponent({
                         }}
                         style={[
                             styles.logoBorder,
-                            dynamicLogoStyle,
+                            dimensions.logo,
                         ]}
                     >
-                        <MotiView
-                            from={{
-                                rotate: "0deg",
-                            }}
-                            animate={{
-                                rotate: "360deg",
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 22000,
-                                loop: true,
-                            }}
+                        <View
                             style={
                                 styles.logoSurface
                             }
@@ -921,7 +988,7 @@ function RotatingLogoComponent({
                                     StyleSheet.absoluteFill
                                 }
                             />
-                        </MotiView>
+                        </View>
                     </LinearGradient>
 
                     <View
@@ -938,26 +1005,28 @@ function RotatingLogoComponent({
                 </View>
             </TouchableOpacity>
 
-            <Modal
-                visible={showMessage}
-                transparent
-                animationType="fade"
-                statusBarTranslucent
-                hardwareAccelerated
-                onRequestClose={handleClose}
-            >
-                <ModalContent
-                    suggestion={suggestion}
-                    isLoading={
-                        catalogLoading
+            {showMessage && (
+                <SuggestionModal
+                    albums={
+                        albums
                     }
-                    onPlay={handlePlay}
-                    onShuffle={
-                        handleShuffle
+                    albumsLoading={
+                        albumsLoading
                     }
-                    onClose={handleClose}
+                    currentSong={
+                        currentSong
+                    }
+                    playSong={
+                        playSong
+                    }
+                    togglePlayPause={
+                        togglePlayPause
+                    }
+                    onClose={
+                        handleClose
+                    }
                 />
-            </Modal>
+            )}
         </>
     );
 }
@@ -992,9 +1061,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 6,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOpacity: 0.20,
+        shadowRadius: 8,
+        elevation: 5,
     },
 
     logoSurface: {
@@ -1042,9 +1111,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 14,
         },
-        shadowOpacity: 0.55,
-        shadowRadius: 24,
-        elevation: 18,
+        shadowOpacity: 0.34,
+        shadowRadius: 14,
+        elevation: 10,
     },
 
     modalBorder: {
@@ -1052,9 +1121,11 @@ const styles = StyleSheet.create({
         borderRadius: 25,
     },
 
-    modalBlur: {
+    modalSurfaceContainer: {
         overflow: "hidden",
         borderRadius: 24,
+        backgroundColor:
+            "rgba(8,9,13,0.98)",
     },
 
     modalSurface: {

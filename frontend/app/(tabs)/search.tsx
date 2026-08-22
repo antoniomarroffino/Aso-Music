@@ -1,6 +1,7 @@
-import React, {
+import {
     memo,
     useCallback,
+    useDeferredValue,
     useMemo,
     useState,
 } from "react";
@@ -15,12 +16,9 @@ import {
     View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { StatusBar } from "expo-status-bar";
 import {
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -31,7 +29,10 @@ import {
 } from "@/types/music";
 import { useAlbums } from "@/hooks/useAlbums";
 import { useArtists } from "@/hooks/useArtists";
-import { usePlayer } from "@/context/PlayerContext";
+import {
+    usePlayerActions,
+    usePlayerState,
+} from "@/hooks/usePlayer";
 import {
     fetchSongsByAlbum,
 } from "@/api/songs";
@@ -58,6 +59,7 @@ type ResultItem = {
     subtitle?: string;
     image?: string;
     albumId?: string;
+    queueIndex?: number;
     score: number;
 };
 
@@ -194,6 +196,29 @@ function getBestMatchScore(
     );
 }
 
+function getSongKey(
+    song:
+    Pick<
+        SongPreviewDTO,
+        "albumId" | "id"
+    >,
+): string {
+    return `${song.albumId}:${song.id}`;
+}
+
+function getResultSongKey(
+    item: ResultItem,
+): string | null {
+    if (
+        item.type !== "song" ||
+        !item.albumId
+    ) {
+        return null;
+    }
+
+    return `${item.albumId}:${item.id}`;
+}
+
 function getSongArtists(
     song: SongPreviewDTO,
     fallback?: string,
@@ -261,19 +286,7 @@ const FilterButton = memo(
                 }
             >
                 {isActive ? (
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0.9,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 16,
-                        }}
+                    <View
                         style={
                             styles.activeFilterShadow
                         }
@@ -321,7 +334,7 @@ const FilterButton = memo(
                                 }
                             </Text>
                         </LinearGradient>
-                    </MotiView>
+                    </View>
                 ) : (
                     <View
                         style={
@@ -359,18 +372,18 @@ const FilterButton = memo(
 
 type SearchResultItemProps = {
     item: ResultItem;
-    index: number;
     isActive: boolean;
     isPlaying: boolean;
     onPress: (
         item: ResultItem,
-    ) => void;
+    ) =>
+        | void
+        | Promise<void>;
 };
 
 const SearchResultItem = memo(
     function SearchResultItem({
                                   item,
-                                  index,
                                   isActive,
                                   isPlaying,
                                   onPress,
@@ -380,32 +393,16 @@ const SearchResultItem = memo(
 
         const handlePress =
             useCallback(() => {
-                onPress(item);
+                void onPress(
+                    item,
+                );
             }, [
                 item,
                 onPress,
             ]);
 
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 8,
-                    scale: 0.985,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                    scale: 1,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 220,
-                    delay: Math.min(
-                        index * 25,
-                        220,
-                    ),
-                }}
+            <View
                 style={
                     styles.resultAnimation
                 }
@@ -480,9 +477,6 @@ const SearchResultItem = memo(
                                             styles.artistImage,
                                         ]}
                                         contentFit="cover"
-                                        transition={
-                                            160
-                                        }
                                     />
                                 ) : (
                                     <LinearGradient
@@ -517,25 +511,7 @@ const SearchResultItem = memo(
                                             styles.activeImageDotOuter
                                         }
                                     >
-                                        <MotiView
-                                            from={{
-                                                opacity:
-                                                    0.35,
-                                                scale: 0.75,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                scale: 1,
-                                            }}
-                                            transition={{
-                                                type: "timing",
-                                                duration:
-                                                    800,
-                                                loop:
-                                                isPlaying,
-                                                repeatReverse:
-                                                    true,
-                                            }}
+                                        <View
                                             style={
                                                 styles.activeImageDot
                                             }
@@ -665,7 +641,7 @@ const SearchResultItem = memo(
                         </View>
                     </LinearGradient>
                 </TouchableOpacity>
-            </MotiView>
+            </View>
         );
     },
 );
@@ -683,19 +659,7 @@ const EmptySearchPlaceholder = memo(
                                         isIndexingSongs,
                                     }: EmptySearchPlaceholderProps) {
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    scale: 0.96,
-                }}
-                animate={{
-                    opacity: 1,
-                    scale: 1,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
                 style={styles.placeholder}
             >
                 <View
@@ -703,18 +667,7 @@ const EmptySearchPlaceholder = memo(
                         styles.placeholderStage
                     }
                 >
-                    <MotiView
-                        from={{
-                            rotate: "0deg",
-                        }}
-                        animate={{
-                            rotate: "360deg",
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 11000,
-                            loop: true,
-                        }}
+                    <View
                         style={
                             styles.placeholderOrbit
                         }
@@ -841,22 +794,7 @@ const EmptySearchPlaceholder = memo(
                             styles.indexingBadge
                         }
                     >
-                        <MotiView
-                            from={{
-                                opacity: 0.3,
-                                scale: 0.7,
-                            }}
-                            animate={{
-                                opacity: 1,
-                                scale: 1,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 700,
-                                loop: true,
-                                repeatReverse:
-                                    true,
-                            }}
+                        <View
                             style={
                                 styles.indexingDot
                             }
@@ -872,7 +810,7 @@ const EmptySearchPlaceholder = memo(
                         </Text>
                     </View>
                 )}
-            </MotiView>
+            </View>
         );
     },
 );
@@ -888,19 +826,7 @@ const NoResultsPlaceholder = memo(
                                       isIndexingSongs,
                                   }: NoResultsPlaceholderProps) {
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 10,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
                 style={styles.placeholder}
             >
                 <LinearGradient
@@ -955,7 +881,7 @@ const NoResultsPlaceholder = memo(
                         indicizzazione.
                     </Text>
                 )}
-            </MotiView>
+            </View>
         );
     },
 );
@@ -974,25 +900,8 @@ const CatalogLoadingState = memo(
             >
                 {[0, 1, 2, 3].map(
                     (itemIndex) => (
-                        <MotiView
+                        <View
                             key={itemIndex}
-                            from={{
-                                opacity: 0.3,
-                            }}
-                            animate={{
-                                opacity: 0.75,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration:
-                                    900,
-                                delay:
-                                    itemIndex *
-                                    100,
-                                loop: true,
-                                repeatReverse:
-                                    true,
-                            }}
                             style={
                                 styles.skeletonRow
                             }
@@ -1020,7 +929,7 @@ const CatalogLoadingState = memo(
                                     }
                                 />
                             </View>
-                        </MotiView>
+                        </View>
                     ),
                 )}
             </View>
@@ -1040,11 +949,14 @@ export default function SearchScreen() {
         useRouter();
 
     const {
-        playSong,
         currentSong,
         isPlaying,
+    } = usePlayerState();
+
+    const {
+        playSong,
         togglePlayPause,
-    } = usePlayer();
+    } = usePlayerActions();
 
     const {
         data: albumPreviews = [],
@@ -1072,30 +984,63 @@ export default function SearchScreen() {
         setIsSearchFocused,
     ] = useState(false);
 
+    const deferredQuery =
+        useDeferredValue(
+            query,
+        );
+
+    const normalizedQuery =
+        useMemo(
+            () =>
+                normalizeSearchValue(
+                    deferredQuery,
+                ),
+            [deferredQuery],
+        );
+
+    const shouldSearchSongs =
+        normalizedQuery.length >
+        0 &&
+        (
+            searchType ===
+            "all" ||
+            searchType ===
+            "songs"
+        );
+
     /*
-     * Queste query usano le stesse query key
-     * del prefetch globale.
+     * Le query dei brani vengono osservate soltanto quando
+     * la ricerca attiva può restituire brani.
      *
-     * Se i dati sono già in cache non vengono
-     * riscaricati, ma la pagina resta iscritta
-     * agli aggiornamenti della cache.
+     * Aprire la tab non scatena più una richiesta per ogni album.
      */
-    const songQueries = useQueries({
-        queries: albumPreviews.map(
-            (album) => ({
-                queryKey: [
-                    "songs",
-                    album.id,
-                ],
-                queryFn: () =>
-                    fetchSongsByAlbum(
-                        album.id,
-                    ),
-                staleTime:
-                    1000 * 60 * 60,
-            }),
-        ),
-    });
+    const songQueries =
+        useQueries({
+            queries:
+                albumPreviews.map(
+                    (album) => ({
+                        queryKey: [
+                            "songs",
+                            album.id,
+                        ],
+
+                        queryFn: () =>
+                            fetchSongsByAlbum(
+                                album.id,
+                            ),
+
+                        staleTime:
+                            1000 *
+                            60 *
+                            60,
+
+                        enabled:
+                            shouldSearchSongs &&
+                            album.available !==
+                            false,
+                    }),
+                ),
+        });
 
     const songsByAlbum =
         useMemo(() => {
@@ -1140,6 +1085,7 @@ export default function SearchScreen() {
         ]);
 
     const isIndexingSongs =
+        shouldSearchSongs &&
         songQueries.some(
             (songQuery) =>
                 songQuery.isFetching &&
@@ -1168,16 +1114,15 @@ export default function SearchScreen() {
         artists.length +
         indexedSongCount;
 
-    const currentSongId =
-        currentSong?.id ?? null;
+    const currentSongKey =
+        currentSong
+            ? getSongKey(
+                currentSong,
+            )
+            : null;
 
     const results =
         useMemo(() => {
-            const normalizedQuery =
-                normalizeSearchValue(
-                    query,
-                );
-
             if (!normalizedQuery) {
                 return [];
             }
@@ -1246,8 +1191,16 @@ export default function SearchScreen() {
                     ) ?? [];
 
                 for (
-                    const song of albumSongs
-                    ) {
+                    let queueIndex = 0;
+                    queueIndex <
+                    albumSongs.length;
+                    queueIndex += 1
+                ) {
+                    const song =
+                        albumSongs[
+                            queueIndex
+                            ];
+
                     const artistNames =
                         getSongArtists(
                             song,
@@ -1280,6 +1233,7 @@ export default function SearchScreen() {
                             album.coverURL,
                         albumId:
                         album.id,
+                        queueIndex,
                         score:
                         songScore,
                     });
@@ -1337,14 +1291,16 @@ export default function SearchScreen() {
         }, [
             albumPreviews,
             artists,
-            query,
+            normalizedQuery,
             searchType,
             songsByAlbum,
         ]);
 
     const handleItemPress =
         useCallback(
-            (item: ResultItem) => {
+            async (
+                item: ResultItem,
+            ): Promise<void> => {
                 if (
                     item.type ===
                     "artist"
@@ -1352,10 +1308,13 @@ export default function SearchScreen() {
                     router.push({
                         pathname:
                             "/(tabs)/artistdetails",
+
                         params: {
                             artistId:
                             item.id,
-                            from: "search",
+
+                            from:
+                                "search",
                         },
                     });
 
@@ -1369,9 +1328,13 @@ export default function SearchScreen() {
                     router.push({
                         pathname:
                             "/(tabs)/albumdetails",
+
                         params: {
-                            id: item.id,
-                            from: "search",
+                            id:
+                            item.id,
+
+                            from:
+                                "search",
                         },
                     });
 
@@ -1379,49 +1342,52 @@ export default function SearchScreen() {
                 }
 
                 if (
-                    !item.albumId
+                    !item.albumId ||
+                    item.queueIndex ===
+                    undefined
                 ) {
                     return;
                 }
 
-                if (
-                    currentSongId ===
-                    item.id
-                ) {
-                    void togglePlayPause();
-                    return;
-                }
+                try {
+                    if (
+                        currentSongKey ===
+                        getResultSongKey(
+                            item,
+                        )
+                    ) {
+                        await togglePlayPause();
+                        return;
+                    }
 
-                const queue =
-                    songsByAlbum.get(
-                        item.albumId,
+                    const queue =
+                        songsByAlbum.get(
+                            item.albumId,
+                        );
+
+                    const song =
+                        queue?.[
+                            item.queueIndex
+                            ];
+
+                    if (!queue || !song) {
+                        return;
+                    }
+
+                    await playSong(
+                        song,
+                        queue,
+                        item.queueIndex,
                     );
-
-                if (!queue) {
-                    return;
-                }
-
-                const songIndex =
-                    queue.findIndex(
-                        (song) =>
-                            song.id ===
-                            item.id,
+                } catch (error) {
+                    console.error(
+                        "Errore durante l'avvio del risultato:",
+                        error,
                     );
-
-                if (
-                    songIndex < 0
-                ) {
-                    return;
                 }
-
-                void playSong(
-                    queue[songIndex],
-                    queue,
-                    songIndex,
-                );
             },
             [
-                currentSongId,
+                currentSongKey,
                 playSong,
                 router,
                 songsByAlbum,
@@ -1454,18 +1420,16 @@ export default function SearchScreen() {
         useCallback(
             ({
                  item,
-                 index,
              }: ListRenderItemInfo<ResultItem>) => {
                 const active =
-                    item.type ===
-                    "song" &&
-                    currentSongId ===
-                    item.id;
+                    currentSongKey ===
+                    getResultSongKey(
+                        item,
+                    );
 
                 return (
                     <SearchResultItem
                         item={item}
-                        index={index}
                         isActive={
                             active
                         }
@@ -1480,7 +1444,7 @@ export default function SearchScreen() {
                 );
             },
             [
-                currentSongId,
+                currentSongKey,
                 handleItemPress,
                 isPlaying,
             ],
@@ -1517,114 +1481,12 @@ export default function SearchScreen() {
         loadingArtists;
 
     const hasQuery =
-        query.trim().length > 0;
+        normalizedQuery.length >
+        0;
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={[
-                    "#050609",
-                    "#080A11",
-                    "#0D0B19",
-                    "#050506",
-                ]}
-                locations={[
-                    0,
-                    0.32,
-                    0.72,
-                    1,
-                ]}
-                style={
-                    StyleSheet.absoluteFill
-                }
-            />
-
-            <MotiView
-                pointerEvents="none"
-                from={{
-                    opacity: 0.22,
-                    scale: 0.94,
-                }}
-                animate={{
-                    opacity: 0.47,
-                    scale: 1.07,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 7000,
-                    loop: true,
-                    repeatReverse: true,
-                }}
-                style={[
-                    styles.ambientOrb,
-                    styles.greenOrb,
-                ]}
-            >
-                <LinearGradient
-                    colors={[
-                        "rgba(29,185,84,0.28)",
-                        "rgba(29,185,84,0.02)",
-                        "transparent",
-                    ]}
-                    style={
-                        StyleSheet.absoluteFill
-                    }
-                />
-            </MotiView>
-
-            <MotiView
-                pointerEvents="none"
-                from={{
-                    opacity: 0.2,
-                    scale: 1.06,
-                }}
-                animate={{
-                    opacity: 0.4,
-                    scale: 0.95,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 8500,
-                    loop: true,
-                    repeatReverse: true,
-                }}
-                style={[
-                    styles.ambientOrb,
-                    styles.purpleOrb,
-                ]}
-            >
-                <LinearGradient
-                    colors={[
-                        "rgba(120,89,255,0.25)",
-                        "rgba(120,89,255,0.02)",
-                        "transparent",
-                    ]}
-                    style={
-                        StyleSheet.absoluteFill
-                    }
-                />
-            </MotiView>
-
-            {Platform.OS !==
-                "web" && (
-                    <StatusBar
-                        style="light"
-                    />
-                )}
-
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: -14,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                }}
+            <View
                 style={[
                     styles.header,
                     {
@@ -1712,22 +1574,9 @@ export default function SearchScreen() {
                     Trova brani, album e
                     artisti nel catalogo.
                 </Text>
-            </MotiView>
+            </View>
 
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 10,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    delay: 80,
-                }}
+            <View
                 style={
                     styles.searchSection
                 }
@@ -1757,11 +1606,9 @@ export default function SearchScreen() {
                         styles.searchBorder
                     }
                 >
-                    <BlurView
-                        intensity={52}
-                        tint="dark"
+                    <View
                         style={
-                            styles.searchBlur
+                            styles.searchSurfaceContainer
                         }
                     >
                         <View
@@ -1849,7 +1696,7 @@ export default function SearchScreen() {
                                     </TouchableOpacity>
                                 )}
                         </View>
-                    </BlurView>
+                    </View>
                 </LinearGradient>
 
                 <View
@@ -1877,7 +1724,7 @@ export default function SearchScreen() {
                         ),
                     )}
                 </View>
-            </MotiView>
+            </View>
 
             <View
                 style={
@@ -1939,23 +1786,7 @@ export default function SearchScreen() {
                                         styles.smallIndexingBadge
                                     }
                                 >
-                                    <MotiView
-                                        from={{
-                                            opacity:
-                                                0.3,
-                                        }}
-                                        animate={{
-                                            opacity:
-                                                1,
-                                        }}
-                                        transition={{
-                                            type: "timing",
-                                            duration:
-                                                700,
-                                            loop: true,
-                                            repeatReverse:
-                                                true,
-                                        }}
+                                    <View
                                         style={
                                             styles.smallIndexingDot
                                         }
@@ -2027,27 +1858,8 @@ const styles = StyleSheet.create({
         flex: 1,
         position: "relative",
         overflow: "hidden",
-        backgroundColor: "#050506",
-    },
-
-    ambientOrb: {
-        position: "absolute",
-        overflow: "hidden",
-        borderRadius: 999,
-    },
-
-    greenOrb: {
-        width: 410,
-        height: 410,
-        top: -210,
-        right: -190,
-    },
-
-    purpleOrb: {
-        width: 390,
-        height: 390,
-        bottom: -190,
-        left: -210,
+        backgroundColor:
+            "transparent",
     },
 
     header: {
@@ -2072,9 +1884,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 5,
         },
-        shadowOpacity: 0.24,
-        shadowRadius: 10,
-        elevation: 7,
+        shadowOpacity: 0.16,
+        shadowRadius: 7,
+        elevation: 4,
     },
 
     headerText: {
@@ -2143,14 +1955,16 @@ const styles = StyleSheet.create({
             width: 0,
             height: 5,
         },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 5,
+        shadowOpacity: 0.08,
+        shadowRadius: 7,
+        elevation: 3,
     },
 
-    searchBlur: {
+    searchSurfaceContainer: {
         overflow: "hidden",
         borderRadius: 17,
+        backgroundColor:
+            "rgba(10,12,18,0.96)",
     },
 
     searchSurface: {
@@ -2223,9 +2037,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 3,
         },
-        shadowOpacity: 0.2,
-        shadowRadius: 7,
-        elevation: 4,
+        shadowOpacity: 0.14,
+        shadowRadius: 5,
+        elevation: 3,
     },
 
     activeFilter: {

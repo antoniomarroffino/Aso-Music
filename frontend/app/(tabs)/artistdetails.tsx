@@ -21,8 +21,6 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
     AlbumPreviewDTO,
@@ -32,7 +30,10 @@ import {
 import { useArtists } from "@/hooks/useArtists";
 import { useAlbums } from "@/hooks/useAlbums";
 import { useArtistSongs } from "@/hooks/useArtistSongs";
-import { usePlayer } from "@/context/PlayerContext";
+import {
+    usePlayerActions,
+    usePlayerState,
+} from "@/hooks/usePlayer";
 
 import SongItemArtist from "@/components/SongItemArtist";
 import AlbumCard from "@/components/AlbumCard";
@@ -43,79 +44,14 @@ const SONGS_INCREMENT = 5;
 
 const EMPTY_SONGS: SongPreviewDTO[] = [];
 
-type AlbumTrackState = {
-    count: number;
-    loading: boolean;
-};
-
-/* -------------------------------------------------------------------------- */
-/* Background                                                                 */
-/* -------------------------------------------------------------------------- */
-
-const AmbientBackground = memo(
-    function AmbientBackground() {
-        return (
-            <View
-                pointerEvents="none"
-                style={StyleSheet.absoluteFill}
-            >
-                <LinearGradient
-                    colors={[
-                        "#050609",
-                        "#080A11",
-                        "#0D0B19",
-                        "#050506",
-                    ]}
-                    locations={[
-                        0,
-                        0.32,
-                        0.72,
-                        1,
-                    ]}
-                    style={
-                        StyleSheet.absoluteFill
-                    }
-                />
-
-                <View
-                    style={[
-                        styles.ambientOrb,
-                        styles.greenOrb,
-                    ]}
-                >
-                    <LinearGradient
-                        colors={[
-                            "rgba(29,185,84,0.13)",
-                            "rgba(29,185,84,0.015)",
-                            "transparent",
-                        ]}
-                        style={
-                            StyleSheet.absoluteFill
-                        }
-                    />
-                </View>
-
-                <View
-                    style={[
-                        styles.ambientOrb,
-                        styles.purpleOrb,
-                    ]}
-                >
-                    <LinearGradient
-                        colors={[
-                            "rgba(119,89,255,0.11)",
-                            "rgba(119,89,255,0.015)",
-                            "transparent",
-                        ]}
-                        style={
-                            StyleSheet.absoluteFill
-                        }
-                    />
-                </View>
-            </View>
-        );
-    },
-);
+const getSongKey = (
+    song:
+    Pick<
+        SongPreviewDTO,
+        "albumId" | "id"
+    >,
+): string =>
+    `${song.albumId}:${song.id}`;
 
 /* -------------------------------------------------------------------------- */
 /* Loading                                                                    */
@@ -131,9 +67,6 @@ const LoadingState = memo(
                           }: LoadingStateProps) {
         return (
             <View style={styles.container}>
-                <AmbientBackground />
-                <StatusBar style="light" />
-
                 <View
                     style={[
                         styles.loadingContainer,
@@ -228,9 +161,6 @@ const ErrorState = memo(
                         }: ErrorStateProps) {
         return (
             <View style={styles.container}>
-                <AmbientBackground />
-                <StatusBar style="light" />
-
                 <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel="Torna indietro"
@@ -246,11 +176,9 @@ const ErrorState = memo(
                         },
                     ]}
                 >
-                    <BlurView
-                        intensity={28}
-                        tint="dark"
+                    <View
                         style={
-                            styles.floatingBackBlur
+                            styles.floatingBackSurface
                         }
                     >
                         <Ionicons
@@ -258,7 +186,7 @@ const ErrorState = memo(
                             size={21}
                             color="#F2F4F9"
                         />
-                    </BlurView>
+                    </View>
                 </TouchableOpacity>
 
                 <View
@@ -548,11 +476,9 @@ const ArtistHeader = memo(
                         styles.headerBackButton
                     }
                 >
-                    <BlurView
-                        intensity={28}
-                        tint="dark"
+                    <View
                         style={
-                            styles.headerBackBlur
+                            styles.headerBackSurface
                         }
                     >
                         <Ionicons
@@ -560,7 +486,7 @@ const ArtistHeader = memo(
                             size={21}
                             color="#F2F4F9"
                         />
-                    </BlurView>
+                    </View>
                 </TouchableOpacity>
 
                 <View
@@ -740,7 +666,7 @@ type SongListSectionProps = {
     songs: SongPreviewDTO[];
     visibleCount: number;
     loading: boolean;
-    currentSongId: string | null;
+    currentSongKey: string | null;
     isPlaying: boolean;
     onShowMore: () => void;
     onShowLess: () => void;
@@ -755,7 +681,7 @@ const SongListSection = memo(
                                  songs,
                                  visibleCount,
                                  loading,
-                                 currentSongId,
+                                 currentSongKey,
                                  isPlaying,
                                  onShowMore,
                                  onShowLess,
@@ -825,8 +751,10 @@ const SongListSection = memo(
                     {visibleSongs.map(
                         (song, index) => {
                             const active =
-                                currentSongId ===
-                                song.id;
+                                currentSongKey ===
+                                getSongKey(
+                                    song,
+                                );
 
                             return (
                                 <SongItemArtist
@@ -943,10 +871,11 @@ type AlbumsSectionProps = {
     albums: AlbumPreviewDTO[];
     cardWidth: number;
     loading: boolean;
-    trackState: Map<
-        string,
-        AlbumTrackState
-    >;
+    trackCounts:
+        ReadonlyMap<
+            string,
+            number
+        >;
 };
 
 const AlbumsSection = memo(
@@ -954,7 +883,7 @@ const AlbumsSection = memo(
                                albums,
                                cardWidth,
                                loading,
-                               trackState,
+                               trackCounts,
                            }: AlbumsSectionProps) {
         const sortedAlbums =
             useMemo(() => {
@@ -1047,38 +976,32 @@ const AlbumsSection = memo(
                 }
             >
                 {sortedAlbums.map(
-                    (album, index) => {
-                        const state =
-                            trackState.get(
-                                album.id,
-                            );
-
-                        return (
-                            <View
-                                key={album.id}
-                                style={[
-                                    styles.albumCardWrapper,
-                                    {
-                                        width:
-                                        cardWidth,
-                                    },
-                                ]}
-                            >
-                                <AlbumCard
-                                    album={album}
-                                    index={index}
-                                    trackCount={
-                                        state?.count ??
-                                        0
-                                    }
-                                    isTrackCountLoading={
-                                        state?.loading ??
-                                        false
-                                    }
-                                />
-                            </View>
-                        );
-                    },
+                    (album, index) => (
+                        <View
+                            key={album.id}
+                            style={[
+                                styles.albumCardWrapper,
+                                {
+                                    width:
+                                    cardWidth,
+                                },
+                            ]}
+                        >
+                            <AlbumCard
+                                album={album}
+                                index={index}
+                                trackCount={
+                                    trackCounts.get(
+                                        album.id,
+                                    ) ??
+                                    0
+                                }
+                                isTrackCountLoading={
+                                    false
+                                }
+                            />
+                        </View>
+                    ),
                 )}
             </ScrollView>
         );
@@ -1103,28 +1026,12 @@ export default function ArtistDetailsScreen() {
             artistId?:
                 | string
                 | string[];
-            from?:
-                | string
-                | string[];
-            albumId?:
-                | string
-                | string[];
         }>();
 
     const artistId =
         Array.isArray(params.artistId)
             ? params.artistId[0]
             : params.artistId;
-
-    const from =
-        Array.isArray(params.from)
-            ? params.from[0]
-            : params.from;
-
-    const sourceAlbumId =
-        Array.isArray(params.albumId)
-            ? params.albumId[0]
-            : params.albumId;
 
     const {
         data: artists = [],
@@ -1144,10 +1051,20 @@ export default function ArtistDetailsScreen() {
 
     const {
         playSong,
+        togglePlayPause,
+    } = usePlayerActions();
+
+    const {
         currentSong,
         isPlaying,
-        togglePlayPause,
-    } = usePlayer();
+    } = usePlayerState();
+
+    const currentSongKey =
+        currentSong
+            ? getSongKey(
+                currentSong,
+            )
+            : null;
 
     const [
         visibleSongsState,
@@ -1199,144 +1116,139 @@ export default function ArtistDetailsScreen() {
         artistSongsResponse?.total ??
         artistSongs.length;
 
-    const artistAlbumIds =
+    const artistCatalog =
         useMemo(() => {
-            return new Set(
-                artistSongs
-                    .map(
-                        (song) =>
-                            song.albumId,
-                    )
-                    .filter(Boolean),
-            );
-        }, [artistSongs]);
+            const trackCounts =
+                new Map<
+                    string,
+                    number
+                >();
 
-    const artistAlbums =
-        useMemo(() => {
-            if (
-                artistAlbumIds.size ===
-                0
-            ) {
-                return [];
+            for (
+                const song
+                of artistSongs
+                ) {
+                if (!song.albumId) {
+                    continue;
+                }
+
+                trackCounts.set(
+                    song.albumId,
+                    (
+                        trackCounts.get(
+                            song.albumId,
+                        ) ??
+                        0
+                    ) +
+                    1,
+                );
             }
 
-            return albumPreviews.filter(
-                (album) =>
-                    artistAlbumIds.has(
-                        album.id,
-                    ),
-            );
+            const albums =
+                albumPreviews.filter(
+                    (album) =>
+                        trackCounts.has(
+                            album.id,
+                        ),
+                );
+
+            return {
+                albums,
+                trackCounts,
+            };
         }, [
             albumPreviews,
-            artistAlbumIds,
+            artistSongs,
         ]);
 
-    /*
-     * Nella pagina artista il numero mostrato sulla card
-     * indica quanti brani di quell'artista appartengono
-     * all'album.
-     */
-    const albumTrackState =
+    const artistSongIndexes =
         useMemo(() => {
-            const map = new Map<
-                string,
-                AlbumTrackState
-            >();
+            const indexes =
+                new Map<
+                    string,
+                    number
+                >();
 
             artistSongs.forEach(
-                (song) => {
-                    const current =
-                        map.get(
-                            song.albumId,
-                        );
-
-                    map.set(
-                        song.albumId,
-                        {
-                            count:
-                                (current?.count ??
-                                    0) + 1,
-                            loading: false,
-                        },
+                (
+                    song,
+                    index,
+                ) => {
+                    indexes.set(
+                        getSongKey(
+                            song,
+                        ),
+                        index,
                     );
                 },
             );
 
-            return map;
+            return indexes;
         }, [artistSongs]);
 
     const handleGoBack =
         useCallback(() => {
-            if (from === "artists") {
-                router.replace(
-                    "/(tabs)/artists",
-                );
-                return;
-            }
-
-            if (
-                from === "albumdetails" &&
-                sourceAlbumId
-            ) {
-                router.replace({
-                    pathname:
-                        "/(tabs)/albumdetails",
-                    params: {
-                        id: sourceAlbumId,
-                    },
-                });
-                return;
-            }
-
+            /*
+             * Mantiene la schermata precedente montata,
+             * evitando una navigazione sostitutiva.
+             */
             router.back();
-        }, [
-            from,
-            router,
-            sourceAlbumId,
-        ]);
+        }, [router]);
 
     const handlePlaySong =
         useCallback(
-            (
+            async (
                 song: SongPreviewDTO,
                 _songAlbumId: string,
-            ) => {
-                if (
-                    currentSong?.id ===
-                    song.id
-                ) {
-                    void togglePlayPause();
-                    return;
-                }
+            ): Promise<void> => {
+                try {
+                    const selectedSongKey =
+                        getSongKey(
+                            song,
+                        );
 
-                const queueIndex =
-                    artistSongs.findIndex(
-                        (queueSong) =>
-                            queueSong.id ===
-                            song.id &&
-                            queueSong.albumId ===
-                            song.albumId,
+                    if (
+                        currentSongKey ===
+                        selectedSongKey
+                    ) {
+                        await togglePlayPause();
+                        return;
+                    }
+
+                    const queueIndex =
+                        artistSongIndexes.get(
+                            selectedSongKey,
+                        );
+
+                    if (
+                        queueIndex ===
+                        undefined
+                    ) {
+                        return;
+                    }
+
+                    /*
+                     * La coda è la classifica completa dell'artista,
+                     * già ordinata dal backend.
+                     */
+                    await playSong(
+                        artistSongs[
+                            queueIndex
+                            ],
+                        artistSongs,
+                        queueIndex,
                     );
-
-                if (queueIndex < 0) {
-                    return;
+                } catch (error) {
+                    console.error(
+                        "Errore durante l'avvio del brano:",
+                        error,
+                    );
                 }
-
-                /*
-                 * Dal profilo artista la queue è la classifica
-                 * completa dell'artista, già ordinata dal backend.
-                 */
-                void playSong(
-                    artistSongs[
-                        queueIndex
-                        ],
-                    artistSongs,
-                    queueIndex,
-                );
             },
             [
+                artistSongIndexes,
                 artistSongs,
-                currentSong?.id,
+                currentSongKey,
                 playSong,
                 togglePlayPause,
             ],
@@ -1416,9 +1328,6 @@ export default function ArtistDetailsScreen() {
 
     return (
         <View style={styles.container}>
-            <AmbientBackground />
-            <StatusBar style="light" />
-
             <ScrollView
                 showsVerticalScrollIndicator={
                     false
@@ -1452,7 +1361,7 @@ export default function ArtistDetailsScreen() {
                             artistSongsLoading ||
                             albumsLoading
                                 ? 0
-                                : artistAlbums.length
+                                : artistCatalog.albums.length
                         }
                         onGoBack={
                             handleGoBack
@@ -1535,9 +1444,8 @@ export default function ArtistDetailsScreen() {
                                     artistSongs.length ===
                                     0)
                             }
-                            currentSongId={
-                                currentSong?.id ??
-                                null
+                            currentSongKey={
+                                currentSongKey
                             }
                             isPlaying={
                                 isPlaying
@@ -1565,13 +1473,13 @@ export default function ArtistDetailsScreen() {
                                 artistSongsLoading ||
                                 albumsLoading
                                     ? undefined
-                                    : artistAlbums.length
+                                    : artistCatalog.albums.length
                             }
                         />
 
                         <AlbumsSection
                             albums={
-                                artistAlbums
+                                artistCatalog.albums
                             }
                             cardWidth={
                                 albumCardWidth
@@ -1580,8 +1488,8 @@ export default function ArtistDetailsScreen() {
                                 artistSongsLoading ||
                                 albumsLoading
                             }
-                            trackState={
-                                albumTrackState
+                            trackCounts={
+                                artistCatalog.trackCounts
                             }
                         />
                     </View>
@@ -1597,26 +1505,6 @@ const styles = StyleSheet.create({
         position: "relative",
         overflow: "hidden",
         backgroundColor: "#050506",
-    },
-
-    ambientOrb: {
-        position: "absolute",
-        overflow: "hidden",
-        borderRadius: 999,
-    },
-
-    greenOrb: {
-        width: 470,
-        height: 470,
-        top: -250,
-        right: -220,
-    },
-
-    purpleOrb: {
-        width: 440,
-        height: 440,
-        bottom: -230,
-        left: -245,
     },
 
     scrollContent: {
@@ -1702,8 +1590,10 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
 
-    floatingBackBlur: {
+    floatingBackSurface: {
         flex: 1,
+        backgroundColor:
+            "rgba(10,12,18,0.92)",
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
@@ -1787,8 +1677,10 @@ const styles = StyleSheet.create({
         borderRadius: 14,
     },
 
-    headerBackBlur: {
+    headerBackSurface: {
         flex: 1,
+        backgroundColor:
+            "rgba(10,12,18,0.92)",
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,

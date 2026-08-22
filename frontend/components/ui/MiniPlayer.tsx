@@ -1,4 +1,4 @@
-import React, {
+import {
     memo,
     useCallback,
     useMemo,
@@ -12,11 +12,6 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import {
-    AnimatePresence,
-    MotiView,
-} from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import {
     useRouter,
@@ -25,9 +20,10 @@ import {
 
 import { SongPreviewDTO } from "@/types/music";
 import {
-    usePlayer,
+    usePlayerActions,
     usePlayerProgress,
-} from "@/context/PlayerContext";
+    usePlayerState,
+} from "@/hooks/usePlayer";
 import AwardBadges from "@/components/ui/AwardBadges";
 
 const MINI_PLAYER_BOTTOM_OFFSET = 60;
@@ -67,7 +63,7 @@ const MiniProgressBar = memo(
         const {
             progress,
             duration,
-        } = usePlayerProgress();
+        } = usePlayerProgress(1);
 
         const progressPercentage =
             duration > 0
@@ -154,45 +150,32 @@ const Equalizer = memo(
                     styles.equalizer
                 }
             >
-                {[0, 1, 2].map(
-                    (barIndex) => (
-                        <MotiView
-                            key={
-                                barIndex
-                            }
-                            animate={{
-                                height:
-                                    isPlaying
-                                        ? barIndex ===
-                                        1
-                                            ? 11
-                                            : 7
-                                        : 3,
-                                opacity:
-                                    isPlaying
-                                        ? 1
-                                        : 0.45,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration:
-                                    360 +
-                                    barIndex *
-                                    110,
-                                loop:
-                                isPlaying,
-                                repeatReverse:
-                                    true,
-                                delay:
-                                    barIndex *
-                                    80,
-                            }}
-                            style={
-                                styles.equalizerBar
-                            }
-                        />
-                    ),
-                )}
+                <View
+                    style={[
+                        styles.equalizerBar,
+                        styles.equalizerBarShort,
+                        !isPlaying &&
+                        styles.equalizerBarPaused,
+                    ]}
+                />
+
+                <View
+                    style={[
+                        styles.equalizerBar,
+                        styles.equalizerBarTall,
+                        !isPlaying &&
+                        styles.equalizerBarPaused,
+                    ]}
+                />
+
+                <View
+                    style={[
+                        styles.equalizerBar,
+                        styles.equalizerBarMedium,
+                        !isPlaying &&
+                        styles.equalizerBarPaused,
+                    ]}
+                />
             </View>
         );
     },
@@ -215,12 +198,8 @@ const SongInfo = memo(
                           onPress,
                       }: SongInfoProps) {
         const artistNames =
-            useMemo(
-                () =>
-                    getArtistNames(
-                        currentSong,
-                    ),
-                [currentSong],
+            getArtistNames(
+                currentSong,
             );
 
         return (
@@ -342,7 +321,6 @@ const Cover = memo(function Cover({
                             styles.cover
                         }
                         contentFit="cover"
-                        transition={180}
                         accessibilityLabel={`Copertina di ${title}`}
                     />
                 ) : (
@@ -370,22 +348,7 @@ const Cover = memo(function Cover({
                         styles.playingIndicatorOuter
                     }
                 >
-                    <MotiView
-                        from={{
-                            opacity: 0.35,
-                            scale: 0.75,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 800,
-                            loop: true,
-                            repeatReverse:
-                                true,
-                        }}
+                    <View
                         style={
                             styles.playingIndicator
                         }
@@ -476,8 +439,11 @@ export default function MiniPlayer() {
     const {
         currentSong,
         isPlaying,
+    } = usePlayerState();
+
+    const {
         togglePlayPause,
-    } = usePlayer();
+    } = usePlayerActions();
 
     const router = useRouter();
     const segments = useSegments();
@@ -490,9 +456,19 @@ export default function MiniPlayer() {
         }, [router]);
 
     const handleTogglePlayPause =
-        useCallback(() => {
-            void togglePlayPause();
-        }, [togglePlayPause]);
+        useCallback(
+            async (): Promise<void> => {
+                try {
+                    await togglePlayPause();
+                } catch (error) {
+                    console.error(
+                        "Errore durante play/pausa:",
+                        error,
+                    );
+                }
+            },
+            [togglePlayPause],
+        );
 
     const panResponder =
         useMemo(
@@ -531,198 +507,150 @@ export default function MiniPlayer() {
         );
 
     const isFullPlayerOpen =
-        (
-            segments as string[]
-        ).includes("fullplayer");
+        segments.some(
+            (segment) =>
+                segment ===
+                "fullplayer",
+        );
 
     const shouldShow =
-        Boolean(currentSong) &&
+        Boolean(
+            currentSong,
+        ) &&
         !isFullPlayerOpen;
 
+    if (
+        !shouldShow ||
+        !currentSong
+    ) {
+        return null;
+    }
+
     return (
-        <AnimatePresence>
-            {shouldShow &&
-                currentSong && (
-                    <MotiView
-                        key={
-                            currentSong.id
-                        }
-                        {...panResponder.panHandlers}
-                        from={{
-                            translateY: 90,
-                            opacity: 0,
-                            scale: 0.97,
-                        }}
-                        animate={{
-                            translateY: 0,
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        exit={{
-                            translateY: 90,
-                            opacity: 0,
-                            scale: 0.97,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 18,
-                            stiffness: 155,
-                        }}
+        <View
+            {...panResponder.panHandlers}
+            style={
+                styles.container
+            }
+        >
+            <LinearGradient
+                colors={[
+                    "rgba(70,255,143,0.36)",
+                    "rgba(119,89,255,0.30)",
+                    "rgba(255,255,255,0.08)",
+                ]}
+                start={{
+                    x: 0,
+                    y: 0,
+                }}
+                end={{
+                    x: 1,
+                    y: 1,
+                }}
+                style={
+                    styles.outerBorder
+                }
+            >
+                <LinearGradient
+                    colors={[
+                        "rgba(11,15,17,0.98)",
+                        "rgba(13,12,23,0.98)",
+                        "rgba(7,8,11,0.99)",
+                    ]}
+                    start={{
+                        x: 0,
+                        y: 0,
+                    }}
+                    end={{
+                        x: 1,
+                        y: 1,
+                    }}
+                    style={
+                        styles.surface
+                    }
+                >
+                    <LinearGradient
+                        colors={[
+                            "#1ED760",
+                            "#8064FF",
+                        ]}
                         style={
-                            styles.container
+                            styles.activeLine
+                        }
+                    />
+
+                    <View
+                        style={
+                            styles.dragIndicator
+                        }
+                    />
+
+                    <Cover
+                        uri={
+                            currentSong.coverURL
+                        }
+                        title={
+                            currentSong.title
+                        }
+                        isPlaying={
+                            isPlaying
+                        }
+                        onPress={
+                            handleOpenFullPlayer
+                        }
+                    />
+
+                    <SongInfo
+                        currentSong={
+                            currentSong
+                        }
+                        isPlaying={
+                            isPlaying
+                        }
+                        onPress={
+                            handleOpenFullPlayer
+                        }
+                    />
+
+                    <View
+                        style={
+                            styles.actions
                         }
                     >
-                        <LinearGradient
-                            colors={[
-                                "rgba(70,255,143,0.36)",
-                                "rgba(119,89,255,0.30)",
-                                "rgba(255,255,255,0.08)",
-                            ]}
-                            start={{
-                                x: 0,
-                                y: 0,
-                            }}
-                            end={{
-                                x: 1,
-                                y: 1,
-                            }}
+                        <TouchableOpacity
+                            onPress={
+                                handleOpenFullPlayer
+                            }
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel="Espandi il player"
                             style={
-                                styles.outerBorder
+                                styles.expandButton
                             }
                         >
-                            <BlurView
-                                intensity={58}
-                                tint="dark"
-                                style={
-                                    styles.blurContainer
-                                }
-                            >
-                                {currentSong.coverURL ? (
-                                    <Image
-                                        source={{
-                                            uri: currentSong.coverURL,
-                                        }}
-                                        contentFit="cover"
-                                        style={
-                                            styles.backgroundCover
-                                        }
-                                    />
-                                ) : null}
+                            <Ionicons
+                                name="chevron-up"
+                                size={16}
+                                color="#AAB1C1"
+                            />
+                        </TouchableOpacity>
 
-                                <BlurView
-                                    intensity={84}
-                                    tint="dark"
-                                    style={
-                                        StyleSheet.absoluteFill
-                                    }
-                                />
+                        <PlayButton
+                            isPlaying={
+                                isPlaying
+                            }
+                            onPress={
+                                handleTogglePlayPause
+                            }
+                        />
+                    </View>
+                </LinearGradient>
 
-                                <LinearGradient
-                                    colors={[
-                                        "rgba(11,15,17,0.93)",
-                                        "rgba(13,12,23,0.95)",
-                                        "rgba(7,8,11,0.97)",
-                                    ]}
-                                    start={{
-                                        x: 0,
-                                        y: 0,
-                                    }}
-                                    end={{
-                                        x: 1,
-                                        y: 1,
-                                    }}
-                                    style={
-                                        styles.surface
-                                    }
-                                >
-                                    <LinearGradient
-                                        colors={[
-                                            "#1ED760",
-                                            "#8064FF",
-                                        ]}
-                                        style={
-                                            styles.activeLine
-                                        }
-                                    />
-
-                                    <View
-                                        style={
-                                            styles.dragIndicator
-                                        }
-                                    />
-
-                                    <Cover
-                                        uri={
-                                            currentSong.coverURL
-                                        }
-                                        title={
-                                            currentSong.title
-                                        }
-                                        isPlaying={
-                                            isPlaying
-                                        }
-                                        onPress={
-                                            handleOpenFullPlayer
-                                        }
-                                    />
-
-                                    <SongInfo
-                                        currentSong={
-                                            currentSong
-                                        }
-                                        isPlaying={
-                                            isPlaying
-                                        }
-                                        onPress={
-                                            handleOpenFullPlayer
-                                        }
-                                    />
-
-                                    <View
-                                        style={
-                                            styles.actions
-                                        }
-                                    >
-                                        <TouchableOpacity
-                                            onPress={
-                                                handleOpenFullPlayer
-                                            }
-                                            activeOpacity={
-                                                0.7
-                                            }
-                                            accessibilityRole="button"
-                                            accessibilityLabel="Espandi il player"
-                                            style={
-                                                styles.expandButton
-                                            }
-                                        >
-                                            <Ionicons
-                                                name="chevron-up"
-                                                size={16}
-                                                color="#AAB1C1"
-                                            />
-                                        </TouchableOpacity>
-
-                                        <PlayButton
-                                            isPlaying={
-                                                isPlaying
-                                            }
-                                            onPress={
-                                                handleTogglePlayPause
-                                            }
-                                        />
-                                    </View>
-                                </LinearGradient>
-
-                                <MiniProgressBar />
-                            </BlurView>
-                        </LinearGradient>
-                    </MotiView>
-                )}
-        </AnimatePresence>
+                <MiniProgressBar />
+            </LinearGradient>
+        </View>
     );
 }
-
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
@@ -737,32 +665,14 @@ const styles = StyleSheet.create({
             width: 0,
             height: -5,
         },
-        shadowOpacity: 0.34,
-        shadowRadius: 14,
-        elevation: 12,
+        shadowOpacity: 0.24,
+        shadowRadius: 9,
+        elevation: 7,
     },
 
     outerBorder: {
         padding: 1,
         borderRadius: 19,
-    },
-
-    blurContainer: {
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: 18,
-        backgroundColor:
-            "rgba(9,10,14,0.96)",
-    },
-
-    backgroundCover: {
-        ...StyleSheet.absoluteFill,
-        opacity: 0.18,
-        transform: [
-            {
-                scale: 1.25,
-            },
-        ],
     },
 
     surface: {
@@ -774,6 +684,7 @@ const styles = StyleSheet.create({
         paddingLeft: 8,
         paddingRight: 8,
         overflow: "hidden",
+        borderRadius: 18,
     },
 
     activeLine: {
@@ -898,9 +809,25 @@ const styles = StyleSheet.create({
 
     equalizerBar: {
         width: 2.2,
-        minHeight: 3,
         borderRadius: 1.1,
         backgroundColor: "#36EA83",
+    },
+
+    equalizerBarShort: {
+        height: 7,
+    },
+
+    equalizerBarTall: {
+        height: 11,
+    },
+
+    equalizerBarMedium: {
+        height: 8,
+    },
+
+    equalizerBarPaused: {
+        height: 3,
+        opacity: 0.45,
     },
 
     actions: {
@@ -930,9 +857,9 @@ const styles = StyleSheet.create({
             width: 0,
             height: 4,
         },
-        shadowOpacity: 0.32,
-        shadowRadius: 8,
-        elevation: 7,
+        shadowOpacity: 0.24,
+        shadowRadius: 6,
+        elevation: 5,
     },
 
     playButton: {
@@ -1000,8 +927,8 @@ const styles = StyleSheet.create({
             width: 0,
             height: 0,
         },
-        shadowOpacity: 0.9,
-        shadowRadius: 5,
-        elevation: 5,
+        shadowOpacity: 0.48,
+        shadowRadius: 3,
+        elevation: 3,
     },
 });

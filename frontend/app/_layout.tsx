@@ -40,9 +40,6 @@ import {
     useAuth,
 } from "@/context/AuthContext";
 import {
-    PlayerProvider,
-} from "@/context/PlayerContext";
-import {
     useAlbums,
 } from "@/hooks/useAlbums";
 import {
@@ -597,24 +594,22 @@ export default function RootLayout() {
                     }
                 >
                     <AuthProvider>
-                        <PlayerProvider>
-                            <View
-                                style={
-                                    styles.appShell
-                                }
-                            >
-                                <AmbientBackground />
+                        <View
+                            style={
+                                styles.appShell
+                            }
+                        >
+                            <AmbientBackground />
 
-                                <AuthGateLayout />
+                            <AuthGateLayout />
 
-                                {Platform.OS !==
-                                    "web" && (
-                                        <StatusBar
-                                            style="light"
-                                        />
-                                    )}
-                            </View>
-                        </PlayerProvider>
+                            {Platform.OS !==
+                                "web" && (
+                                    <StatusBar
+                                        style="light"
+                                    />
+                                )}
+                        </View>
                     </AuthProvider>
                 </ThemeProvider>
             </QueryClientProvider>
