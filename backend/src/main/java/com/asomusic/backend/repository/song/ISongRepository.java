@@ -28,6 +28,7 @@ public interface ISongRepository {
 
     SongListenIncrementResult incrementListenCount(
             String albumId,
-            String songId
+            String songId,
+            String listenId
     ) throws ExecutionException, InterruptedException;
 }

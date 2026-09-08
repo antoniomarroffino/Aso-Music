@@ -130,11 +130,15 @@ export const usePlayerState =
             runtime.queue.length > 0 &&
             activeQueueIndex >= 0
                 ? runtime.queue[
-                (
-                    activeQueueIndex +
-                    1
-                ) %
-                runtime.queue.length
+                    runtime.queueMode ===
+                    "dj"
+                        ? activeQueueIndex +
+                        1
+                        : (
+                            activeQueueIndex +
+                            1
+                        ) %
+                        runtime.queue.length
                     ] ??
                 null
                 : null;

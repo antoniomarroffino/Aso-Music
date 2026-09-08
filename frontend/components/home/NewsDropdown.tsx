@@ -10,6 +10,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -27,7 +28,7 @@ type NewsDropdownProps = {
     visible: boolean;
 };
 
-const DEFAULT_VISIBLE_NEWS = 4;
+const DEFAULT_VISIBLE_NEWS = 3;
 
 const EMPTY_NEWS_LIST: NewsDTO[] = [];
 
@@ -36,6 +37,9 @@ const NewsDropdown = memo(
                               newsList = EMPTY_NEWS_LIST,
                               visible,
                           }: NewsDropdownProps) {
+        const {width: windowWidth} =
+            useWindowDimensions();
+
         const [
             expanded,
             setExpanded,
@@ -82,6 +86,15 @@ const NewsDropdown = memo(
         const hasOlderNews =
             hiddenNewsCount > 0;
 
+        const dropdownWidth =
+            Math.min(
+                348,
+                Math.max(
+                    windowWidth - 32,
+                    0,
+                ),
+            );
+
         const subtitle =
             unreadCount > 0
                 ? unreadCount === 1
@@ -120,9 +133,13 @@ const NewsDropdown = memo(
                             type: "timing",
                             duration: 160,
                         }}
-                        style={
-                            styles.container
-                        }
+                        style={[
+                            styles.container,
+                            {
+                                width:
+                                dropdownWidth,
+                            },
+                        ]}
                     >
                         <LinearGradient
                             colors={[
@@ -173,7 +190,7 @@ const NewsDropdown = memo(
                                                     styles.title
                                                 }
                                             >
-                                                Novità
+                                                Notifiche
                                             </Text>
 
                                             <Text
@@ -264,8 +281,8 @@ const NewsDropdown = memo(
                                                         accessibilityRole="button"
                                                         accessibilityLabel={
                                                             expanded
-                                                                ? "Mostra meno notifiche"
-                                                                : "Mostra tutte le notifiche"
+                                                                ? "Chiudi lo storico delle notifiche"
+                                                                : `Apri lo storico: ${hiddenNewsCount} notifiche precedenti`
                                                         }
                                                         onPress={
                                                             handleToggleExpanded
@@ -285,8 +302,8 @@ const NewsDropdown = memo(
                                                             }
                                                         >
                                                             {expanded
-                                                                ? "Mostra meno"
-                                                                : `Mostra altre ${hiddenNewsCount}`}
+                                                                ? "Chiudi storico"
+                                                                : `Vedi storico (${hiddenNewsCount})`}
                                                         </Text>
 
                                                         <Ionicons
@@ -346,6 +363,13 @@ const NewsItem = memo(
         const isUnread =
             !news.seen;
 
+        const isMilestone =
+            news.message
+                .toLocaleLowerCase(
+                    "it-IT",
+                )
+                .includes("disco");
+
         const formattedDate =
             news.createdAt
                 ? formatNewsDate(
@@ -367,13 +391,27 @@ const NewsItem = memo(
             >
                 <View
                     style={[
-                        styles.newsDot,
+                        styles.newsIcon,
 
                         isUnread
-                            ? styles.unreadNewsDot
-                            : styles.seenNewsDot,
+                            ? styles.unreadNewsIcon
+                            : styles.seenNewsIcon,
                     ]}
-                />
+                >
+                    <Ionicons
+                        name={
+                            isMilestone
+                                ? "trophy-outline"
+                                : "musical-notes-outline"
+                        }
+                        size={14}
+                        color={
+                            isUnread
+                                ? "#6AF09A"
+                                : "#7D8597"
+                        }
+                    />
+                </View>
 
                 <View
                     style={
@@ -482,7 +520,6 @@ const styles = StyleSheet.create({
         zIndex: 99999,
         elevation: 100,
 
-        width: 288,
         maxWidth: "96%",
 
         borderRadius: 17,
@@ -507,9 +544,9 @@ const styles = StyleSheet.create({
     },
 
     surface: {
-        paddingHorizontal: 9,
-        paddingTop: 9,
-        paddingBottom: 7,
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 9,
 
         borderRadius: 16,
 
@@ -523,13 +560,13 @@ const styles = StyleSheet.create({
     },
 
     headerIcon: {
-        width: 28,
-        height: 28,
+        width: 34,
+        height: 34,
 
         alignItems: "center",
         justifyContent: "center",
 
-        marginRight: 7,
+        marginRight: 9,
 
         borderRadius: 9,
 
@@ -545,8 +582,8 @@ const styles = StyleSheet.create({
     title: {
         color: "#F3F5FA",
 
-        fontSize: 11,
-        lineHeight: 14,
+        fontSize: 14,
+        lineHeight: 18,
         fontWeight: "800",
     },
 
@@ -555,8 +592,8 @@ const styles = StyleSheet.create({
 
         color: "#697185",
 
-        fontSize: 7.5,
-        lineHeight: 10,
+        fontSize: 10,
+        lineHeight: 14,
         fontWeight: "600",
     },
 
@@ -603,7 +640,7 @@ const styles = StyleSheet.create({
     },
 
     newsScrollExpanded: {
-        maxHeight: 310,
+        maxHeight: 360,
     },
 
     newsScrollContent: {
@@ -611,13 +648,13 @@ const styles = StyleSheet.create({
     },
 
     newsItem: {
-        minHeight: 40,
+        minHeight: 56,
 
         flexDirection: "row",
         alignItems: "flex-start",
 
-        paddingHorizontal: 5,
-        paddingVertical: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 8,
 
         borderRadius: 8,
     },
@@ -633,23 +670,26 @@ const styles = StyleSheet.create({
             "rgba(255,255,255,0.04)",
     },
 
-    newsDot: {
-        width: 5,
-        height: 5,
-
-        marginTop: 5,
-        marginRight: 7,
-
-        borderRadius: 2.5,
+    newsIcon: {
+        width: 30,
+        height: 30,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 9,
+        borderRadius: 10,
     },
 
-    unreadNewsDot: {
-        backgroundColor: "#1ED760",
-    },
-
-    seenNewsDot: {
+    unreadNewsIcon: {
         backgroundColor:
-            "rgba(116,124,142,0.38)",
+            "rgba(29,215,96,0.11)",
+        borderWidth: 1,
+        borderColor:
+            "rgba(29,215,96,0.18)",
+    },
+
+    seenNewsIcon: {
+        backgroundColor:
+            "rgba(116,124,142,0.09)",
     },
 
     newsContent: {
@@ -660,8 +700,8 @@ const styles = StyleSheet.create({
     newsText: {
         color: "#929AAA",
 
-        fontSize: 9.5,
-        lineHeight: 13,
+        fontSize: 11,
+        lineHeight: 15,
         fontWeight: "500",
     },
 
@@ -675,8 +715,8 @@ const styles = StyleSheet.create({
 
         color: "#626A7B",
 
-        fontSize: 6.5,
-        lineHeight: 9,
+        fontSize: 8,
+        lineHeight: 11,
         fontWeight: "600",
     },
 
@@ -712,7 +752,7 @@ const styles = StyleSheet.create({
     },
 
     toggleButton: {
-        minHeight: 30,
+        minHeight: 36,
 
         flexDirection: "row",
         alignItems: "center",
@@ -738,8 +778,8 @@ const styles = StyleSheet.create({
     toggleButtonText: {
         color: "#75ECA0",
 
-        fontSize: 8,
-        lineHeight: 11,
+        fontSize: 10,
+        lineHeight: 14,
         fontWeight: "800",
     },
 

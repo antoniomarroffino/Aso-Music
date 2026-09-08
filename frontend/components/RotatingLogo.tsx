@@ -32,8 +32,6 @@ import { fetchSongsByAlbum } from "@/api/songs";
 type SuggestedTrack = {
     song: SongPreviewDTO;
     album: AlbumPreviewDTO;
-    queue: SongPreviewDTO[];
-    queueIndex: number;
 };
 
 function getArtistNames(
@@ -595,14 +593,10 @@ type SuggestionModalProps = {
         | SongPreviewDTO
         | null;
 
-    playSong: (
+    playDjSong: (
         song: SongPreviewDTO,
-        queue?: SongPreviewDTO[],
-        startIndex?: number,
+        catalog: readonly SongPreviewDTO[],
     ) => Promise<void>;
-
-    togglePlayPause:
-        () => Promise<void>;
 
     onClose: () => void;
 };
@@ -612,8 +606,7 @@ const SuggestionModal = memo(
                                  albums,
                                  albumsLoading,
                                  currentSong,
-                                 playSong,
-                                 togglePlayPause,
+                                 playDjSong,
                                  onClose,
                              }: SuggestionModalProps) {
         /*
@@ -693,10 +686,7 @@ const SuggestionModal = memo(
                             [];
 
                         queue.forEach(
-                            (
-                                song,
-                                queueIndex,
-                            ) => {
+                            (song) => {
                                 const normalizedTitle =
                                     song.title
                                         .trim()
@@ -713,8 +703,6 @@ const SuggestionModal = memo(
                                 result.push({
                                     song,
                                     album,
-                                    queue,
-                                    queueIndex,
                                 });
                             },
                         );
@@ -776,20 +764,13 @@ const SuggestionModal = memo(
                     }
 
                     try {
-                        if (
-                            currentSongKey ===
-                            getSongKey(
-                                suggestion.song,
-                            )
-                        ) {
-                            await togglePlayPause();
-                        } else {
-                            await playSong(
-                                suggestion.song,
-                                suggestion.queue,
-                                suggestion.queueIndex,
-                            );
-                        }
+                        await playDjSong(
+                            suggestion.song,
+                            suggestions.map(
+                                (entry) =>
+                                    entry.song,
+                            ),
+                        );
 
                         onClose();
                     } catch (error) {
@@ -800,11 +781,10 @@ const SuggestionModal = memo(
                     }
                 },
                 [
-                    currentSongKey,
                     onClose,
-                    playSong,
+                    playDjSong,
                     suggestion,
-                    togglePlayPause,
+                    suggestions,
                 ],
             );
 
@@ -863,8 +843,7 @@ function RotatingLogoComponent({
     } = usePlayerState();
 
     const {
-        playSong,
-        togglePlayPause,
+        playDjSong,
     } = usePlayerActions();
 
     const [
@@ -1016,11 +995,8 @@ function RotatingLogoComponent({
                     currentSong={
                         currentSong
                     }
-                    playSong={
-                        playSong
-                    }
-                    togglePlayPause={
-                        togglePlayPause
+                    playDjSong={
+                        playDjSong
                     }
                     onClose={
                         handleClose

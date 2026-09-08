@@ -1,6 +1,7 @@
 import {
     AlbumDTO,
     AlbumPreviewDTO,
+    SongListenIncrementResult,
     SongPlaybackUrlDTO,
     SongPreviewDTO,
 } from "@/types/music";
@@ -137,7 +138,8 @@ export async function buildAlbumFromPreview(
 export async function incrementStreamCount(
     albumId: string,
     songId: string,
-): Promise<void> {
+    listenId: string,
+): Promise<SongListenIncrementResult> {
     const base = ensureBaseUrl();
 
     const encodedAlbumId = encodeURIComponent(albumId);
@@ -149,17 +151,27 @@ export async function incrementStreamCount(
             `/songs/${encodedSongId}/listen`,
             {
                 method: "POST",
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
+                body: JSON.stringify({
+                    listenId,
+                }),
             },
         );
 
         if (!response.ok) {
             const body = await readErrorBody(response);
 
-            console.warn(
+            throw new Error(
                 `Errore incrementStreamCount ` +
                 `(${response.status}): ${body}`,
             );
         }
+
+        return await response.json() as
+            SongListenIncrementResult;
     } catch (error) {
         /*
          * La mancata registrazione dell'ascolto non deve interrompere
@@ -169,5 +181,7 @@ export async function incrementStreamCount(
             "Errore durante l'incremento degli ascolti:",
             error,
         );
+
+        throw error;
     }
 }

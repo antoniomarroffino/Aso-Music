@@ -18,11 +18,15 @@ import com.google.firebase.cloud.FirestoreClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +43,8 @@ public class SongRepository implements ISongRepository {
     private static final String SONGS_COLLECTION = "songs";
     private static final String ARTISTS_COLLECTION = "artists";
     private static final String NEWS_COLLECTION = "news";
+    private static final String LISTEN_EVENTS_COLLECTION =
+            "listenEvents";
 
     /*
      * Evita richieste getAll eccessivamente grandi.
@@ -345,7 +351,8 @@ public class SongRepository implements ISongRepository {
     @Override
     public SongListenIncrementResult incrementListenCount(
             String albumId,
-            String songId
+            String songId,
+            String listenId
     ) throws ExecutionException, InterruptedException {
 
         DocumentReference songReference =
@@ -353,6 +360,11 @@ public class SongRepository implements ISongRepository {
                         .document(albumId)
                         .collection(SONGS_COLLECTION)
                         .document(songId);
+
+        DocumentReference listenEventReference =
+                songReference
+                        .collection(LISTEN_EVENTS_COLLECTION)
+                        .document(hashListenId(listenId));
 
         ListenIncrementPersistenceResult incrementResult =
                 db.runTransaction(transaction -> {
@@ -371,17 +383,29 @@ public class SongRepository implements ISongRepository {
                                 );
                             }
 
+                            DocumentSnapshot listenEventSnapshot =
+                                    transaction
+                                            .get(listenEventReference)
+                                            .get();
+
                             long currentCount =
                                     readLong(
                                             songSnapshot,
                                             "stream"
                                     );
 
-                            long newCount =
-                                    Math.addExact(
-                                            currentCount,
-                                            1L
-                                    );
+                            if (listenEventSnapshot.exists()) {
+                                return new ListenIncrementPersistenceResult(
+                                        songSnapshot,
+                                        currentCount,
+                                        false
+                                );
+                            }
+
+                            long newCount = Math.addExact(
+                                    currentCount,
+                                    1L
+                            );
 
                             transaction.update(
                                     songReference,
@@ -389,9 +413,18 @@ public class SongRepository implements ISongRepository {
                                     newCount
                             );
 
+                            transaction.create(
+                                    listenEventReference,
+                                    Map.of(
+                                            "createdAt",
+                                            Timestamp.now()
+                                    )
+                            );
+
                             return new ListenIncrementPersistenceResult(
                                     songSnapshot,
-                                    newCount
+                                    newCount,
+                                    true
                             );
                         })
                         .get();
@@ -407,8 +440,32 @@ public class SongRepository implements ISongRepository {
                         .songSnapshot()
                         .getString("title"),
                 incrementResult.newCount(),
-                artistNames
+                artistNames,
+                incrementResult.incremented()
         );
+    }
+
+    private String hashListenId(
+            String listenId
+    ) {
+        try {
+            MessageDigest digest =
+                    MessageDigest.getInstance("SHA-256");
+
+            return HexFormat.of().formatHex(
+                    digest.digest(
+                            listenId.getBytes(
+                                    StandardCharsets.UTF_8
+                            )
+                    )
+            );
+
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 non disponibile",
+                    exception
+            );
+        }
     }
 
     private AlbumDTO mapAlbum(
@@ -983,7 +1040,8 @@ public class SongRepository implements ISongRepository {
 
     private record ListenIncrementPersistenceResult(
             DocumentSnapshot songSnapshot,
-            long newCount
+            long newCount,
+            boolean incremented
     ) {
     }
 }

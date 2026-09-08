@@ -6,7 +6,8 @@ public record SongListenIncrementResult(
         String songId,
         String title,
         long listenCount,
-        List<String> artistNames
+        List<String> artistNames,
+        boolean incremented
 ) {
 
     public SongListenIncrementResult {

@@ -3,6 +3,7 @@ package com.asomusic.backend.service.song;
 import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.SongPlaybackUrlDTO;
 import com.asomusic.backend.model.dto.SongPreviewDTO;
+import com.asomusic.backend.model.dto.SongListenIncrementResult;
 
 import java.util.List;
 
@@ -23,8 +24,9 @@ public interface ISongService {
             String songId
     );
 
-    void incrementListenCount(
+    SongListenIncrementResult incrementListenCount(
             String albumId,
-            String songId
+            String songId,
+            String listenId
     );
 }

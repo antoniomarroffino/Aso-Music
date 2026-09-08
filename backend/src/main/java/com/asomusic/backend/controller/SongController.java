@@ -2,6 +2,8 @@ package com.asomusic.backend.controller;
 
 import com.asomusic.backend.model.dto.AlbumDTO;
 import com.asomusic.backend.model.dto.SongPlaybackUrlDTO;
+import com.asomusic.backend.model.dto.SongListenIncrementResult;
+import com.asomusic.backend.model.dto.SongListenRequestDTO;
 import com.asomusic.backend.service.song.ISongService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -12,6 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 @Path("/songs")
 @Produces(MediaType.APPLICATION_JSON)
@@ -49,11 +52,37 @@ public class SongController {
     @Operation(summary = "Incrementa il numero di ascolti per una canzone in un album")
     public Response incrementListenCount(
             @PathParam("albumId") String albumId,
-            @PathParam("songId") String songId
+            @PathParam("songId") String songId,
+            SongListenRequestDTO request
     ) {
         try {
-            songService.incrementListenCount(albumId, songId);
-            return Response.ok("{\"message\": \"Listen count incremented\"}").build();
+            /*
+             * Compatibilità durante un deploy graduale: i client della
+             * versione precedente non inviano ancora il body. Appena il
+             * nuovo frontend è distribuito, listenId rende i retry
+             * idempotenti.
+             */
+            String listenId = request == null
+                    ? "legacy:" + UUID.randomUUID()
+                    : request.listenId();
+
+            SongListenIncrementResult result =
+                    songService.incrementListenCount(
+                            albumId,
+                            songId,
+                            listenId
+                    );
+
+            return Response.ok(result).build();
+
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of(
+                            "error", "INVALID_LISTEN_REQUEST",
+                            "message", e.getMessage()
+                    ))
+                    .build();
+
         } catch (Exception e) {
             e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)

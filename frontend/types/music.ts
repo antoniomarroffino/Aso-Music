@@ -45,6 +45,14 @@ export interface SongPlaybackUrlDTO {
     expiresAt: string;
 }
 
+export interface SongListenIncrementResult {
+    songId: string;
+    title: string;
+    listenCount: number;
+    artistNames: string[];
+    incremented: boolean;
+}
+
 export interface ArtistSongsDTO {
     artistId: string;
     total: number;

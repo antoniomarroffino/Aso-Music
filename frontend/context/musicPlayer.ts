@@ -1,10 +1,14 @@
 import {
+    AppState,
     Platform,
 } from "react-native";
 
 import TrackPlayer, {
+    type BackgroundEvent,
+    Event,
     type MediaItem,
     PlayerCommand,
+    PlaybackState,
     RepeatMode,
 } from "@rntp/player";
 
@@ -15,7 +19,20 @@ import {
 import type {
     SongPreviewDTO,
 } from "@/types/music";
-import {PlaybackExtras} from "@/context/playerbackMetadata";
+import {
+    deserializeMediaItemSong,
+    PlaybackExtras,
+    readPlaybackExtras,
+} from "@/context/playerbackMetadata";
+import {
+    pickDjNextSong,
+    uniqueSongs,
+} from "@/player/queueStrategy";
+import {
+    clearDjCatalog,
+    loadDjCatalog,
+    saveDjCatalog,
+} from "@/player/djQueueStore";
 
 /*
  * @rntp/player è l'unico motore audio.
@@ -29,10 +46,15 @@ import {PlaybackExtras} from "@/context/playerbackMetadata";
  */
 
 
+export type PlayerQueueMode =
+    | "static"
+    | "dj";
+
 export type PlayerRuntimeSnapshot = {
     queue: readonly SongPreviewDTO[];
     queueSignature: string;
     queueSessionId: string | null;
+    queueMode: PlayerQueueMode;
     queueReady: boolean;
     isPreparing: boolean;
     isQueuePreparing: boolean;
@@ -50,6 +72,7 @@ let runtimeSnapshot:
     queue: EMPTY_QUEUE,
     queueSignature: "",
     queueSessionId: null,
+    queueMode: "static",
     queueReady: false,
     isPreparing: false,
     isQueuePreparing: false,
@@ -100,6 +123,43 @@ const updateRuntimeSnapshot = (
             listener();
         },
     );
+};
+
+export const updateRuntimeSongStream = (
+    albumId: string,
+    songId: string,
+    listenCount: number,
+): void => {
+    let changed = false;
+
+    const queue =
+        runtimeSnapshot.queue.map(
+            (song) => {
+                if (
+                    song.albumId !==
+                    albumId ||
+                    song.id !== songId ||
+                    song.stream ===
+                    listenCount
+                ) {
+                    return song;
+                }
+
+                changed = true;
+
+                return {
+                    ...song,
+                    stream:
+                    listenCount,
+                };
+            },
+        );
+
+    if (changed) {
+        updateRuntimeSnapshot({
+            queue,
+        });
+    }
 };
 
 type GlobalPlayerState =
@@ -329,12 +389,14 @@ export const songKey = (
     `${song.albumId}:${song.id}`;
 
 const queueSignature = (
+    queueMode: PlayerQueueMode,
     queue:
     readonly SongPreviewDTO[],
 ): string =>
-    queue
-        .map(songKey)
-        .join("|");
+    [
+        queueMode,
+        ...queue.map(songKey),
+    ].join("|");
 
 const getArtistNames = (
     song: SongPreviewDTO,
@@ -447,6 +509,7 @@ const createMediaItem = (
     url: string,
     queueIndex: number,
     queueSessionId: string,
+    queueMode: PlayerQueueMode,
 ): MediaItem => {
     const extras:
         PlaybackExtras = {
@@ -458,6 +521,7 @@ const createMediaItem = (
 
         queueIndex,
         queueSessionId,
+        queueMode,
 
         /*
          * Compatibilità con il ripristino della UI.
@@ -587,6 +651,31 @@ const mapWithConcurrency =
 
 let playbackRequestId = 0;
 
+let queuePreparationPromise:
+    Promise<void> | null =
+    null;
+
+let djAppendPromise:
+    Promise<void> | null =
+    null;
+
+let djCatalog:
+    readonly SongPreviewDTO[] =
+    EMPTY_QUEUE;
+
+const clearPersistedDjCatalog =
+    (): void => {
+        void clearDjCatalog()
+            .catch(
+                (error) => {
+                    console.warn(
+                        "Impossibile eliminare il catalogo DJ salvato:",
+                        error,
+                    );
+                },
+            );
+    };
+
 const isCurrentRequest = (
     requestId: number,
 ): boolean =>
@@ -599,12 +688,14 @@ const completeQueueInBackground =
                targetQueue,
                selectedIndex,
                queueSessionId,
+               queueMode,
            }: {
         requestId: number;
         targetQueue:
             readonly SongPreviewDTO[];
         selectedIndex: number;
         queueSessionId: string;
+        queueMode: PlayerQueueMode;
     }): Promise<void> => {
         const remainingSongs:
             IndexedSong[] =
@@ -675,6 +766,7 @@ const completeQueueInBackground =
                                     playback.url,
                                     index,
                                     queueSessionId,
+                                    queueMode,
                                 ),
                         };
                     },
@@ -749,7 +841,9 @@ const completeQueueInBackground =
 
             TrackPlayer
                 .setRepeatMode(
-                    RepeatMode.All,
+                    queueMode === "dj"
+                        ? RepeatMode.Off
+                        : RepeatMode.All,
                 );
 
             configureRemoteCommands(
@@ -779,6 +873,24 @@ const completeQueueInBackground =
                 queueReady: false,
                 isQueuePreparing:
                     false,
+                ...(queueMode === "dj"
+                    ? {
+                        queue: [
+                            targetQueue[
+                                selectedIndex
+                                ],
+                        ],
+                        queueSignature:
+                            queueSignature(
+                                queueMode,
+                                [
+                                    targetQueue[
+                                        selectedIndex
+                                        ],
+                                ],
+                            ),
+                    }
+                    : {}),
                 error:
                     getErrorMessage(
                         error,
@@ -792,13 +904,15 @@ const completeQueueInBackground =
         }
     };
 
-export const playSong =
+const startPlayback =
     async (
         song: SongPreviewDTO,
         requestedQueue?:
         SongPreviewDTO[],
         requestedStartIndex?:
         number,
+        queueMode: PlayerQueueMode =
+        "static",
     ): Promise<void> => {
         await ensureMusicPlayerReady();
 
@@ -843,6 +957,7 @@ export const playSong =
 
         const signature =
             queueSignature(
+                queueMode,
                 targetQueue,
             );
 
@@ -882,6 +997,8 @@ export const playSong =
 
             queueSessionId,
 
+            queueMode,
+
             queueReady: false,
             isPreparing: true,
             isQueuePreparing: true,
@@ -918,6 +1035,7 @@ export const playSong =
                     playback.url,
                     selectedIndex,
                     queueSessionId,
+                    queueMode,
                 );
 
             /*
@@ -931,7 +1049,9 @@ export const playSong =
 
             TrackPlayer
                 .setRepeatMode(
-                    RepeatMode.All,
+                    queueMode === "dj"
+                        ? RepeatMode.Off
+                        : RepeatMode.All,
                 );
 
             configureRemoteCommands(
@@ -945,12 +1065,29 @@ export const playSong =
                 error: null,
             });
 
-            void completeQueueInBackground({
-                requestId,
-                targetQueue,
-                selectedIndex,
-                queueSessionId,
-            });
+            const preparation =
+                completeQueueInBackground({
+                    requestId,
+                    targetQueue,
+                    selectedIndex,
+                    queueSessionId,
+                    queueMode,
+                });
+
+            queuePreparationPromise =
+                preparation;
+
+            void preparation.finally(
+                () => {
+                    if (
+                        queuePreparationPromise ===
+                        preparation
+                    ) {
+                        queuePreparationPromise =
+                            null;
+                    }
+                },
+            );
         } catch (error) {
             if (
                 !isCurrentRequest(
@@ -980,6 +1117,433 @@ export const playSong =
         }
     };
 
+export const playSong =
+    async (
+        song: SongPreviewDTO,
+        requestedQueue?:
+        SongPreviewDTO[],
+        requestedStartIndex?:
+        number,
+    ): Promise<void> => {
+        djCatalog =
+            EMPTY_QUEUE;
+
+        clearPersistedDjCatalog();
+
+        return startPlayback(
+            song,
+            requestedQueue,
+            requestedStartIndex,
+            "static",
+        );
+    };
+
+export const playDjSong =
+    async (
+        song: SongPreviewDTO,
+        catalog:
+        readonly SongPreviewDTO[],
+    ): Promise<void> => {
+        const normalizedCatalog =
+            uniqueSongs([
+                song,
+                ...catalog,
+            ]);
+
+        const nextSong =
+            pickDjNextSong(
+                normalizedCatalog,
+                [song],
+            );
+
+        const initialQueue =
+            nextSong
+                ? [
+                    song,
+                    nextSong,
+                ]
+                : [song];
+
+        djCatalog =
+            normalizedCatalog;
+
+        try {
+            try {
+                await saveDjCatalog(
+                    normalizedCatalog,
+                );
+            } catch (error) {
+                console.warn(
+                    "Il catalogo DJ non può essere ripristinato in background:",
+                    error,
+                );
+            }
+
+            await startPlayback(
+                song,
+                initialQueue,
+                0,
+                "dj",
+            );
+        } catch (error) {
+            djCatalog =
+                EMPTY_QUEUE;
+
+            throw error;
+        }
+    };
+
+const waitForQueuePreparation =
+    async (): Promise<void> => {
+        const preparation =
+            queuePreparationPromise;
+
+        if (preparation) {
+            await preparation;
+        }
+    };
+
+const appendDjLookahead =
+    async (): Promise<void> => {
+        await waitForQueuePreparation();
+
+        const activeIndex =
+            TrackPlayer
+                .getActiveMediaItemIndex();
+
+        const nativeQueue =
+            TrackPlayer
+                .getQueue();
+
+        const activeExtras =
+            activeIndex !== null
+                ? readPlaybackExtras(
+                    nativeQueue[
+                        activeIndex
+                        ],
+                )
+                : null;
+
+        if (
+            activeExtras &&
+            runtimeSnapshot
+                .queueSessionId ===
+            activeExtras.queueSessionId &&
+            runtimeSnapshot
+                .isQueuePreparing
+        ) {
+            return;
+        }
+
+        if (
+            activeIndex === null ||
+            !activeExtras ||
+            activeExtras.queueMode !==
+            "dj" ||
+            nativeQueue.length === 0 ||
+            activeIndex <
+            nativeQueue.length - 1
+        ) {
+            return;
+        }
+
+        if (djCatalog.length === 0) {
+            djCatalog =
+                uniqueSongs(
+                    await loadDjCatalog(),
+                );
+        }
+
+        const history =
+            nativeQueue
+                .map(
+                    deserializeMediaItemSong,
+                )
+                .filter(
+                    (
+                        song,
+                    ): song is SongPreviewDTO =>
+                        song !== null,
+                );
+
+        const nextSong =
+            pickDjNextSong(
+                djCatalog,
+                history,
+            );
+
+        if (!nextSong) {
+            return;
+        }
+
+        const queueSessionId =
+            activeExtras
+                .queueSessionId;
+
+        const playback =
+            await fetchSongPlaybackUrl(
+                nextSong.albumId,
+                nextSong.id,
+            );
+
+        const currentExtras =
+            readPlaybackExtras(
+                TrackPlayer
+                    .getActiveMediaItem(),
+            );
+
+        if (
+            currentExtras?.queueMode !==
+            "dj" ||
+            currentExtras.queueSessionId !==
+            queueSessionId
+        ) {
+            return;
+        }
+
+        const nextQueue = [
+            ...history,
+            nextSong,
+        ];
+
+        TrackPlayer.addMediaItem(
+            createMediaItem(
+                nextSong,
+                playback.url,
+                nextQueue.length - 1,
+                queueSessionId,
+                "dj",
+            ),
+        );
+
+        configureRemoteCommands(
+            nextQueue.length,
+        );
+
+        updateRuntimeSnapshot({
+            queue:
+            nextQueue,
+            queueSignature:
+                queueSignature(
+                    "dj",
+                    nextQueue,
+                ),
+            queueReady: true,
+            error: null,
+        });
+    };
+
+export const ensureDjQueueLookahead =
+    async (): Promise<void> => {
+        if (djAppendPromise) {
+            return djAppendPromise;
+        }
+
+        const appendPromise =
+            appendDjLookahead();
+
+        djAppendPromise =
+            appendPromise;
+
+        try {
+            await appendPromise;
+        } catch (error) {
+            updateRuntimeSnapshot({
+                error:
+                    getErrorMessage(
+                        error,
+                    ),
+            });
+
+            console.error(
+                "Impossibile preparare il prossimo brano di DJ Cheddar:",
+                error,
+            );
+        } finally {
+            if (
+                djAppendPromise ===
+                appendPromise
+            ) {
+                djAppendPromise =
+                    null;
+            }
+        }
+    };
+
+const advanceDjAfterEnded =
+    async (): Promise<void> => {
+        const activeExtras =
+            readPlaybackExtras(
+                TrackPlayer
+                    .getActiveMediaItem(),
+            );
+
+        if (
+            activeExtras?.queueMode !==
+            "dj"
+        ) {
+            return;
+        }
+
+        await ensureDjQueueLookahead();
+
+        const activeIndex =
+            TrackPlayer
+                .getActiveMediaItemIndex();
+
+        if (
+            activeIndex !== null &&
+            activeIndex <
+            TrackPlayer
+                .getQueue()
+                .length - 1
+        ) {
+            TrackPlayer.skipToNext();
+            TrackPlayer.play();
+        }
+    };
+
+const reconcilePlayerQueueFromNative =
+    (): void => {
+        const nativeQueue =
+            TrackPlayer.getQueue();
+
+        const activeExtras =
+            readPlaybackExtras(
+                TrackPlayer
+                    .getActiveMediaItem(),
+            );
+
+        if (
+            !activeExtras ||
+            nativeQueue.length === 0
+        ) {
+            return;
+        }
+
+        const queue =
+            nativeQueue
+                .map(
+                    deserializeMediaItemSong,
+                )
+                .filter(
+                    (
+                        song,
+                    ): song is SongPreviewDTO =>
+                        song !== null,
+                );
+
+        if (
+            queue.length !==
+            nativeQueue.length ||
+            (
+                runtimeSnapshot
+                    .queueSessionId ===
+                activeExtras
+                    .queueSessionId &&
+                runtimeSnapshot.queue.length >=
+                queue.length
+            )
+        ) {
+            return;
+        }
+
+        const queueMode =
+            activeExtras.queueMode ??
+            "static";
+
+        updateRuntimeSnapshot({
+            queue,
+            queueSignature:
+                queueSignature(
+                    queueMode,
+                    queue,
+                ),
+            queueSessionId:
+            activeExtras
+                .queueSessionId,
+            queueMode,
+            queueReady: true,
+            isPreparing: false,
+            isQueuePreparing: false,
+        });
+    };
+
+export const handleBackgroundQueueEvent =
+    async (
+        event: BackgroundEvent,
+    ): Promise<void> => {
+        if (
+            event.type ===
+            Event.MediaItemTransition
+        ) {
+            reconcilePlayerQueueFromNative();
+            await ensureDjQueueLookahead();
+            return;
+        }
+
+        if (
+            event.type ===
+            Event.PlaybackStateChanged &&
+            event.state ===
+            PlaybackState.Ended
+        ) {
+            await advanceDjAfterEnded();
+        }
+    };
+
+export const registerPlayerQueueEventListeners =
+    (): (() => void) => {
+        void initializeMusicPlayer()
+            .then(
+                (initialized) => {
+                    if (initialized) {
+                        reconcilePlayerQueueFromNative();
+                        void ensureDjQueueLookahead();
+                    }
+                },
+            );
+
+        const transitionSubscription =
+            TrackPlayer.addEventListener(
+                Event.MediaItemTransition,
+                () => {
+                    reconcilePlayerQueueFromNative();
+                    void ensureDjQueueLookahead();
+                },
+            );
+
+        const stateSubscription =
+            TrackPlayer.addEventListener(
+                Event.PlaybackStateChanged,
+                (event) => {
+                    if (
+                        event.state ===
+                        PlaybackState.Ended
+                    ) {
+                        void advanceDjAfterEnded();
+                    }
+                },
+            );
+
+        const appStateSubscription =
+            AppState.addEventListener(
+                "change",
+                (state) => {
+                    if (state === "active") {
+                        reconcilePlayerQueueFromNative();
+                        void ensureDjQueueLookahead();
+                    }
+                },
+            );
+
+        return () => {
+            transitionSubscription.remove();
+            stateSubscription.remove();
+            appStateSubscription.remove();
+        };
+    };
+
 export const togglePlayPause =
     async (): Promise<void> => {
         await ensureMusicPlayerReady();
@@ -1005,10 +1569,15 @@ export const stopSong =
 
         configureRemoteCommands(0);
 
+        djCatalog = EMPTY_QUEUE;
+
+        clearPersistedDjCatalog();
+
         updateRuntimeSnapshot({
             queue: EMPTY_QUEUE,
             queueSignature: "",
             queueSessionId: null,
+            queueMode: "static",
             queueReady: false,
             isPreparing: false,
             isQueuePreparing: false,
@@ -1020,6 +1589,15 @@ export const nextSongAction =
     async (): Promise<void> => {
         await ensureMusicPlayerReady();
 
+        await waitForQueuePreparation();
+
+        if (
+            runtimeSnapshot.queueMode ===
+            "dj"
+        ) {
+            await ensureDjQueueLookahead();
+        }
+
         if (
             TrackPlayer
                 .getQueue()
@@ -1028,18 +1606,55 @@ export const nextSongAction =
             return;
         }
 
+        const activeIndex =
+            TrackPlayer
+                .getActiveMediaItemIndex();
+
+        if (
+            runtimeSnapshot.queueMode ===
+            "dj" &&
+            (
+                activeIndex === null ||
+                activeIndex >=
+                TrackPlayer
+                    .getQueue()
+                    .length - 1
+            )
+        ) {
+            return;
+        }
+
         TrackPlayer.skipToNext();
         TrackPlayer.play();
+
+        if (
+            runtimeSnapshot.queueMode ===
+            "dj"
+        ) {
+            void ensureDjQueueLookahead();
+        }
     };
 
 export const prevSong =
     async (): Promise<void> => {
         await ensureMusicPlayerReady();
 
+        await waitForQueuePreparation();
+
         if (
             TrackPlayer
                 .getQueue()
                 .length === 0
+        ) {
+            return;
+        }
+
+        if (
+            runtimeSnapshot.queueMode ===
+            "dj" &&
+            TrackPlayer
+                .getActiveMediaItemIndex() ===
+            0
         ) {
             return;
         }
@@ -1074,6 +1689,7 @@ export const seekTo =
 
 export const PLAYER_ACTIONS = {
     playSong,
+    playDjSong,
     togglePlayPause,
     stopSong,
     nextSongAction,

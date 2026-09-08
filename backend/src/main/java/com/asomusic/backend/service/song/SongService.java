@@ -80,10 +80,23 @@ public class SongService implements ISongService {
     }
 
     @Override
-    public void incrementListenCount(
+    public SongListenIncrementResult incrementListenCount(
             String albumId,
-            String songId
+            String songId,
+            String listenId
     ) {
+        if (listenId == null || listenId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Listen ID obbligatorio"
+            );
+        }
+
+        if (listenId.length() > 250) {
+            throw new IllegalArgumentException(
+                    "Listen ID troppo lungo"
+            );
+        }
+
         SongListenIncrementResult result =
                 executeRepositoryRead(
                         "Errore durante l'incremento "
@@ -91,11 +104,16 @@ public class SongService implements ISongService {
                                 + songId,
                         () -> songRepository.incrementListenCount(
                                 albumId,
-                                songId
+                                songId,
+                                listenId
                         )
                 );
 
-        createCertificationNewsIfNeeded(result);
+        if (result.incremented()) {
+            createCertificationNewsIfNeeded(result);
+        }
+
+        return result;
     }
 
     @Override

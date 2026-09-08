@@ -45,6 +45,23 @@ import {
 import {
     usePrefetchSongs,
 } from "@/hooks/usePrefetchAllSongs";
+import {
+    registerPlaybackEventListeners,
+} from "@/player/playbackService";
+import {
+    subscribeToStreamUpdates,
+} from "@/player/streamUpdates";
+import {
+    updateRuntimeSongStream,
+    registerPlayerQueueEventListeners,
+} from "@/context/musicPlayer";
+import {
+    queryKeys,
+} from "@/hooks/queryKeys";
+import type {
+    ArtistSongsDTO,
+    SongPreviewDTO,
+} from "@/types/music";
 
 /* -------------------------------------------------------------------------- */
 /* Configuration                                                              */
@@ -74,6 +91,24 @@ const queryClient =
             },
         },
     });
+
+const updateSongInList = (
+    songs: SongPreviewDTO[] | undefined,
+    albumId: string,
+    songId: string,
+    listenCount: number,
+): SongPreviewDTO[] | undefined =>
+    songs?.map(
+        (song) =>
+            song.albumId === albumId &&
+            song.id === songId
+                ? {
+                    ...song,
+                    stream:
+                    listenCount,
+                }
+                : song,
+    );
 
 const ASO_DARK_THEME = {
     ...DarkTheme,
@@ -577,6 +612,76 @@ function AuthGateLayout() {
 /* -------------------------------------------------------------------------- */
 
 export default function RootLayout() {
+    useEffect(() => {
+        const unregisterPlaybackEvents =
+            registerPlaybackEventListeners();
+
+        const unregisterQueueEvents =
+            registerPlayerQueueEventListeners();
+
+        const unsubscribeStreamUpdates =
+            subscribeToStreamUpdates(
+                ({
+                     identity,
+                     result,
+                 }) => {
+                    updateRuntimeSongStream(
+                        identity.albumId,
+                        identity.songId,
+                        result.listenCount,
+                    );
+
+                    queryClient.setQueryData<
+                        SongPreviewDTO[]
+                    >(
+                        queryKeys.songs
+                            .byAlbum(
+                                identity.albumId,
+                            ),
+                        (songs) =>
+                            updateSongInList(
+                                songs,
+                                identity.albumId,
+                                identity.songId,
+                                result.listenCount,
+                            ),
+                    );
+
+                    queryClient.setQueriesData<
+                        ArtistSongsDTO
+                    >(
+                        {
+                            predicate:
+                                (query) =>
+                                    query.queryKey[0] ===
+                                    "artists" &&
+                                    query.queryKey[2] ===
+                                    "songs",
+                        },
+                        (artistSongs) =>
+                            artistSongs
+                                ? {
+                                    ...artistSongs,
+                                    songs:
+                                        updateSongInList(
+                                            artistSongs.songs,
+                                            identity.albumId,
+                                            identity.songId,
+                                            result.listenCount,
+                                        ) ?? [],
+                                }
+                                : undefined,
+                    );
+                },
+            );
+
+        return () => {
+            unregisterPlaybackEvents();
+            unregisterQueueEvents();
+            unsubscribeStreamUpdates();
+        };
+    }, []);
+
     return (
         <GestureHandlerRootView
             style={

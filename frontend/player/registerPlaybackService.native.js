@@ -1,11 +1,6 @@
-const TrackPlayerModule =
-    require(
-        "react-native-track-player",
-    );
-
-const TrackPlayer =
-    TrackPlayerModule.default ??
-    TrackPlayerModule;
+const {
+    registerBackgroundEventHandler,
+} = require("@rntp/player");
 
 const {
     playbackService,
@@ -13,6 +8,6 @@ const {
     "./playbackService",
 );
 
-TrackPlayer.registerPlaybackService(
-    () => playbackService,
+registerBackgroundEventHandler(
+    playbackService,
 );

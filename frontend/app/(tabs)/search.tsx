@@ -34,6 +34,9 @@ import {
     usePlayerState,
 } from "@/hooks/usePlayer";
 import {
+    buildOrderedSongQueue,
+} from "@/player/queueStrategy";
+import {
     fetchSongsByAlbum,
 } from "@/api/songs";
 
@@ -1296,6 +1299,64 @@ export default function SearchScreen() {
             songsByAlbum,
         ]);
 
+    /*
+     * La coda della ricerca segue l'ordine realmente mostrato,
+     * ignorando gli elementi artista/album intercalati ai brani.
+     */
+    const searchSongQueue =
+        useMemo(() => {
+            const songs =
+                buildOrderedSongQueue(
+                    results,
+                    (item) => {
+                        if (
+                            item.type !==
+                            "song" ||
+                            !item.albumId ||
+                            item.queueIndex ===
+                            undefined
+                        ) {
+                            return null;
+                        }
+
+                        return (
+                            songsByAlbum
+                                .get(
+                                    item.albumId,
+                                )?.[
+                                item.queueIndex
+                                ] ?? null
+                        );
+                    },
+                );
+
+            const indexBySongKey =
+                new Map<
+                    string,
+                    number
+                >();
+
+            songs.forEach(
+                (
+                    song,
+                    index,
+                ) => {
+                    indexBySongKey.set(
+                        getSongKey(song),
+                        index,
+                    );
+                },
+            );
+
+            return {
+                songs,
+                indexBySongKey,
+            };
+        }, [
+            results,
+            songsByAlbum,
+        ]);
+
     const handleItemPress =
         useCallback(
             async (
@@ -1360,24 +1421,40 @@ export default function SearchScreen() {
                         return;
                     }
 
-                    const queue =
+                    const albumQueue =
                         songsByAlbum.get(
                             item.albumId,
                         );
 
                     const song =
-                        queue?.[
+                        albumQueue?.[
                             item.queueIndex
                             ];
 
-                    if (!queue || !song) {
+                    if (!song) {
+                        return;
+                    }
+
+                    const searchQueueIndex =
+                        searchSongQueue
+                            .indexBySongKey
+                            .get(
+                                getSongKey(
+                                    song,
+                                ),
+                            );
+
+                    if (
+                        searchQueueIndex ===
+                        undefined
+                    ) {
                         return;
                     }
 
                     await playSong(
                         song,
-                        queue,
-                        item.queueIndex,
+                        searchSongQueue.songs,
+                        searchQueueIndex,
                     );
                 } catch (error) {
                     console.error(
@@ -1390,6 +1467,7 @@ export default function SearchScreen() {
                 currentSongKey,
                 playSong,
                 router,
+                searchSongQueue,
                 songsByAlbum,
                 togglePlayPause,
             ],

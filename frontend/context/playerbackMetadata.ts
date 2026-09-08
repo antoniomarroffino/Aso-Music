@@ -11,6 +11,7 @@ export type PlaybackExtras = {
     songId: string;
     queueIndex: number;
     queueSessionId: string;
+    queueMode?: "static" | "dj";
 
     /*
      * Fallback temporaneo per ricostruire la UI dopo Fast Refresh
@@ -62,6 +63,11 @@ export const readPlaybackExtras = (
 
         queueSessionId:
         extras.queueSessionId,
+
+        queueMode:
+            extras.queueMode === "dj"
+                ? "dj"
+                : "static",
 
         songJson:
             typeof extras.songJson ===
