@@ -5,11 +5,16 @@ import com.asomusic.backend.repository.album.IAlbumRepository;
 import com.asomusic.backend.service.storage.IStorageUrlService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.quarkus.cache.CacheInvalidateAll;
+import io.quarkus.cache.CacheResult;
 
 import java.util.List;
 
 @ApplicationScoped
 public class AlbumService implements IAlbumService {
+
+    private static final String ALBUM_PREVIEWS_CACHE =
+            "album-previews";
 
     @Inject
     IAlbumRepository albumRepository;
@@ -18,6 +23,7 @@ public class AlbumService implements IAlbumService {
     IStorageUrlService storageUrlService;
 
     @Override
+    @CacheResult(cacheName = ALBUM_PREVIEWS_CACHE)
     public List<AlbumPreviewDTO> fetchAllAlbumsPreview() {
         try {
             return albumRepository.fetchAllAlbumsPreview()
@@ -33,6 +39,7 @@ public class AlbumService implements IAlbumService {
     }
 
     @Override
+    @CacheInvalidateAll(cacheName = ALBUM_PREVIEWS_CACHE)
     public AlbumPreviewDTO unlockAlbum(String albumId) {
         try {
             albumRepository.updateAlbumAvailability(

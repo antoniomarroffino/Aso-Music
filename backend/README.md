@@ -1,5 +1,27 @@
 # backend
 
+## Deploy su Google Cloud
+
+Il deploy del backend è intenzionalmente manuale. La versione condivisa si
+trova in `../VERSION`; non va passata come argomento allo script.
+
+Dalla root del repository:
+
+```bash
+./backend/scripts/build-and-push.sh
+```
+
+Per una simulazione senza build, push o deploy:
+
+```bash
+./backend/scripts/build-and-push.sh --dry-run
+```
+
+Lo script esegue la build Docker locale, pubblica l'immagine versionata su
+Artifact Registry e aggiorna il servizio Cloud Run `backend-prod` soltanto dopo la conferma
+esplicita `DEPLOY`. La procedura completa e il comando di rollback sono nel
+README principale.
+
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.

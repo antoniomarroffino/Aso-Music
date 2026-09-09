@@ -68,6 +68,69 @@ npm run reset-project
 
 This will archive the current app into `app-example/` and prepare a clean slate in `app/`.
 
+## 🚀 Versione e deploy
+
+La versione di rilascio è definita una sola volta nel file
+[`VERSION`](./VERSION). Il formato previsto è SemVer, per esempio `1.5.0`.
+
+Questa versione viene usata automaticamente per:
+
+- la versione Expo dell'app;
+- `versionCode` Android e `buildNumber` iOS;
+- il tag dell'immagine Docker del backend;
+- i metadati OCI e la variabile `APP_VERSION` del container.
+
+Il frontend non richiede comandi di deploy: il push su `main` avvia il deploy
+automatico su Vercel.
+
+### Deploy manuale del backend
+
+Prerequisiti:
+
+- Google Cloud CLI installata;
+- accesso al progetto `asomusic-d39c4`;
+- autenticazione eseguita almeno una volta con `gcloud auth login`;
+- Docker installato e avviato.
+
+Per pubblicare una nuova versione:
+
+1. Modificare soltanto il file `VERSION`, usando un tag mai pubblicato prima.
+2. Creare il commit di release e inviarlo su `main`. Lo script rifiuta una
+   working tree con modifiche non committate, così l'immagine resta associata
+   esattamente al commit mostrato nei suoi metadati.
+3. Eseguire dalla root del repository:
+
+```bash
+./backend/scripts/build-and-push.sh
+```
+
+4. Controllare il riepilogo e scrivere `DEPLOY` quando richiesto.
+
+Lo script esegue in ordine:
+
+1. validazione della versione;
+2. build Linux/AMD64 e test Maven dentro Docker;
+3. push di `us-central1-docker.pkg.dev/asomusic-d39c4/app-repo/backend:<VERSION>`;
+4. deploy dell'immagine sul servizio Cloud Run `backend-prod`;
+5. stampa di versione, revisione Cloud Run e URL del servizio.
+
+Per vedere i comandi senza modificare Google Cloud:
+
+```bash
+./backend/scripts/build-and-push.sh --dry-run
+```
+
+Il tag di una versione già pubblicata non viene sovrascritto. In quel caso è
+necessario incrementare `VERSION`. Questo mantiene ogni release identificabile
+e rende possibile tornare a una versione precedente con:
+
+```bash
+gcloud run deploy backend-prod \
+  --image us-central1-docker.pkg.dev/asomusic-d39c4/app-repo/backend:<VERSIONE-PRECEDENTE> \
+  --region us-central1 \
+  --project asomusic-d39c4
+```
+
 ## 📚 Learn More
 
 - [Expo Docs](https://docs.expo.dev/)

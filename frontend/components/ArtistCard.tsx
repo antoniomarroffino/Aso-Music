@@ -124,6 +124,10 @@ function ArtistCardComponent({
                                             styles.image
                                         }
                                         contentFit="cover"
+                                        cachePolicy="memory-disk"
+                                        recyclingKey={
+                                            id
+                                        }
                                         transition={220}
                                         accessibilityLabel={`Foto di ${name}`}
                                     />
@@ -136,6 +140,10 @@ function ArtistCardComponent({
                                             styles.image
                                         }
                                         contentFit="cover"
+                                        cachePolicy="memory-disk"
+                                        recyclingKey={
+                                            id
+                                        }
                                         transition={180}
                                     />
                                 )}

@@ -40,11 +40,8 @@ import {
     useAuth,
 } from "@/context/AuthContext";
 import {
-    useAlbums,
-} from "@/hooks/useAlbums";
-import {
-    usePrefetchSongs,
-} from "@/hooks/usePrefetchAllSongs";
+    useSongCatalog,
+} from "@/hooks/useSongCatalog";
 import {
     registerPlaybackEventListeners,
 } from "@/player/playbackService";
@@ -59,6 +56,7 @@ import {
     queryKeys,
 } from "@/hooks/queryKeys";
 import type {
+    AlbumDTO,
     ArtistSongsDTO,
     SongPreviewDTO,
 } from "@/types/music";
@@ -435,17 +433,8 @@ const PremiumLoader = memo(
 /* -------------------------------------------------------------------------- */
 
 function AuthenticatedAppLayout() {
-    const {
-        data: albumPreviews,
-    } = useAlbums();
-
-    /*
-     * Il prefetch parte soltanto dopo che
-     * l'utente è stato autenticato.
-     */
-    usePrefetchSongs(
-        albumPreviews,
-    );
+    /* Un solo catalogo alimenta Home, ricerca, DJ e dettaglio album. */
+    useSongCatalog();
 
     return (
         <Stack
@@ -671,6 +660,25 @@ export default function RootLayout() {
                                         ) ?? [],
                                 }
                                 : undefined,
+                    );
+
+                    queryClient.setQueryData<
+                        AlbumDTO[]
+                    >(
+                        queryKeys.songs.catalog,
+                        (catalog) =>
+                            catalog?.map(
+                                (album) => ({
+                                    ...album,
+                                    songs:
+                                        updateSongInList(
+                                            album.songs,
+                                            identity.albumId,
+                                            identity.songId,
+                                            result.listenCount,
+                                        ) ?? [],
+                                }),
+                            ),
                     );
                 },
             );

@@ -653,6 +653,10 @@ const NextSongPreview = memo(
                                         styles.nextCover
                                     }
                                     contentFit="cover"
+                                    cachePolicy="memory-disk"
+                                    recyclingKey={
+                                        `${nextSong.albumId}:${nextSong.id}`
+                                    }
                                 />
                             ) : (
                                 <View
@@ -1167,6 +1171,7 @@ type CoverProps = {
     coverURL?: string;
     coverSize: number;
     isPlaying: boolean;
+    recyclingKey: string;
     title: string;
 };
 
@@ -1175,6 +1180,7 @@ const Cover = memo(
                        coverURL,
                        coverSize,
                        isPlaying,
+                       recyclingKey,
                        title,
                    }: CoverProps) {
         const vinylSize =
@@ -1364,6 +1370,10 @@ const Cover = memo(
                                     styles.cover
                                 }
                                 contentFit="cover"
+                                cachePolicy="memory-disk"
+                                recyclingKey={
+                                    recyclingKey
+                                }
                                 accessibilityLabel={`Copertina di ${title}`}
                             />
                         ) : (
@@ -1904,6 +1914,9 @@ export default function FullPlayer() {
                         }
                         coverSize={
                             coverSize
+                        }
+                        recyclingKey={
+                            `${currentSong.albumId}:${currentSong.id}`
                         }
                         isPlaying={
                             isPlaying

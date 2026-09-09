@@ -17,6 +17,7 @@ import {
 } from "@/api/news";
 import {
     fetchSongsByAlbum,
+    fetchSongCatalog,
 } from "@/api/songs";
 
 import {
@@ -118,9 +119,7 @@ export function newsQueryOptions() {
         queryKeys.news.all,
 
         queryFn: ({ signal }) =>
-            fetchAllNews(
-                signal,
-            ),
+            fetchAllNews(signal),
 
         staleTime:
         NEWS_STALE_TIME,
@@ -169,9 +168,33 @@ export function albumSongsQueryOptions(
                 albumId,
             ),
 
-        queryFn: () =>
+        queryFn: ({ signal }) =>
             fetchSongsByAlbum(
                 albumId,
+                signal,
+            ),
+
+        staleTime:
+        SONGS_STALE_TIME,
+
+        gcTime:
+        SONGS_GC_TIME,
+
+        retry: 2,
+
+        refetchOnWindowFocus:
+            false,
+    });
+}
+
+export function songCatalogQueryOptions() {
+    return queryOptions({
+        queryKey:
+        queryKeys.songs.catalog,
+
+        queryFn: ({ signal }) =>
+            fetchSongCatalog(
+                signal,
             ),
 
         staleTime:

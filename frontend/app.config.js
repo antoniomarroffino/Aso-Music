@@ -1,8 +1,40 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const versionPath =
+    path.resolve(
+        __dirname,
+        "..",
+        "VERSION",
+    );
+
+const appVersion =
+    fs.readFileSync(
+        versionPath,
+        "utf8",
+    ).trim();
+
+const versionParts =
+    appVersion.match(
+        /^(\d+)\.(\d+)\.(\d+)$/,
+    );
+
+if (!versionParts) {
+    throw new Error(
+        `Versione non valida in ${versionPath}: ${appVersion}`,
+    );
+}
+
+const nativeBuildNumber =
+    Number(versionParts[1]) * 1_000_000 +
+    Number(versionParts[2]) * 1_000 +
+    Number(versionParts[3]);
+
 export default {
     expo: {
         name: "ASO Music",
         slug: "aso-music",
-        version: "1.0.0",
+        version: appVersion,
         orientation: "portrait",
         icon: "./assets/images/newicon.png",
         scheme: "asomusic",
@@ -12,7 +44,8 @@ export default {
         ios: {
             supportsTablet: true,
             bundleIdentifier: "com.antoniomarroffino.asomusic",
-            buildNumber: "1",
+            buildNumber:
+                String(nativeBuildNumber),
             infoPlist: {
                 UIBackgroundModes: ["audio"],
                 AVAudioSessionCategory: "Playback",
@@ -30,7 +63,8 @@ export default {
                 foregroundImage: "./assets/images/android-icon-foreground.png",
                 backgroundImage: "./assets/images/android-icon-background.png",
             },
-            versionCode: 1,
+            versionCode:
+                nativeBuildNumber,
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
             permissions: ["android.permission.FOREGROUND_SERVICE"],
@@ -108,6 +142,7 @@ export default {
         runtimeVersion: { policy: "appVersion" },
 
         extra: {
+            appVersion,
             EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
             EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
             EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,

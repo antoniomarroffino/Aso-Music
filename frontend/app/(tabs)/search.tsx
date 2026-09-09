@@ -22,7 +22,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useQueries } from "@tanstack/react-query";
 
 import {
     SongPreviewDTO,
@@ -37,8 +36,8 @@ import {
     buildOrderedSongQueue,
 } from "@/player/queueStrategy";
 import {
-    fetchSongsByAlbum,
-} from "@/api/songs";
+    useSongCatalog,
+} from "@/hooks/useSongCatalog";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -1011,39 +1010,13 @@ export default function SearchScreen() {
             "songs"
         );
 
-    /*
-     * Le query dei brani vengono osservate soltanto quando
-     * la ricerca attiva può restituire brani.
-     *
-     * Aprire la tab non scatena più una richiesta per ogni album.
-     */
-    const songQueries =
-        useQueries({
-            queries:
-                albumPreviews.map(
-                    (album) => ({
-                        queryKey: [
-                            "songs",
-                            album.id,
-                        ],
-
-                        queryFn: () =>
-                            fetchSongsByAlbum(
-                                album.id,
-                            ),
-
-                        staleTime:
-                            1000 *
-                            60 *
-                            60,
-
-                        enabled:
-                            shouldSearchSongs &&
-                            album.available !==
-                            false,
-                    }),
-                ),
-        });
+    const {
+        data: songCatalog,
+        isFetching:
+            isCatalogFetching,
+    } = useSongCatalog(
+        shouldSearchSongs,
+    );
 
     const songsByAlbum =
         useMemo(() => {
@@ -1053,47 +1026,45 @@ export default function SearchScreen() {
                     SongPreviewDTO[]
                 >();
 
-            albumPreviews.forEach(
-                (
-                    album,
-                    albumIndex,
-                ) => {
-                    const songs =
-                        songQueries[
-                            albumIndex
-                            ]?.data ?? [];
+            const availableAlbumIds =
+                new Set(
+                    albumPreviews
+                        .filter(
+                            (album) =>
+                                album.available !==
+                                false,
+                        )
+                        .map(
+                            (album) =>
+                                album.id,
+                        ),
+                );
 
-                    const sortedSongs = [
-                        ...songs,
-                    ].sort(
-                        (
-                            firstSong,
-                            secondSong,
-                        ) =>
-                            firstSong.tracklistPosition -
-                            secondSong.tracklistPosition,
-                    );
-
-                    map.set(
-                        album.id,
-                        sortedSongs,
-                    );
+            songCatalog?.forEach(
+                (album) => {
+                    if (
+                        availableAlbumIds.has(
+                            album.id,
+                        )
+                    ) {
+                        map.set(
+                            album.id,
+                            album.songs,
+                        );
+                    }
                 },
             );
 
             return map;
         }, [
             albumPreviews,
-            songQueries,
+            songCatalog,
         ]);
 
     const isIndexingSongs =
         shouldSearchSongs &&
-        songQueries.some(
-            (songQuery) =>
-                songQuery.isFetching &&
-                !songQuery.data,
-        );
+        isCatalogFetching &&
+        !songCatalog;
 
     const indexedSongCount =
         useMemo(

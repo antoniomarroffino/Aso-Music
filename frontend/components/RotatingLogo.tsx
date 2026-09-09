@@ -16,7 +16,6 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useQueries } from "@tanstack/react-query";
 
 import {
     AlbumPreviewDTO,
@@ -27,7 +26,12 @@ import {
     usePlayerActions,
     usePlayerState,
 } from "@/hooks/usePlayer";
-import { fetchSongsByAlbum } from "@/api/songs";
+import {
+    useSongCatalog,
+} from "@/hooks/useSongCatalog";
+import {
+    pickDjNextSong,
+} from "@/player/queueStrategy";
 
 type SuggestedTrack = {
     song: SongPreviewDTO;
@@ -609,36 +613,26 @@ const SuggestionModal = memo(
                                  playDjSong,
                                  onClose,
                              }: SuggestionModalProps) {
-        /*
-         * Questi observer esistono soltanto mentre il modal è aperto.
-         * Quando il modal viene chiuso, il componente viene smontato.
-         */
-        const songQueries =
-            useQueries({
-                queries:
-                    albums.map(
-                        (album) => ({
-                            queryKey: [
-                                "songs",
-                                album.id,
-                            ],
+        const {
+            data: songCatalog,
+            isFetching:
+                isCatalogFetching,
+        } = useSongCatalog();
 
-                            queryFn: () =>
-                                fetchSongsByAlbum(
+        const catalogSongsByAlbum =
+            useMemo(
+                () =>
+                    new Map(
+                        (songCatalog ?? [])
+                            .map(
+                                (album) => [
                                     album.id,
-                                ),
-
-                            staleTime:
-                                1000 *
-                                60 *
-                                60,
-
-                            enabled:
-                                album.available !==
-                                false,
-                        }),
+                                    album.songs,
+                                ] as const,
+                            ),
                     ),
-            });
+                [songCatalog],
+            );
 
         const [
             selectionIndex,
@@ -670,7 +664,6 @@ const SuggestionModal = memo(
                 albums.forEach(
                     (
                         album,
-                        albumIndex,
                     ) => {
                         if (
                             album.available ===
@@ -680,10 +673,10 @@ const SuggestionModal = memo(
                         }
 
                         const queue =
-                            songQueries[
-                                albumIndex
-                                ]?.data ??
-                            [];
+                            catalogSongsByAlbum
+                                .get(
+                                    album.id,
+                                ) ?? [];
 
                         queue.forEach(
                             (song) => {
@@ -712,7 +705,7 @@ const SuggestionModal = memo(
                 return result;
             }, [
                 albums,
-                songQueries,
+                catalogSongsByAlbum,
             ]);
 
         /*
@@ -734,27 +727,58 @@ const SuggestionModal = memo(
                 ],
             );
 
-        const songsLoading =
-            songQueries.some(
-                (query) =>
-                    query.isFetching &&
-                    !query.data,
-            );
-
         const catalogLoading =
             albumsLoading ||
-            songsLoading;
+            (
+                isCatalogFetching &&
+                !songCatalog
+            );
 
         const handleShuffle =
             useCallback(() => {
-                setSelectionIndex(
-                    (
-                        currentIndex,
-                    ) =>
-                        currentIndex +
-                        1,
-                );
-            }, []);
+                const currentHistory = [
+                    ...(currentSong
+                        ? [currentSong]
+                        : []),
+                    ...(suggestion
+                        ? [suggestion.song]
+                        : []),
+                ];
+
+                const nextSong =
+                    pickDjNextSong(
+                        suggestions.map(
+                            (entry) =>
+                                entry.song,
+                        ),
+                        currentHistory,
+                    );
+
+                if (!nextSong) {
+                    return;
+                }
+
+                const nextIndex =
+                    suggestions.findIndex(
+                        (entry) =>
+                            getSongKey(
+                                entry.song,
+                            ) ===
+                            getSongKey(
+                                nextSong,
+                            ),
+                    );
+
+                if (nextIndex >= 0) {
+                    setSelectionIndex(
+                        nextIndex,
+                    );
+                }
+            }, [
+                currentSong,
+                suggestion,
+                suggestions,
+            ]);
 
         const handlePlay =
             useCallback(

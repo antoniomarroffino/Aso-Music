@@ -25,6 +25,7 @@ async function readErrorBody(response: Response): Promise<string> {
 
 export async function fetchSongsByAlbum(
     albumId: string,
+    signal?: AbortSignal,
 ): Promise<SongPreviewDTO[]> {
     const base = ensureBaseUrl();
 
@@ -35,6 +36,7 @@ export async function fetchSongsByAlbum(
             `${base}/songs/album/${encodedAlbumId}`,
             {
                 method: "GET",
+                signal,
             },
         );
 
@@ -63,6 +65,70 @@ export async function fetchSongsByAlbum(
 
         throw error;
     }
+}
+
+export async function fetchSongCatalog(
+    signal?: AbortSignal,
+): Promise<AlbumDTO[]> {
+    const base = ensureBaseUrl();
+
+    const response = await fetch(
+        `${base}/songs/all`,
+        {
+            method: "GET",
+            headers: {
+                Accept:
+                    "application/json",
+            },
+            signal,
+        },
+    );
+
+    if (!response.ok) {
+        const body =
+            await readErrorBody(
+                response,
+            );
+
+        throw new Error(
+            "Errore fetchSongCatalog: " +
+            `${response.status} ${body}`,
+        );
+    }
+
+    const albums =
+        await response.json() as
+        AlbumDTO[];
+
+    return albums.map(
+        (album) => ({
+            ...album,
+            songs:
+                (album.songs ?? [])
+                    .map(
+                        (song) => ({
+                            ...song,
+                            albumId:
+                            song.albumId ??
+                            album.id,
+                            albumName:
+                            song.albumName ??
+                            album.name,
+                            coverURL:
+                            song.coverURL ||
+                            album.coverURL,
+                        }),
+                    )
+                    .sort(
+                        (
+                            firstSong,
+                            secondSong,
+                        ) =>
+                            firstSong.tracklistPosition -
+                            secondSong.tracklistPosition,
+                    ),
+        }),
+    );
 }
 
 export async function fetchSongPlaybackUrl(

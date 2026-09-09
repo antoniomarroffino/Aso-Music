@@ -1,11 +1,13 @@
 import React, { useMemo } from "react";
 import {
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import {
+    Image,
+} from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
@@ -205,7 +207,9 @@ function SongItem({
                                         source={{
                                             uri: song.coverURL,
                                         }}
-                                        resizeMode="cover"
+                                        contentFit="cover"
+                                        cachePolicy="memory-disk"
+                                        recyclingKey={`${albumId}:${song.id}`}
                                         style={styles.cover}
                                     />
                                 ) : (

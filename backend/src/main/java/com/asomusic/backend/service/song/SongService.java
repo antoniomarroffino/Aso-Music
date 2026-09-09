@@ -7,6 +7,8 @@ import com.asomusic.backend.service.storage.IStorageUrlService;
 import com.asomusic.backend.util.SongUtils;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.quarkus.cache.CacheInvalidateAll;
+import io.quarkus.cache.CacheResult;
 import org.jboss.logging.Logger;
 
 import java.util.List;
@@ -15,6 +17,13 @@ import java.util.concurrent.ExecutionException;
 
 @ApplicationScoped
 public class SongService implements ISongService {
+
+    private static final String SONG_CATALOG_CACHE =
+            "song-catalog";
+    private static final String ALBUM_SONGS_CACHE =
+            "album-songs";
+    private static final String ARTIST_SONGS_CACHE =
+            "artist-songs";
 
     private static final Logger LOGGER =
             Logger.getLogger(SongService.class);
@@ -32,6 +41,7 @@ public class SongService implements ISongService {
     IStorageUrlService storageUrlService;
 
     @Override
+    @CacheResult(cacheName = SONG_CATALOG_CACHE)
     public List<AlbumDTO> fetchAllSongs() {
         List<AlbumDTO> albums =
                 executeRepositoryRead(
@@ -46,6 +56,7 @@ public class SongService implements ISongService {
     }
 
     @Override
+    @CacheResult(cacheName = ALBUM_SONGS_CACHE)
     public List<SongPreviewDTO> fetchSongsByAlbum(
             String albumId
     ) {
@@ -63,6 +74,7 @@ public class SongService implements ISongService {
     }
 
     @Override
+    @CacheResult(cacheName = ARTIST_SONGS_CACHE)
     public List<SongPreviewDTO> fetchSongsByArtist(
             String artistId
     ) {
@@ -80,6 +92,9 @@ public class SongService implements ISongService {
     }
 
     @Override
+    @CacheInvalidateAll(cacheName = SONG_CATALOG_CACHE)
+    @CacheInvalidateAll(cacheName = ALBUM_SONGS_CACHE)
+    @CacheInvalidateAll(cacheName = ARTIST_SONGS_CACHE)
     public SongListenIncrementResult incrementListenCount(
             String albumId,
             String songId,

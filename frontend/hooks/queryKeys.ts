@@ -27,6 +27,11 @@ export const queryKeys = {
     songs: {
         all: ["songs"] as const,
 
+        catalog: [
+            "songs",
+            "catalog",
+        ] as const,
+
         byAlbum: (albumId: string) =>
             [
                 "songs",

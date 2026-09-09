@@ -4,6 +4,7 @@ import com.asomusic.backend.model.dto.ArtistDTO;
 import com.asomusic.backend.repository.artist.ArtistRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.quarkus.cache.CacheResult;
 
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -16,10 +17,14 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class ArtistService implements IArtistService {
 
+    private static final String ARTISTS_CACHE =
+            "artists";
+
     @Inject
     ArtistRepository artistRepository;
 
     @Override
+    @CacheResult(cacheName = ARTISTS_CACHE)
     public List<ArtistDTO> fetchAllArtists() {
         try {
             List<ArtistDTO> artists = artistRepository.fetchAllArtists();

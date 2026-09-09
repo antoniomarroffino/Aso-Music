@@ -23,12 +23,7 @@ import {
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
-    useQueries,
-} from "@tanstack/react-query";
-
-import {
     AlbumPreviewDTO,
-    SongPreviewDTO,
 } from "@/types/music";
 
 import AlbumCard from "@/components/AlbumCard";
@@ -41,8 +36,8 @@ import { useMarkNewsSeen } from "@/hooks/useMarkNewsSeen";
 import { useNews } from "@/hooks/useNews";
 
 import {
-    fetchSongsByAlbum,
-} from "@/api/songs";
+    useSongCatalog,
+} from "@/hooks/useSongCatalog";
 
 import {
     HomeHeader,
@@ -287,29 +282,25 @@ export default function HomeScreen() {
         showNews,
     ]);
 
-    /*
-     * Usa le stesse query key del prefetch globale.
-     *
-     * Se i brani sono già in cache, non vengono
-     * riscaricati. La home rimane però iscritta
-     * agli aggiornamenti delle SongPreviewDTO.
-     */
-    const songQueries = useQueries({
-        queries: albumPreviews.map(
-            (album) => ({
-                queryKey: [
-                    "songs",
-                    album.id,
-                ],
-                queryFn: () =>
-                    fetchSongsByAlbum(
-                        album.id,
+    const {
+        data: songCatalog = [],
+        isFetching:
+            isCatalogFetching,
+    } = useSongCatalog();
+
+    const catalogSongsByAlbum =
+        useMemo(
+            () =>
+                new Map(
+                    songCatalog.map(
+                        (album) => [
+                            album.id,
+                            album.songs,
+                        ] as const,
                     ),
-                staleTime:
-                    1000 * 60 * 60,
-            }),
-        ),
-    });
+                ),
+            [songCatalog],
+        );
 
     const albumTrackState =
         useMemo(() => {
@@ -324,17 +315,10 @@ export default function HomeScreen() {
             albumPreviews.forEach(
                 (
                     album,
-                    albumIndex,
                 ) => {
-                    const query =
-                        songQueries[
-                            albumIndex
-                            ];
-
                     const songs =
-                        query?.data as
-                            | SongPreviewDTO[]
-                            | undefined;
+                        catalogSongsByAlbum
+                            .get(album.id);
 
                     state.set(
                         album.id,
@@ -344,10 +328,8 @@ export default function HomeScreen() {
                                 0,
 
                             loading:
-                                Boolean(
-                                    query?.isFetching &&
-                                    !query.data,
-                                ),
+                                isCatalogFetching &&
+                                !songs,
                         },
                     );
                 },
@@ -356,7 +338,8 @@ export default function HomeScreen() {
             return state;
         }, [
             albumPreviews,
-            songQueries,
+            catalogSongsByAlbum,
+            isCatalogFetching,
         ]);
 
     const isAdmin =

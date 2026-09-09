@@ -266,6 +266,7 @@ const SongInfo = memo(
 
 type CoverProps = {
     uri?: string | null;
+    recyclingKey: string;
     title: string;
     isPlaying: boolean;
     onPress: () => void;
@@ -273,6 +274,7 @@ type CoverProps = {
 
 const Cover = memo(function Cover({
                                       uri,
+                                      recyclingKey,
                                       title,
                                       isPlaying,
                                       onPress,
@@ -321,6 +323,10 @@ const Cover = memo(function Cover({
                             styles.cover
                         }
                         contentFit="cover"
+                        cachePolicy="memory-disk"
+                        recyclingKey={
+                            recyclingKey
+                        }
                         accessibilityLabel={`Copertina di ${title}`}
                     />
                 ) : (
@@ -588,6 +594,9 @@ export default function MiniPlayer() {
                     <Cover
                         uri={
                             currentSong.coverURL
+                        }
+                        recyclingKey={
+                            `${currentSong.albumId}:${currentSong.id}`
                         }
                         title={
                             currentSong.title

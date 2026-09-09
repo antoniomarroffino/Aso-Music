@@ -86,6 +86,10 @@ function AlbumCardComponent({
                                 )}
                                 style={styles.cover}
                                 contentFit="cover"
+                                cachePolicy="memory-disk"
+                                recyclingKey={
+                                    album.id
+                                }
                             />
 
                             <LinearGradient
