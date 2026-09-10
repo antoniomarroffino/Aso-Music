@@ -13,6 +13,10 @@ import {
     SongPreviewDTO,
 } from "@/types/music";
 import SongItem from "@/components/SongItem";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type TracklistSectionProps = {
     songs: SongPreviewDTO[];
@@ -38,19 +42,17 @@ const TracklistSection = memo(
         return (
             <MotiView
                 from={{
-                    opacity: 0,
-                    translateY: 18,
+                    opacity: 0.98,
+                    translateY: 6,
                 }}
                 animate={{
                     opacity: 1,
                     translateY: 0,
                 }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    stiffness: 135,
-                    delay: 420,
-                }}
+                transition={motionTiming(
+                    MOTION_DURATION.standard,
+                    60,
+                )}
                 style={styles.tracklistSection}
             >
                 <View style={styles.tracklistHeader}>
@@ -153,17 +155,14 @@ const TracklistSection = memo(
                 ) : (
                     <MotiView
                         from={{
-                            opacity: 0,
-                            scale: 0.97,
+                            opacity: 0.97,
+                            scale: 0.99,
                         }}
                         animate={{
                             opacity: 1,
                             scale: 1,
                         }}
-                        transition={{
-                            type: "spring",
-                            damping: 16,
-                        }}
+                        transition={motionTiming()}
                     >
                         <LinearGradient
                             colors={[

@@ -129,21 +129,7 @@ function SongItem({
                 onPress?.(song, index);
             }}
         >
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 8,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 220,
-                    delay: Math.min(index * 25, 250),
-                }}
-            >
+            <View>
                 <View style={styles.cardShell}>
                     <LinearGradient
                         colors={
@@ -249,6 +235,8 @@ function SongItem({
                                                 type: "timing",
                                                 duration: 800,
                                                 loop: true,
+                                                repeatReverse:
+                                                    true,
                                             }}
                                             style={
                                                 styles.activeDot
@@ -488,27 +476,8 @@ function SongItem({
                         </View>
                     </LinearGradient>
 
-                    {isActive && (
-                        <MotiView
-                            pointerEvents="none"
-                            from={{
-                                translateX: -80,
-                                opacity: 0,
-                            }}
-                            animate={{
-                                translateX: 360,
-                                opacity: 0.13,
-                            }}
-                            transition={{
-                                type: "timing",
-                                duration: 2600,
-                                loop: true,
-                            }}
-                            style={styles.shine}
-                        />
-                    )}
                 </View>
-            </MotiView>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -723,18 +692,6 @@ const styles = StyleSheet.create({
         marginLeft: 2,
     },
 
-    shine: {
-        position: "absolute",
-        top: 0,
-        bottom: 0,
-        width: 26,
-        backgroundColor: "rgba(255,255,255,0.07)",
-        transform: [
-            {
-                skewX: "-18deg",
-            },
-        ],
-    },
 });
 
 export default React.memo(

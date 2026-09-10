@@ -4,7 +4,6 @@ import {
     View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
 
 interface AwardBadgesProps {
     streams: number;
@@ -27,28 +26,19 @@ function AwardDisc({
         variant === "gold";
 
     return (
-        <MotiView
-            from={{
-                opacity: 0,
-                scale: 0.65,
-                rotate: "-15deg",
-            }}
-            animate={{
-                opacity: 1,
-                scale: 1,
-                rotate:
-                    index % 2 === 0
-                        ? "-4deg"
-                        : "4deg",
-            }}
-            transition={{
-                type: "spring",
-                damping: 13,
-                stiffness: 190,
-                delay: Math.min(index * 45, 250),
-            }}
+        <View
             style={[
                 styles.discShadow,
+                {
+                    transform: [
+                        {
+                            rotate:
+                                index % 2 === 0
+                                    ? "-4deg"
+                                    : "4deg",
+                        },
+                    ],
+                },
                 isGold
                     ? styles.goldShadow
                     : styles.platinumShadow,
@@ -117,7 +107,7 @@ function AwardDisc({
 
                 <View style={styles.reflection} />
             </LinearGradient>
-        </MotiView>
+        </View>
     );
 }
 

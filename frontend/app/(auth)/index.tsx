@@ -31,6 +31,10 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type IoniconName =
     keyof typeof Ionicons.glyphMap;
@@ -428,17 +432,14 @@ const AuthLoadingState = memo(
                 >
                     <MotiView
                         from={{
-                            opacity: 0,
-                            scale: 0.9,
+                            opacity: 0.96,
+                            scale: 0.98,
                         }}
                         animate={{
                             opacity: 1,
                             scale: 1,
                         }}
-                        transition={{
-                            type: "spring",
-                            damping: 17,
-                        }}
+                        transition={motionTiming()}
                         style={
                             styles.authLoadingContent
                         }
@@ -736,19 +737,16 @@ export default function LoginScreen() {
                     >
                         <MotiView
                             from={{
-                                opacity: 0,
-                                scale: 0.94,
-                                translateY: -12,
+                                opacity: 0.97,
+                                scale: 0.99,
+                                translateY: -5,
                             }}
                             animate={{
                                 opacity: 1,
                                 scale: 1,
                                 translateY: 0,
                             }}
-                            transition={{
-                                type: "spring",
-                                damping: 17,
-                            }}
+                            transition={motionTiming()}
                             style={styles.hero}
                         >
                             <View
@@ -853,18 +851,17 @@ export default function LoginScreen() {
 
                         <MotiView
                             from={{
-                                opacity: 0,
-                                translateY: 16,
+                                opacity: 0.98,
+                                translateY: 6,
                             }}
                             animate={{
                                 opacity: 1,
                                 translateY: 0,
                             }}
-                            transition={{
-                                type: "spring",
-                                damping: 17,
-                                delay: 90,
-                            }}
+                            transition={motionTiming(
+                                MOTION_DURATION.standard,
+                                40,
+                            )}
                         >
                             <LinearGradient
                                 colors={[
@@ -1064,18 +1061,17 @@ export default function LoginScreen() {
 
                         <MotiView
                             from={{
-                                opacity: 0,
-                                translateY: 8,
+                                opacity: 0.98,
+                                translateY: 4,
                             }}
                             animate={{
                                 opacity: 1,
                                 translateY: 0,
                             }}
-                            transition={{
-                                type: "timing",
-                                duration: 300,
-                                delay: 180,
-                            }}
+                            transition={motionTiming(
+                                MOTION_DURATION.fast,
+                                70,
+                            )}
                             style={
                                 styles.signupHint
                             }

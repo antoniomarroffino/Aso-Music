@@ -8,7 +8,6 @@ import {
     Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { AlbumPreviewDTO } from "@/types/music";
@@ -24,7 +23,7 @@ type LockedAlbumCardProps = {
     isAdmin: boolean;
 };
 
-export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlbumCardProps) {
+export default function LockedAlbumCard({ album, isAdmin }: LockedAlbumCardProps) {
 
     const qc = useQueryClient();
 
@@ -89,11 +88,7 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
 
     return (
         <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.8}>
-            <MotiView
-                from={{ scale: 0.8, opacity: 0, translateY: 30 }}
-                animate={{ scale: 1, opacity: 1, translateY: 0 }}
-                transition={{ type: "spring", damping: 15, delay: index * 60 }}
-            >
+            <View>
                 <View style={styles.card}>
                     <LinearGradient
                         colors={["rgba(80,80,80,0.3)", "rgba(40,40,40,0.3)"]}
@@ -106,7 +101,8 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
                                     source={{ uri: album.coverURL }}
                                     style={styles.cover}
                                     contentFit="cover"
-                                    transition={200}
+                                    cachePolicy="memory-disk"
+                                    recyclingKey={album.id}
                                 />
                                 {album.availableAt && (
                                     <View style={styles.countdownBadge}>
@@ -149,7 +145,7 @@ export default function LockedAlbumCard({ album, index = 0, isAdmin }: LockedAlb
                         </View>
                     </LinearGradient>
                 </View>
-            </MotiView>
+            </View>
         </TouchableOpacity>
     );
 }

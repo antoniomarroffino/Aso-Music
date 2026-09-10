@@ -22,6 +22,9 @@ import {
     getSortIcon,
     SORT_OPTIONS,
 } from "./utils";
+import {
+    motionSpring,
+} from "@/constants/motion";
 
 export type SortMenuAnchor = {
     x: number;
@@ -155,11 +158,7 @@ const SortMenu = memo(function SortMenu({
                         translateY: 0,
                         scale: 1,
                     }}
-                    transition={{
-                        type: "spring",
-                        damping: 18,
-                        stiffness: 190,
-                    }}
+                    transition={motionSpring()}
                     style={[
                         styles.container,
                         menuPosition,

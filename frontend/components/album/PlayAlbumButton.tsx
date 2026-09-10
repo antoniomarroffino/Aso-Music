@@ -19,6 +19,9 @@ import {
 import {
     MotiView,
 } from "moti";
+import {
+    motionTiming,
+} from "@/constants/motion";
 
 type PlayAlbumButtonProps = {
     onPress: () => void;
@@ -31,18 +34,17 @@ const PlayAlbumButton = memo(
         return (
             <MotiView
                 from={{
-                    opacity: 0,
-                    translateY: 10,
+                    opacity: 0.98,
+                    translateY: 5,
                 }}
                 animate={{
                     opacity: 1,
                     translateY: 0,
                 }}
-                transition={{
-                    type: "timing",
-                    duration: 320,
-                    delay: 120,
-                }}
+                transition={motionTiming(
+                    undefined,
+                    40,
+                )}
                 style={
                     styles.container
                 }

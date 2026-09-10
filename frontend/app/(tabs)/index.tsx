@@ -551,19 +551,7 @@ export default function HomeScreen() {
         useMemo(
             () => (
                 <>
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            translateY: -6,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "timing",
-                            duration: 220,
-                        }}
+                    <View
                         style={[
                             styles.headerContainer,
 
@@ -597,7 +585,7 @@ export default function HomeScreen() {
                                 username
                             }
                         />
-                    </MotiView>
+                    </View>
 
                     <SectionHeader
                         sortOrder={

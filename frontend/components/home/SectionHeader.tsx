@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 
 import {
@@ -99,22 +98,7 @@ const SectionHeader = memo(
             ]);
 
         return (
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 10,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    delay: 150,
-                }}
-                style={styles.container}
-            >
+            <View style={styles.container}>
                 <View style={styles.titleRow}>
                     <View style={styles.left}>
                         <LinearGradient
@@ -250,7 +234,7 @@ const SectionHeader = memo(
                         handleCloseMenu
                     }
                 />
-            </MotiView>
+            </View>
         );
     },
 );

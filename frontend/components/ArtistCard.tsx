@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -27,7 +26,6 @@ function ArtistCardComponent({
                                  id,
                                  name,
                                  profileURL,
-                                 index = 0,
                                  onPress,
                              }: ArtistCardProps) {
     const router = useRouter();
@@ -63,28 +61,7 @@ function ArtistCardComponent({
             onPress={handlePress}
             style={styles.container}
         >
-            <MotiView
-                from={{
-                    opacity: 0,
-                    scale: 0.94,
-                    translateY: 14,
-                }}
-                animate={{
-                    opacity: 1,
-                    scale: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "spring",
-                    damping: 16,
-                    stiffness: 145,
-                    delay: Math.min(
-                        index * 42,
-                        260,
-                    ),
-                }}
-                style={styles.animation}
-            >
+            <View style={styles.animation}>
                 <View style={styles.cardShell}>
                     <LinearGradient
                         colors={[
@@ -128,7 +105,6 @@ function ArtistCardComponent({
                                         recyclingKey={
                                             id
                                         }
-                                        transition={220}
                                         accessibilityLabel={`Foto di ${name}`}
                                     />
                                 ) : (
@@ -144,7 +120,6 @@ function ArtistCardComponent({
                                         recyclingKey={
                                             id
                                         }
-                                        transition={180}
                                     />
                                 )}
 
@@ -161,31 +136,6 @@ function ArtistCardComponent({
                                     ]}
                                     style={
                                         StyleSheet.absoluteFill
-                                    }
-                                />
-
-                                <MotiView
-                                    pointerEvents="none"
-                                    from={{
-                                        translateX:
-                                            -90,
-                                        opacity: 0,
-                                    }}
-                                    animate={{
-                                        translateX:
-                                            330,
-                                        opacity: 0.14,
-                                    }}
-                                    transition={{
-                                        type: "timing",
-                                        duration: 2500,
-                                        delay:
-                                            450 +
-                                            index *
-                                            115,
-                                    }}
-                                    style={
-                                        styles.shineEffect
                                     }
                                 />
 
@@ -271,7 +221,7 @@ function ArtistCardComponent({
                         </View>
                     </LinearGradient>
                 </View>
-            </MotiView>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -288,8 +238,6 @@ export const ArtistCard = memo(
         nextProps.name &&
         previousProps.profileURL ===
         nextProps.profileURL &&
-        previousProps.index ===
-        nextProps.index &&
         previousProps.onPress ===
         nextProps.onPress,
 );
@@ -345,20 +293,6 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
         backgroundColor: "#15171F",
-    },
-
-    shineEffect: {
-        position: "absolute",
-        top: -20,
-        width: 38,
-        height: "125%",
-        backgroundColor:
-            "rgba(255,255,255,0.12)",
-        transform: [
-            {
-                skewX: "-19deg",
-            },
-        ],
     },
 
     artistBadge: {

@@ -34,6 +34,10 @@ import {
 import {
     GestureHandlerRootView,
 } from "react-native-gesture-handler";
+import {
+    ReduceMotion,
+    ReducedMotionConfig,
+} from "react-native-reanimated";
 
 import {
     AuthProvider,
@@ -696,6 +700,10 @@ export default function RootLayout() {
                 styles.root
             }
         >
+            <ReducedMotionConfig
+                mode={ReduceMotion.System}
+            />
+
             <QueryClientProvider
                 client={
                     queryClient

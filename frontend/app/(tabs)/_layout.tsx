@@ -13,6 +13,9 @@ import { MotiView } from "moti";
 
 import { useAuth } from "@/context/AuthContext";
 import MiniPlayer from "@/components/ui/MiniPlayer";
+import {
+    motionTiming,
+} from "@/constants/motion";
 
 type IconName =
     keyof typeof Ionicons.glyphMap;
@@ -30,22 +33,7 @@ const PremiumTabIcon = memo(
         return (
             <View style={styles.iconSlot}>
                 {focused ? (
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0.78,
-                            translateY: 4,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                            translateY: 0,
-                        }}
-                        transition={{
-                            type: "spring",
-                            damping: 15,
-                            stiffness: 180,
-                        }}
+                    <View
                         style={styles.activeIconShadow}
                     >
                         <LinearGradient
@@ -70,7 +58,7 @@ const PremiumTabIcon = memo(
                                 color="#041009"
                             />
                         </LinearGradient>
-                    </MotiView>
+                    </View>
                 ) : (
                     <View
                         style={
@@ -86,19 +74,7 @@ const PremiumTabIcon = memo(
                 )}
 
                 {focused && (
-                    <MotiView
-                        from={{
-                            opacity: 0,
-                            scale: 0,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            scale: 1,
-                        }}
-                        transition={{
-                            type: "spring",
-                            delay: 80,
-                        }}
+                    <View
                         style={styles.activeDot}
                     />
                 )}
@@ -184,17 +160,14 @@ const TabsLoadingState = memo(
 
                 <MotiView
                     from={{
-                        opacity: 0,
-                        scale: 0.85,
+                        opacity: 0.96,
+                        scale: 0.98,
                     }}
                     animate={{
                         opacity: 1,
                         scale: 1,
                     }}
-                    transition={{
-                        type: "spring",
-                        damping: 16,
-                    }}
+                    transition={motionTiming()}
                     style={styles.loadingContent}
                 >
                     <LinearGradient

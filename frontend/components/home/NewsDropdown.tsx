@@ -22,6 +22,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { NewsDTO } from "@/types/news";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type NewsDropdownProps = {
     newsList?: NewsDTO[];
@@ -129,10 +133,9 @@ const NewsDropdown = memo(
                             translateY: -6,
                             scale: 0.98,
                         }}
-                        transition={{
-                            type: "timing",
-                            duration: 160,
-                        }}
+                        transition={motionTiming(
+                            MOTION_DURATION.fast,
+                        )}
                         style={[
                             styles.container,
                             {

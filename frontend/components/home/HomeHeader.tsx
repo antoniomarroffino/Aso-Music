@@ -7,7 +7,6 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 
 type HomeHeaderProps = {
@@ -88,21 +87,7 @@ const HomeHeader = memo(
                         }: HomeHeaderProps) {
         return (
             <View style={styles.topBar}>
-                <MotiView
-                    from={{
-                        opacity: 0,
-                        translateX: -10,
-                    }}
-                    animate={{
-                        opacity: 1,
-                        translateX: 0,
-                    }}
-                    transition={{
-                        type: "spring",
-                        damping: 17,
-                    }}
-                    style={styles.brand}
-                >
+                <View style={styles.brand}>
                     <LinearGradient
                         colors={[
                             "#64F399",
@@ -127,7 +112,7 @@ const HomeHeader = memo(
                             ASO Music
                         </Text>
                     </View>
-                </MotiView>
+                </View>
 
                 <View style={styles.actions}>
                     <HeaderAction

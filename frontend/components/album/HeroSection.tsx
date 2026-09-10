@@ -11,6 +11,10 @@ import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AlbumPreviewDTO } from "@/types/music";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type HeroSectionProps = {
     album: AlbumPreviewDTO;
@@ -39,21 +43,18 @@ const HeroSection = memo(
         return (
             <MotiView
                 from={{
-                    scale: 0.94,
-                    opacity: 0,
-                    translateY: 18,
+                    scale: 0.99,
+                    opacity: 0.97,
+                    translateY: 6,
                 }}
                 animate={{
                     scale: 1,
                     opacity: 1,
                     translateY: 0,
                 }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    stiffness: 130,
-                    delay: 100,
-                }}
+                transition={motionTiming(
+                    MOTION_DURATION.standard,
+                )}
                 style={
                     styles.heroSection
                 }
@@ -171,7 +172,8 @@ const HeroSection = memo(
                                     styles.cover
                                 }
                                 contentFit="cover"
-                                transition={250}
+                            cachePolicy="memory-disk"
+                            recyclingKey={album.id}
                                 accessibilityLabel={`Copertina di ${album.name}`}
                             />
 
@@ -189,33 +191,6 @@ const HeroSection = memo(
                                 style={
                                     styles.coverOverlay
                                 }
-                            />
-
-                            <MotiView
-                                pointerEvents="none"
-                                from={{
-                                    translateX:
-                                        -coverSize,
-                                }}
-                                animate={{
-                                    translateX:
-                                        coverSize *
-                                        1.45,
-                                }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 3400,
-                                    loop: true,
-                                    delay: 800,
-                                }}
-                                style={[
-                                    styles.shineEffect,
-                                    {
-                                        height:
-                                            coverSize *
-                                            1.4,
-                                    },
-                                ]}
                             />
 
                             <LinearGradient
@@ -352,19 +327,6 @@ const styles = StyleSheet.create({
 
     coverOverlay: {
         ...StyleSheet.absoluteFill,
-    },
-
-    shineEffect: {
-        position: "absolute",
-        top: -30,
-        width: 42,
-        backgroundColor:
-            "rgba(255,255,255,0.15)",
-        transform: [
-            {
-                skewX: "-19deg",
-            },
-        ],
     },
 
     albumTypeBadge: {

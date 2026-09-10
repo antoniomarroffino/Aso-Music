@@ -4,6 +4,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import {
+    cappedStagger,
+    motionPulse,
+    motionTiming,
+} from "@/constants/motion";
 
 type SlowLoadingStateProps = {
     onGoBack: () => void;
@@ -21,9 +26,9 @@ const SlowLoadingState = memo(function SlowLoadingState({ onGoBack }: SlowLoadin
 
             <View style={styles.contentContainer}>
                 <MotiView
-                    from={{ opacity: 0, scale: 0.8 }}
+                    from={{ opacity: 0.97, scale: 0.99 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
+                    transition={motionTiming()}
                     style={styles.content}
                 >
                     {/* Icona animata */}
@@ -46,24 +51,16 @@ const SlowLoadingState = memo(function SlowLoadingState({ onGoBack }: SlowLoadin
                     </MotiView>
 
                     {/* Titolo */}
-                    <MotiView
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "timing", delay: 200 }}
-                    >
+                    <View>
                         <Text style={styles.title}>Il server è un po&#39; lento</Text>
-                    </MotiView>
+                    </View>
 
                     {/* Sottotitolo */}
-                    <MotiView
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "timing", delay: 300 }}
-                    >
+                    <View>
                         <Text style={styles.subtitle}>
                             Abbi pazienza, stiamo caricando i dati... ☕
                         </Text>
-                    </MotiView>
+                    </View>
 
                     {/* Dots animati */}
                     <View style={styles.dotsContainer}>
@@ -72,24 +69,20 @@ const SlowLoadingState = memo(function SlowLoadingState({ onGoBack }: SlowLoadin
                                 key={i}
                                 from={{ opacity: 0.3, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1.2 }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 600,
-                                    loop: true,
-                                    delay: i * 150,
-                                    repeatReverse: true,
-                                }}
+                                transition={motionPulse(
+                                    cappedStagger(
+                                        i,
+                                        120,
+                                        240,
+                                    ),
+                                )}
                                 style={styles.dot}
                             />
                         ))}
                     </View>
 
                     {/* Bottone torna indietro */}
-                    <MotiView
-                        from={{ opacity: 0, translateY: 20 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "spring", delay: 500 }}
-                    >
+                    <View>
                         <TouchableOpacity
                             style={styles.backButton}
                             onPress={onGoBack}
@@ -103,7 +96,7 @@ const SlowLoadingState = memo(function SlowLoadingState({ onGoBack }: SlowLoadin
                                 <Text style={styles.backButtonText}>Torna indietro</Text>
                             </LinearGradient>
                         </TouchableOpacity>
-                    </MotiView>
+                    </View>
                 </MotiView>
             </View>
         </View>

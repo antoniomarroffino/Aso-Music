@@ -14,6 +14,10 @@ import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type AlbumHeaderProps = {
     title: string;
@@ -39,18 +43,16 @@ const AlbumHeader = memo(
         return (
             <MotiView
                 from={{
-                    opacity: 0,
-                    translateY: -24,
+                    opacity: 0.98,
+                    translateY: -4,
                 }}
                 animate={{
                     opacity: 1,
                     translateY: 0,
                 }}
-                transition={{
-                    type: "spring",
-                    damping: 17,
-                    stiffness: 145,
-                }}
+                transition={motionTiming(
+                    MOTION_DURATION.fast,
+                )}
                 style={
                     styles.customHeader
                 }

@@ -11,6 +11,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
+import {
+    MOTION_DURATION,
+    motionTiming,
+} from "@/constants/motion";
 
 type StatCardProps = {
     icon: keyof typeof Ionicons.glyphMap;
@@ -76,21 +80,19 @@ const StatCard = memo(function StatCard({
     return (
         <MotiView
             from={{
-                opacity: 0,
-                translateY: 14,
-                scale: 0.97,
+                opacity: 0.97,
+                translateY: 5,
+                scale: 0.99,
             }}
             animate={{
                 opacity: 1,
                 translateY: 0,
                 scale: 1,
             }}
-            transition={{
-                type: "spring",
-                damping: 16,
-                stiffness: 150,
-                delay,
-            }}
+            transition={motionTiming(
+                MOTION_DURATION.standard,
+                Math.min(delay, 100),
+            )}
             style={styles.statCard}
         >
             <LinearGradient

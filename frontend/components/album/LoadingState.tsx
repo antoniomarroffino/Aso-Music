@@ -4,6 +4,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import {
+    cappedStagger,
+    motionPulse,
+    motionTiming,
+} from "@/constants/motion";
 
 const LoadingState = memo(function LoadingState() {
     return (
@@ -17,9 +22,9 @@ const LoadingState = memo(function LoadingState() {
 
             <View style={styles.loadingContainer}>
                 <MotiView
-                    from={{ opacity: 0, scale: 0.8 }}
+                    from={{ opacity: 0.97, scale: 0.99 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", damping: 15 }}
+                    transition={motionTiming()}
                 >
                     <MotiView
                         from={{ rotate: "0deg" }}
@@ -39,13 +44,9 @@ const LoadingState = memo(function LoadingState() {
                         </LinearGradient>
                     </MotiView>
 
-                    <MotiView
-                        from={{ opacity: 0, translateY: 10 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        transition={{ type: "timing", delay: 200 }}
-                    >
+                    <View>
                         <Text style={styles.loadingText}>Caricamento album...</Text>
-                    </MotiView>
+                    </View>
 
                     <View style={styles.loadingDotsContainer}>
                         {[0, 1, 2].map((i) => (
@@ -53,13 +54,13 @@ const LoadingState = memo(function LoadingState() {
                                 key={i}
                                 from={{ opacity: 0.3, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{
-                                    type: "timing",
-                                    duration: 800,
-                                    loop: true,
-                                    delay: i * 200,
-                                    repeatReverse: true,
-                                }}
+                                transition={motionPulse(
+                                    cappedStagger(
+                                        i,
+                                        120,
+                                        240,
+                                    ),
+                                )}
                                 style={styles.loadingDot}
                             />
                         ))}

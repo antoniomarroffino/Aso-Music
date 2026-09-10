@@ -5,12 +5,20 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
+import {
+    cappedStagger,
+    motionPulse,
+} from "@/constants/motion";
 
 const SKELETON_ITEMS = Array.from(
     { length: 8 },
     (_, index) => ({
         id: index,
-        delay: index * 70,
+        delay: cappedStagger(
+            index,
+            55,
+            220,
+        ),
     }),
 );
 
@@ -31,13 +39,9 @@ const SkeletonCard = memo(
                     animate={{
                         opacity: 0.72,
                     }}
-                    transition={{
-                        type: "timing",
-                        duration: 950,
-                        delay,
-                        loop: true,
-                        repeatReverse: true,
-                    }}
+                    transition={
+                        motionPulse(delay)
+                    }
                     style={styles.card}
                 >
                     <LinearGradient

@@ -174,7 +174,6 @@ type SongItemArtistProps = {
 function SongItemArtistComponent({
                                      song,
                                      rank,
-                                     index,
                                      albumId,
                                      albumName,
                                      albumCover,
@@ -245,24 +244,7 @@ function SongItemArtistComponent({
                 styles.disabled,
             ]}
         >
-            <MotiView
-                from={{
-                    opacity: 0,
-                    translateY: 8,
-                }}
-                animate={{
-                    opacity: 1,
-                    translateY: 0,
-                }}
-                transition={{
-                    type: "timing",
-                    duration: 230,
-                    delay: Math.min(
-                        index * 35,
-                        210,
-                    ),
-                }}
-            >
+            <View>
                 <LinearGradient
                     colors={
                         isActive
@@ -322,7 +304,8 @@ function SongItemArtistComponent({
                                         styles.cover
                                     }
                                     contentFit="cover"
-                                    transition={160}
+                                    cachePolicy="memory-disk"
+                                    recyclingKey={`${albumId}:${song.id}`}
                                 />
                             ) : (
                                 <Image
@@ -538,7 +521,7 @@ function SongItemArtistComponent({
                         </LinearGradient>
                     </View>
                 </LinearGradient>
-            </MotiView>
+            </View>
         </TouchableOpacity>
     );
 }

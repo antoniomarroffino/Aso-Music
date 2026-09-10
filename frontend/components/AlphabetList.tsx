@@ -14,6 +14,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
 import * as Haptics from "expo-haptics";
+import {
+    motionSpring,
+} from "@/constants/motion";
 
 type AlphabetListProps = {
     letters: string[];
@@ -50,24 +53,7 @@ function AlphabetListComponent({
         );
 
     return (
-        <MotiView
-            from={{
-                opacity: 0,
-                translateX: 18,
-                scale: 0.96,
-            }}
-            animate={{
-                opacity: 1,
-                translateX: 0,
-                scale: 1,
-            }}
-            transition={{
-                type: "spring",
-                damping: 17,
-                delay: 280,
-            }}
-            style={styles.container}
-        >
+        <View style={styles.container}>
             <LinearGradient
                 colors={[
                     "rgba(29,185,84,0.36)",
@@ -134,38 +120,16 @@ function AlphabetListComponent({
                             {letters.map(
                                 (
                                     letter,
-                                    index,
                                 ) => {
                                     const isActive =
                                         activeLetter ===
                                         letter;
 
                                     return (
-                                        <MotiView
+                                        <View
                                             key={
                                                 letter
                                             }
-                                            from={{
-                                                opacity:
-                                                    0,
-                                                scale:
-                                                    0.7,
-                                            }}
-                                            animate={{
-                                                opacity:
-                                                    1,
-                                                scale:
-                                                    1,
-                                            }}
-                                            transition={{
-                                                type: "spring",
-                                                damping:
-                                                    15,
-                                                delay:
-                                                    320 +
-                                                    index *
-                                                    15,
-                                            }}
                                         >
                                             <TouchableOpacity
                                                 accessibilityRole="button"
@@ -196,11 +160,7 @@ function AlphabetListComponent({
                                                             scale:
                                                                 1,
                                                         }}
-                                                        transition={{
-                                                            type: "spring",
-                                                            damping:
-                                                                13,
-                                                        }}
+                                                        transition={motionSpring()}
                                                         style={
                                                             styles.activeLetterShadow
                                                         }
@@ -264,18 +224,14 @@ function AlphabetListComponent({
                                                             opacity:
                                                                 1,
                                                         }}
-                                                        transition={{
-                                                            type: "spring",
-                                                            damping:
-                                                                13,
-                                                        }}
+                                                        transition={motionSpring()}
                                                         style={
                                                             styles.activeIndicator
                                                         }
                                                     />
                                                 )}
                                             </TouchableOpacity>
-                                        </MotiView>
+                                        </View>
                                     );
                                 },
                             )}
@@ -303,7 +259,7 @@ function AlphabetListComponent({
                     </LinearGradient>
                 </BlurView>
             </LinearGradient>
-        </MotiView>
+        </View>
     );
 }
 
