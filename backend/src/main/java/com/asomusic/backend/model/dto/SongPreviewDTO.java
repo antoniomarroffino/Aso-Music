@@ -48,6 +48,12 @@ public class SongPreviewDTO {
     private long stream;
 
     @Schema(
+            description = "Numero totale di like ricevuti dal brano",
+            examples = "7"
+    )
+    private long likeCount;
+
+    @Schema(
             description = "Posizione nella tracklist",
             examples = "21"
     )

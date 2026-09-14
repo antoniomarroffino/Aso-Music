@@ -11,7 +11,9 @@ import { Ionicons } from "@expo/vector-icons";
 
 type HomeHeaderProps = {
     newsCount: number;
+    likesRemaining: number;
     onToggleNews: () => void;
+    onToggleLikes: () => void;
     onOpenSettings: () => void;
 };
 
@@ -19,6 +21,7 @@ type HeaderActionProps = {
     icon: keyof typeof Ionicons.glyphMap;
     label: string;
     badgeCount?: number;
+    showZeroBadge?: boolean;
     onPress: () => void;
 };
 
@@ -27,6 +30,7 @@ const HeaderAction = memo(
                               icon,
                               label,
                               badgeCount = 0,
+                              showZeroBadge = false,
                               onPress,
                           }: HeaderActionProps) {
         return (
@@ -57,7 +61,7 @@ const HeaderAction = memo(
                     </BlurView>
                 </LinearGradient>
 
-                {badgeCount > 0 && (
+                {(badgeCount > 0 || showZeroBadge) && (
                     <View
                         style={
                             styles.notificationBadge
@@ -68,8 +72,8 @@ const HeaderAction = memo(
                                 styles.notificationText
                             }
                         >
-                            {badgeCount > 9
-                                ? "9+"
+                            {badgeCount > 99
+                                ? "99+"
                                 : badgeCount}
                         </Text>
                     </View>
@@ -82,7 +86,9 @@ const HeaderAction = memo(
 const HomeHeader = memo(
     function HomeHeader({
                             newsCount,
+                            likesRemaining,
                             onToggleNews,
+                            onToggleLikes,
                             onOpenSettings,
                         }: HomeHeaderProps) {
         return (
@@ -120,6 +126,14 @@ const HomeHeader = memo(
                         label="Apri le notifiche"
                         badgeCount={newsCount}
                         onPress={onToggleNews}
+                    />
+
+                    <HeaderAction
+                        icon="heart-outline"
+                        label={`${likesRemaining} like disponibili. Apri i tuoi like`}
+                        badgeCount={likesRemaining}
+                        showZeroBadge
+                        onPress={onToggleLikes}
                     />
 
                     <HeaderAction

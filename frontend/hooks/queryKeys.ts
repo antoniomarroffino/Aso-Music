@@ -24,6 +24,25 @@ export const queryKeys = {
             "unread-count",
         ] as const,
     },
+    likes: {
+        mine: (userId: string) => [
+            "likes",
+            "mine",
+            userId,
+        ] as const,
+
+        song: (
+            userId: string,
+            albumId: string,
+            songId: string,
+        ) => [
+            "likes",
+            "song",
+            userId,
+            albumId,
+            songId,
+        ] as const,
+    },
     songs: {
         all: ["songs"] as const,
 

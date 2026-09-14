@@ -564,6 +564,12 @@ public class SongRepository implements ISongRepository {
                                 "stream"
                         )
                 )
+                .likeCount(
+                        readLong(
+                                songDocument,
+                                "likeCount"
+                        )
+                )
                 .tracklistPosition(
                         readInt(
                                 songDocument,

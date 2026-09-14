@@ -333,6 +333,7 @@ public class SongService implements ISongService {
                         )
                 )
                 .stream(song.getStream())
+                .likeCount(song.getLikeCount())
                 .tracklistPosition(
                         song.getTracklistPosition()
                 )

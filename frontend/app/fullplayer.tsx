@@ -3,6 +3,7 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useState,
 } from "react";
 import {
     Alert,
@@ -52,6 +53,12 @@ import {
     usePlayerState,
 } from "@/hooks/usePlayer";
 import AwardBadges from "@/components/ui/AwardBadges";
+import SongLikesModal from "@/components/ui/SongLikesModal";
+import {
+    useSetSongLike,
+    useSongLikes,
+} from "@/hooks/useLikes";
+import { ApiError } from "@/api/http";
 
 const FULL_PLAYER_PROGRESS_INTERVAL_SECONDS =
     0.5;
@@ -1004,13 +1011,93 @@ const SongInfo = memo(
                 currentSong,
             );
 
+        const [
+            showLikeUsers,
+            setShowLikeUsers,
+        ] = useState(false);
+
+        const {
+            data: songLikes,
+            isLoading: songLikesLoading,
+            isFetching: songLikesFetching,
+            isError: songLikesError,
+            refetch: refetchSongLikes,
+        } = useSongLikes(
+            currentSong.albumId,
+            currentSong.id,
+        );
+
+        const {
+            mutate: setSongLike,
+            isPending: likeMutationPending,
+        } = useSetSongLike();
+
+        const liked =
+            songLikes?.likedByCurrentUser ?? false;
+
+        const likeCount =
+            songLikes?.likeCount ??
+            currentSong.likeCount ??
+            0;
+
         const handleLike =
             useCallback(() => {
-                Alert.alert(
-                    "Preferiti",
-                    "Questa funzionalità non è ancora disponibile.",
+                setSongLike(
+                    {
+                        albumId:
+                        currentSong.albumId,
+                        songId:
+                        currentSong.id,
+                        liked: !liked,
+                    },
+                    {
+                        onError: (error) => {
+                            if (
+                                error instanceof ApiError &&
+                                error.code === "LIKE_LIMIT_REACHED"
+                            ) {
+                                Alert.alert(
+                                    "Hai usato tutti i like",
+                                    "Rimuovi un like da un altro brano per liberare uno slot.",
+                                );
+                                return;
+                            }
+
+                            Alert.alert(
+                                "Like non aggiornato",
+                                "Non è stato possibile salvare il like. Riprova tra poco.",
+                            );
+                        },
+                    },
                 );
+            }, [
+                currentSong.albumId,
+                currentSong.id,
+                liked,
+                setSongLike,
+            ]);
+
+        const handleOpenLikeUsers =
+            useCallback(() => {
+                setShowLikeUsers(true);
+
+                if (songLikesError) {
+                    void refetchSongLikes();
+                }
+            }, [
+                refetchSongLikes,
+                songLikesError,
+            ]);
+
+        const handleCloseLikeUsers =
+            useCallback(() => {
+                setShowLikeUsers(false);
             }, []);
+
+        const handleRetryLikeUsers =
+            useCallback(() => {
+                void refetchSongLikes();
+            }, [refetchSongLikes]);
 
         return (
             <View
@@ -1054,29 +1141,68 @@ const SongInfo = memo(
 
                     <TouchableOpacity
                         accessibilityRole="button"
-                        accessibilityLabel="Aggiungi ai preferiti"
+                        accessibilityLabel={
+                            liked
+                                ? "Rimuovi il like"
+                                : "Lascia un like"
+                        }
+                        accessibilityState={{
+                            selected: liked,
+                            disabled:
+                                songLikesLoading ||
+                                likeMutationPending,
+                            busy: likeMutationPending,
+                        }}
                         activeOpacity={0.72}
+                        disabled={
+                            songLikesLoading ||
+                            likeMutationPending
+                        }
                         onPress={
                             handleLike
                         }
-                        style={
-                            styles.likeButton
-                        }
+                        style={[
+                            styles.likeButton,
+                            (songLikesLoading ||
+                                likeMutationPending) &&
+                            styles.likeButtonDisabled,
+                        ]}
                     >
                         <LinearGradient
-                            colors={[
-                                "rgba(255,255,255,0.13)",
-                                "rgba(255,255,255,0.035)",
-                            ]}
-                            style={
-                                styles.likeGradient
+                            colors={
+                                liked
+                                    ? [
+                                        "rgba(255,101,120,0.32)",
+                                        "rgba(119,89,255,0.16)",
+                                    ]
+                                    : [
+                                        "rgba(255,255,255,0.13)",
+                                        "rgba(255,255,255,0.035)",
+                                    ]
                             }
+                            style={[
+                                styles.likeGradient,
+                                liked &&
+                                styles.likeGradientActive,
+                            ]}
                         >
-                            <Ionicons
-                                name="heart-outline"
-                                size={19}
-                                color="#F4F5FA"
-                            />
+                            {likeMutationPending ? (
+                                <View style={styles.likePendingDot} />
+                            ) : (
+                                <Ionicons
+                                    name={
+                                        liked
+                                            ? "heart"
+                                            : "heart-outline"
+                                    }
+                                    size={19}
+                                    color={
+                                        liked
+                                            ? "#FF7182"
+                                            : "#F4F5FA"
+                                    }
+                                />
+                            )}
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -1132,6 +1258,27 @@ const SongInfo = memo(
                         </Text>
                     </View>
 
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mostra le ${likeCount} persone che hanno lasciato like`}
+                        activeOpacity={0.72}
+                        onPress={handleOpenLikeUsers}
+                        style={[
+                            styles.metadataPill,
+                            styles.likeCountPill,
+                        ]}
+                    >
+                        <Ionicons
+                            name="heart"
+                            size={11}
+                            color="#FF7182"
+                        />
+
+                        <Text style={styles.likeCountText}>
+                            {likeCount.toLocaleString("it-IT")}
+                        </Text>
+                    </TouchableOpacity>
+
                     <View
                         style={
                             styles.metadataPill
@@ -1158,6 +1305,19 @@ const SongInfo = memo(
                         }
                     />
                 </View>
+
+                <SongLikesModal
+                    visible={showLikeUsers}
+                    likeCount={likeCount}
+                    users={songLikes?.users ?? []}
+                    loading={
+                        songLikesLoading ||
+                        songLikesFetching
+                    }
+                    error={songLikesError}
+                    onClose={handleCloseLikeUsers}
+                    onRetry={handleRetryLikeUsers}
+                />
             </View>
         );
     },
@@ -2253,6 +2413,10 @@ const styles =
             overflow: "hidden",
         },
 
+        likeButtonDisabled: {
+            opacity: 0.58,
+        },
+
         likeGradient: {
             flex: 1,
             alignItems: "center",
@@ -2261,6 +2425,18 @@ const styles =
             borderWidth: 1,
             borderColor:
                 "rgba(255,255,255,0.07)",
+        },
+
+        likeGradientActive: {
+            borderColor:
+                "rgba(255,113,130,0.28)",
+        },
+
+        likePendingDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: "#FF7182",
         },
 
         artistRow: {
@@ -2306,6 +2482,20 @@ const styles =
             fontSize: 9,
             lineHeight: 11,
             fontWeight: "700",
+        },
+
+        likeCountPill: {
+            borderColor:
+                "rgba(255,113,130,0.13)",
+            backgroundColor:
+                "rgba(255,82,101,0.07)",
+        },
+
+        likeCountText: {
+            color: "#FF8997",
+            fontSize: 9,
+            lineHeight: 11,
+            fontWeight: "800",
         },
 
         progressSection: {

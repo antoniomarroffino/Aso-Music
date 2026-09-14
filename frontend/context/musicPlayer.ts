@@ -162,6 +162,38 @@ export const updateRuntimeSongStream = (
     }
 };
 
+export const updateRuntimeSongLikeCount = (
+    albumId: string,
+    songId: string,
+    likeCount: number,
+): void => {
+    let changed = false;
+
+    const queue =
+        runtimeSnapshot.queue.map(
+            (song) => {
+                if (
+                    song.albumId !== albumId ||
+                    song.id !== songId ||
+                    song.likeCount === likeCount
+                ) {
+                    return song;
+                }
+
+                changed = true;
+
+                return {
+                    ...song,
+                    likeCount,
+                };
+            },
+        );
+
+    if (changed) {
+        updateRuntimeSnapshot({ queue });
+    }
+};
+
 type GlobalPlayerState =
     typeof globalThis & {
     __asoMusicPlayerReady?:

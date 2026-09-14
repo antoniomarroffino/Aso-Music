@@ -26,6 +26,7 @@ public class UserRepository implements IUserRepository {
             "subscriptionType";
     private static final String FIELD_CREATED_AT = "createdAt";
     private static final String FIELD_IS_VERIFIED = "isVerified";
+    private static final String FIELD_LIKES_USED = "likesUsed";
 
     private static final String DEFAULT_SUBSCRIPTION_TYPE = "free";
 
@@ -66,6 +67,7 @@ public class UserRepository implements IUserRepository {
                 System.currentTimeMillis()
         );
         userData.put(FIELD_IS_VERIFIED, false);
+        userData.put(FIELD_LIKES_USED, 0L);
 
         db.collection(USERS_COLLECTION)
                 .document(uid)

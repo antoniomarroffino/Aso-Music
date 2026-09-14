@@ -34,6 +34,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlbums } from "@/hooks/useAlbums";
 import { useMarkNewsSeen } from "@/hooks/useMarkNewsSeen";
 import { useNews } from "@/hooks/useNews";
+import { useUserLikes } from "@/hooks/useLikes";
 
 import {
     useSongCatalog,
@@ -42,6 +43,7 @@ import {
 import {
     HomeHeader,
     HeroSection,
+    LikesDropdown,
     NewsDropdown,
     SectionHeader,
     SkeletonGrid,
@@ -192,6 +194,12 @@ export default function HomeScreen() {
     } = useNews();
 
     const {
+        data: userLikes,
+        isLoading: userLikesLoading,
+        isError: userLikesError,
+    } = useUserLikes();
+
+    const {
         mutate: markNewsAsSeen,
         isPending: isMarkingNewsSeen,
     } = useMarkNewsSeen();
@@ -216,6 +224,11 @@ export default function HomeScreen() {
     const [
         showNews,
         setShowNews,
+    ] = useState(false);
+
+    const [
+        showLikes,
+        setShowLikes,
     ] = useState(false);
 
     /*
@@ -465,6 +478,18 @@ export default function HomeScreen() {
             );
 
             setShowSortMenu(false);
+            setShowLikes(false);
+        }, []);
+
+    const handleToggleLikes =
+        useCallback(() => {
+            setShowLikes(
+                (previousValue) =>
+                    !previousValue,
+            );
+
+            setShowNews(false);
+            setShowSortMenu(false);
         }, []);
 
     const handleOpenSettings =
@@ -482,6 +507,7 @@ export default function HomeScreen() {
             );
 
             setShowNews(false);
+            setShowLikes(false);
         }, []);
 
     const handleSelectSort =
@@ -555,7 +581,7 @@ export default function HomeScreen() {
                         style={[
                             styles.headerContainer,
 
-                            showNews &&
+                            (showNews || showLikes) &&
                             styles.headerContainerOverlay,
                         ]}
                     >
@@ -563,8 +589,14 @@ export default function HomeScreen() {
                             newsCount={
                                 newsCount
                             }
+                            likesRemaining={
+                                userLikes?.remaining ?? 10
+                            }
                             onToggleNews={
                                 handleToggleNews
+                            }
+                            onToggleLikes={
+                                handleToggleLikes
                             }
                             onOpenSettings={
                                 handleOpenSettings
@@ -578,6 +610,13 @@ export default function HomeScreen() {
                             visible={
                                 showNews
                             }
+                        />
+
+                        <LikesDropdown
+                            data={userLikes}
+                            visible={showLikes}
+                            loading={userLikesLoading}
+                            error={userLikesError}
                         />
 
                         <HeroSection
@@ -607,13 +646,18 @@ export default function HomeScreen() {
                 handleOpenSettings,
                 handleSelectSort,
                 handleToggleNews,
+                handleToggleLikes,
                 handleToggleSortMenu,
                 newsCount,
                 newsList,
                 showNews,
+                showLikes,
                 showSortMenu,
                 sortOrder,
                 username,
+                userLikes,
+                userLikesError,
+                userLikesLoading,
             ],
         );
 

@@ -34,6 +34,7 @@ export interface SongPreviewDTO {
     duration: string;
     coverURL: string;
     stream: number;
+    likeCount: number;
     tracklistPosition: number;
     artists: ArtistDTO[];
     albumId: string;

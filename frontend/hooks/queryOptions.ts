@@ -19,6 +19,10 @@ import {
     fetchSongsByAlbum,
     fetchSongCatalog,
 } from "@/api/songs";
+import {
+    fetchSongLikes,
+    fetchUserLikes,
+} from "@/api/likes";
 
 import {
     queryKeys,
@@ -57,6 +61,12 @@ const UNREAD_NEWS_STALE_TIME =
     MINUTE;
 
 const UNREAD_NEWS_GC_TIME =
+    HOUR;
+
+const LIKES_STALE_TIME =
+    1000 * 20;
+
+const LIKES_GC_TIME =
     HOUR;
 
 /*
@@ -207,6 +217,68 @@ export function songCatalogQueryOptions() {
 
         refetchOnWindowFocus:
             false,
+    });
+}
+
+export function userLikesQueryOptions(
+    userId: string,
+) {
+    return queryOptions({
+        queryKey:
+        queryKeys.likes.mine(userId),
+
+        queryFn: ({ signal }) =>
+            fetchUserLikes(signal),
+
+        staleTime:
+        LIKES_STALE_TIME,
+
+        gcTime:
+        LIKES_GC_TIME,
+
+        retry:
+        retryAuthenticatedQuery,
+
+        refetchInterval:
+        1000 * 30,
+
+        refetchOnWindowFocus: true,
+    });
+}
+
+export function songLikesQueryOptions(
+    userId: string,
+    albumId: string,
+    songId: string,
+) {
+    return queryOptions({
+        queryKey:
+            queryKeys.likes.song(
+                userId,
+                albumId,
+                songId,
+            ),
+
+        queryFn: ({ signal }) =>
+            fetchSongLikes(
+                albumId,
+                songId,
+                signal,
+            ),
+
+        staleTime:
+        LIKES_STALE_TIME,
+
+        gcTime:
+        LIKES_GC_TIME,
+
+        retry:
+        retryAuthenticatedQuery,
+
+        refetchInterval:
+        1000 * 30,
+
+        refetchOnWindowFocus: true,
     });
 }
 
